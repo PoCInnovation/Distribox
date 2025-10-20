@@ -5,3 +5,7 @@
 # React Router
 /frontend/.react-router/
 /frontend/build/
+
+/backend/venv
+
+__pycache__/
