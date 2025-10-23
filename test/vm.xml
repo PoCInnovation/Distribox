@@ -1,0 +1,54 @@
+<domain type='kvm'>
+  <name>ubuntu-cloud-vm</name>
+  <memory unit='MiB'>2048</memory>
+  <vcpu placement='static'>2</vcpu>
+
+  <os>
+    <type arch='x86_64' machine='pc'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+
+  <features>
+    <acpi/>
+    <apic/>
+    <pae/>
+  </features>
+
+  <cpu mode='host-passthrough'/>
+
+  <clock offset='utc'/>
+
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>destroy</on_crash>
+
+  <devices>
+    <!-- Disque principal basé sur cloud image -->
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2'/>
+      <source file='/var/lib/libvirt/images/jammy-server-cloudimg-amd64-disk-kvm.img'/>
+      <target dev='vda' bus='virtio'/>
+    </disk>
+
+    <!-- Disque seed ISO cloud-init -->
+    <disk type='file' device='cdrom'>
+      <driver name='qemu' type='raw'/>
+      <source file='/var/lib/libvirt/images/seed.iso'/>
+      <target dev='hdb' bus='ide'/>
+      <readonly/>
+    </disk>
+
+    <!-- Interface réseau NAT -->
+    <interface type='network'>
+      <source network='default'/>
+      <model type='virtio'/>
+    </interface>
+
+    <!-- Console VNC locale -->
+    <graphics type='vnc' port='-1' autoport='yes' listen='127.0.0.1'/>
+
+    <console type='pty'/>
+    <input type='keyboard' bus='ps2'/>
+    <input type='tablet' bus='usb'/>
+  </devices>
+</domain>

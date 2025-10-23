@@ -1,0 +1,3 @@
+#cloud-config
+instance-id: iid-local01
+local-hostname: my-vm
