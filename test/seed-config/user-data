@@ -1,12 +1,32 @@
 #cloud-config
+
+# Nom d'hôte (peut aussi être mis dans meta-data, mais fonctionne ici)
 hostname: ubuntu-cloud-vm
+fqdn: ubuntu-cloud-vm.local
+
+# Configuration des utilisateurs
 users:
-  - name: ubuntu
+  - name: user
     groups: sudo
     shell: /bin/bash
     sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+
+# Définition des mots de passe
 chpasswd:
   list: |
-    ubuntu:ubuntu
-  expire: False
-ssh_pwauth: True
+    user:password
+  expire: false
+ssh_pwauth: true
+
+# Configuration réseau (DHCP pour l'interface eth0)
+network:
+  version: 2
+  ethernets:
+    eth0:
+      dhcp4: true
+      set-name: eth0
+      match: {name: "eth*"}
+
+# Paramètres optionnels (installation de paquets)
+# packages:
+#  - qemu-guest-agent

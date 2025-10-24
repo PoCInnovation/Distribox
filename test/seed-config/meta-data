@@ -1,3 +1,2 @@
-#cloud-config
-instance-id: iid-local01
-local-hostname: my-vm
+instance-id: ubuntu-cloud-vm
+local-hostname: ubuntu-cloud-vm

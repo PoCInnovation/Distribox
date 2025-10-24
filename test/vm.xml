@@ -26,11 +26,12 @@
     <!-- Disque principal basé sur cloud image -->
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/var/lib/libvirt/images/jammy-server-cloudimg-amd64-disk-kvm.img'/>
+      <source file='/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img'/>
       <target dev='vda' bus='virtio'/>
     </disk>
 
     <!-- Disque seed ISO cloud-init -->
+
     <disk type='file' device='cdrom'>
       <driver name='qemu' type='raw'/>
       <source file='/var/lib/libvirt/images/seed.iso'/>
