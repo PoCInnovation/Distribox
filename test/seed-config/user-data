@@ -22,10 +22,10 @@ ssh_pwauth: true
 network:
   version: 2
   ethernets:
-    eth0:
+    # 💡 CHANGEMENT : Le nom de l'interface doit correspondre à ce que le noyau voit
+    ens3:
       dhcp4: true
-      set-name: eth0
-      match: {name: "eth*"}
+      optional: true
 
 # Paramètres optionnels (installation de paquets)
 # packages:

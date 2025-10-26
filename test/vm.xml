@@ -26,7 +26,7 @@
     <!-- Disque principal basé sur cloud image -->
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/var/lib/libvirt/images/jammy-server-cloudimg-amd64.img'/>
+      <source file='/var/lib/libvirt/images/os.qcow2'/>
       <target dev='vda' bus='virtio'/>
     </disk>
 
