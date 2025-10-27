@@ -14,6 +14,7 @@ wget -nc -P $IMG_PATH $CLOUD_IMG_URL
 
 cp "${IMG_PATH}${CLOUD_IMG_URL##*/}" "${IMG_PATH}${CLOUD_IMG_QCOW}"
 
+qemu-img resize "${IMG_PATH}${CLOUD_IMG_QCOW}" +12G
 
 chown libvirt-qemu:kvm /var/lib/libvirt/images/os.qcow2
 chmod 0640 /var/lib/libvirt/images/os.qcow2

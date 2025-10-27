@@ -18,14 +18,21 @@ chpasswd:
   expire: false
 ssh_pwauth: true
 
+
+package_reboot_if_required: true
+package_update: true
+packages:
+  - qemu-guest-agent
+  - xubuntu-desktop
+  - vim
 # Configuration réseau (DHCP pour l'interface eth0)
-network:
-  version: 2
-  ethernets:
-    # 💡 CHANGEMENT : Le nom de l'interface doit correspondre à ce que le noyau voit
-    ens3:
-      dhcp4: true
-      optional: true
+# network:
+#   version: 2
+#   ethernets:
+#     # 💡 CHANGEMENT : Le nom de l'interface doit correspondre à ce que le noyau voit
+#     ens3:
+#       dhcp4: true
+#       optional: true
 
 # Paramètres optionnels (installation de paquets)
 # packages:
