@@ -16,9 +16,6 @@ cp "${LIBVIRT_IMG_PATH}${CLOUD_IMG_URL##*/}" "${DISTRIBOX_IMG_PATH}${CLOUD_IMG_Q
 
 qemu-img resize "${DISTRIBOX_IMG_PATH}${CLOUD_IMG_QCOW}" +5G
 
-# chown libvirt-qemu:kvm /var/lib/libvirt/images/os.qcow2
-# chmod 0640 /var/lib/libvirt/images/os.qcow2
-
 
 #generate configuration iso for cloud image, see what's in seed-config/
 genisoimage -output "${DISTRIBOX_IMG_PATH}seed.iso" -volid cidata -joliet -rock seed-config/
