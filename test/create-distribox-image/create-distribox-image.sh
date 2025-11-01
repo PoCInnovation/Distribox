@@ -1,7 +1,7 @@
 VM_NAME=ubuntu-cloud-vm
 CLOUD_IMG_URL=https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
 CLOUD_IMG_QCOW="os.qcow2"
-LIBVIRT_IMG_PATH="/var/lib/libvirt/images/"
+LIBVIRT_IMG_PATH="/tmp/"
 DISTRIBOX_IMG_PATH=/var/lib/distribox/images/
 
 virsh destroy $VM_NAME
