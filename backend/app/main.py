@@ -14,6 +14,14 @@ def get_vm(vm_id: str):
         raise
     return vm
 
+@app.post("/vms/{vm_id}/start", status_code=status.HTTP_200_OK)
+def start_vm(vm_id: str):
+    try:
+        vm = VmService.start_vm(vm_id)
+    except Exception:
+        raise
+    return vm
+
 @app.post("/vms", status_code=status.HTTP_201_CREATED)
 def create_vm(vm:VmCreate):
     try:

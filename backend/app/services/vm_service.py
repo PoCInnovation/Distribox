@@ -35,7 +35,18 @@ class Vm:
         except Exception:
             raise
         return vm_instance
-            
+
+    def start(self):
+        try:
+            conn = QEMUConfig.get_connection()
+            vm = conn.lookupByName(str(self.id))
+            if vm.isActive() == 0:
+                vm.create()
+        except Exception:
+            raise
+        self.status='running'
+        return self
+
 
     def create(self):
         if self.status :
@@ -49,7 +60,6 @@ class Vm:
             vm_xml = build_xml(self)
             conn = QEMUConfig.get_connection()
             conn.defineXML(vm_xml)
-            conn.close()
             with Session(engine) as session:
                 vm_record = VmORM(
                     id = self.id,
@@ -70,9 +80,9 @@ class VmService:
     def get_vm(vm_id: str):
         try:
             vm = Vm.get(vm_id)
+            return vm
         except Exception:
             raise
-        return vm
     def create_vm(vm_create: VmCreate):
         vm = Vm(vm_create)
         try: 
@@ -80,4 +90,10 @@ class VmService:
             return vm
         except Exception:
             raise
-        
+    def start_vm(vm_id: str):
+        try:
+            vm = Vm.get(vm_id)
+            return vm.start()
+        except Exception:
+            raise
+    
