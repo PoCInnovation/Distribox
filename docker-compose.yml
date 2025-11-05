@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-poker_user} -d ${POSTGRES_NAME:-poker}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-distribox_user} -d ${POSTGRES_NAME:-distribox}"]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -1,15 +1,19 @@
 from typing import Union
+from fastapi import FastAPI, HTTPException, status
 
-from fastapi import FastAPI
+from app.models.vm import VmCreate
+from app.services.vm_service import VmService
 
 app = FastAPI()
 
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
+@app.post("/vms", status_code=status.HTTP_201_CREATED)
+def create_vm(vm:VmCreate):
+    try:
+        created_vm = VmService.create_vm(vm)
+    except Exception as e:
+        raise
+        # raise HTTPException(
+            # status_code=status.HTTP_400_BAD_REQUEST,
+            # detail=str(e)
+        # )
+    return created_vm
