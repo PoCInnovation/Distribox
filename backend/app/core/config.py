@@ -5,7 +5,6 @@ from os import getenv
 from sqlmodel import create_engine, SQLModel
 
 load_dotenv()
-qemu_conn = libvirt.open("qemu:///system")
 
 db_name = getenv("POSTGRES_NAME", "distribox")
 db_user = getenv("POSTGRES_USER", "distribox_user")
@@ -17,9 +16,11 @@ engine = create_engine(database_url, echo=True)
 SQLModel.metadata.create_all(engine)
 
 class QEMUConfig:
-    def get_connection():
-        global qemu_conn
-        if qemu_conn is None or qemu_conn.isAlive() == 0:
+    qemu_conn = None
+
+    @classmethod
+    def get_connection(cls):
+        if cls.qemu_conn is None or cls.qemu_conn.isAlive() == 0:
             try: 
                 qemu_conn = libvirt.open("qemu:///system")
             except libvirt.libvirtError:
