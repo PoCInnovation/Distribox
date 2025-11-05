@@ -6,7 +6,7 @@ def build_xml(vm_read: VmRead):
 
     domain = etree.Element("domain", type="kvm")
 
-    etree.SubElement(domain, "name").text = vm_read.id
+    etree.SubElement(domain, "name").text = str(vm_read.id)
     etree.SubElement(domain, "memory", unit="MiB").text = str(vm_read.mem)
     etree.SubElement(domain, "vcpu", placement="static").text = str(vm_read.vcpus)
 
@@ -30,7 +30,7 @@ def build_xml(vm_read: VmRead):
 
     disk_main = etree.SubElement(devices, "disk", type="file", device="disk")
     etree.SubElement(disk_main, "driver", name="qemu", type="qcow2")
-    etree.SubElement(disk_main, "source", file=str(VMS_DIR / vm_read.id / f"distribox-{vm_read.os}.qcow2"))
+    etree.SubElement(disk_main, "source", file=str(VMS_DIR / str(vm_read.id) / f"distribox-{vm_read.os}.qcow2"))
     etree.SubElement(disk_main, "target", dev="vda", bus="virtio")
 
     channel = etree.SubElement(devices, "channel", type="unix")
