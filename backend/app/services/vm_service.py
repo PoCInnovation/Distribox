@@ -16,7 +16,27 @@ class Vm:
         self.vcpus = vm_create.vcpus
         self.disk_size = vm_create.disk_size
         self.status: Optional[str] = None
-    
+
+    @classmethod
+    def get(cls, vm_id: str):
+        try: 
+            vm_uid = uuid.UUID(vm_id)
+            with Session(engine) as session:
+                vm_record = session.get(VmORM, vm_uid)
+                if not vm_record: 
+                    raise Exception('Not found')
+                vm_instance = cls.__new__(cls)
+                vm_instance.id = vm_record.id
+                vm_instance.os = vm_record.os
+                vm_instance.mem = vm_record.mem
+                vm_instance.vcpus = vm_record.vcpus
+                vm_instance.disk_size =vm_record.disk_size
+                vm_instance.status = vm_record.status
+        except Exception:
+            raise
+        return vm_instance
+            
+
     def create(self):
         if self.status :
             return self
@@ -47,11 +67,17 @@ class Vm:
             raise
     
 class VmService:
+    def get_vm(vm_id: str):
+        try:
+            vm = Vm.get(vm_id)
+        except Exception:
+            raise
+        return vm
     def create_vm(vm_create: VmCreate):
         vm = Vm(vm_create)
         try: 
             vm.create()
             return vm
-        except Exception as e:
+        except Exception:
             raise
         
