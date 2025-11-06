@@ -46,6 +46,17 @@ class Vm:
             raise
         self.status='running'
         return self
+    
+    def stop(self):
+        try:
+            conn = QEMUConfig.get_connection()
+            vm = conn.lookupByName(str(self.id))
+            if vm.isActive() == 1:
+                vm.shutdown()
+        except Exception:
+            raise
+        self.status='stopped'
+        return self
 
 
     def create(self):
@@ -96,4 +107,9 @@ class VmService:
             return vm.start()
         except Exception:
             raise
-    
+    def stop_vm(vm_id: str):
+        try:
+            vm = Vm.get(vm_id)
+            return vm.stop()
+        except Exception:
+            raise

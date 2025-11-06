@@ -20,6 +20,14 @@ def start_vm(vm_id: str):
         raise
     return vm
 
+@router.post("/{vm_id}/stop", status_code=status.HTTP_200_OK)
+def stop_vm(vm_id: str):
+    try:
+        vm = VmService.stop_vm(vm_id)
+    except Exception:
+        raise
+    return vm
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_vm(vm:VmCreate):
     try:
