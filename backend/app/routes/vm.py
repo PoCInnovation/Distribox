@@ -1,4 +1,4 @@
-from fastapi import  status, APIRouter, HTTPException
+from fastapi import  status, APIRouter
 from app.models.vm import VmCreate
 from app.services.vm_service import VmService
 
@@ -6,43 +6,25 @@ router = APIRouter()
 
 @router.get("/{vm_id}", status_code=status.HTTP_200_OK)
 def get_vm(vm_id: str):
-    try:
-        vm = VmService.get_vm(vm_id)
-    except Exception:
-        raise
+    vm = VmService.get_vm(vm_id)
     return vm
 
 @router.get("/{vm_id}/state", status_code=status.HTTP_200_OK)
 def get_vm(vm_id: str):
-    try:
-        state = VmService.get_state(vm_id)
-    except Exception as e:
-        raise
+    state = VmService.get_state(vm_id)
     return state
 
 @router.post("/{vm_id}/start", status_code=status.HTTP_200_OK)
 def start_vm(vm_id: str):
-    try:
-        vm = VmService.start_vm(vm_id)
-    except Exception:
-        raise
+    vm = VmService.start_vm(vm_id)
     return vm
 
 @router.post("/{vm_id}/stop", status_code=status.HTTP_200_OK)
 def stop_vm(vm_id: str):
-    try:
-        vm = VmService.stop_vm(vm_id)
-    except Exception:
-        raise
+    vm = VmService.stop_vm(vm_id)
     return vm
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_vm(vm:VmCreate):
-    try:
-        created_vm = VmService.create_vm(vm)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    created_vm = VmService.create_vm(vm)
     return created_vm

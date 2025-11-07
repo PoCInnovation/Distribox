@@ -4,11 +4,12 @@ import libvirt
 from app.utils.vm import wait_for_state
 from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
-from app.models.vm import VmCreate, VmRead
+from app.models.vm import VmCreate
 from app.core.xml_builder import build_xml
 from app.core.config import QEMUConfig, engine
 from sqlmodel import Session
 from app.orm.vm import VmORM
+from fastapi import status, HTTPException
 
 class Vm:
     def __init__(self, vm_create: VmCreate):
@@ -19,7 +20,6 @@ class Vm:
         self.disk_size = vm_create.disk_size
         self.state: Optional[str] = None
     
-
 
     def create(self):
         if self.state :
@@ -44,8 +44,7 @@ class Vm:
                 session.add(vm_record)
                 session.commit()
             return self
-        except Exception as e:
-            print(e)
+        except Exception:
             raise
 
     @classmethod
@@ -56,8 +55,6 @@ class Vm:
             vm_state, _ = vm.state()
             with Session(engine) as session:
                 vm_record = session.get(VmORM, uuid.UUID(vm_id))
-                if not vm_record: 
-                    raise Exception('Not found')
                 vm_instance = cls.__new__(cls)
                 vm_instance.id = vm_record.id
                 vm_instance.os = vm_record.os
@@ -65,6 +62,9 @@ class Vm:
                 vm_instance.vcpus = vm_record.vcpus
                 vm_instance.disk_size =vm_record.disk_size
             vm_instance.state = VM_STATE_NAMES.get(vm_state, 'None')
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, f'Vm {vm_id} not found')
         except Exception:
             raise
         return vm_instance
@@ -75,6 +75,9 @@ class Vm:
             vm = conn.lookupByName(str(self.id))
             if vm.isActive() == 0:
                 vm.create()
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, f'Vm {vm.id} not found')
         except Exception:
             raise
         state_code = wait_for_state(vm, libvirt.VIR_DOMAIN_RUNNING, 0.5, 10)
@@ -87,6 +90,9 @@ class Vm:
             vm = conn.lookupByName(str(self.id))
             if vm.isActive() == 1:
                 vm.shutdown()
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, f'Vm {vm.id} not found')                
         except Exception:
             raise
         state_code = wait_for_state(vm, libvirt.VIR_DOMAIN_SHUTOFF, 5, 10)
@@ -99,43 +105,29 @@ class Vm:
             vm = conn.lookupByName(str(self.id))
             state, _ = vm.state()
         except Exception:
-            raise
+            raise 
         return {"state" : VM_STATE_NAMES.get(state, 'None')}
     
 class VmService:
     def get_vm(vm_id: str):
-        try:
-            vm = Vm.get(vm_id)
-            return vm
-        except Exception:
-            raise
+        vm = Vm.get(vm_id)
+        return vm
 
     def get_state(vm_id:str):
-        try:
-            print('hello')
-            vm = Vm.get(vm_id)
-            state = vm.get_state()
-            return state
-        except Exception:
-            raise
+        vm = Vm.get(vm_id)
+        state = vm.get_state()
+        return state
 
     def create_vm(vm_create: VmCreate):
         vm = Vm(vm_create)
-        try: 
-            vm.create()
-            return vm
-        except Exception:
-            raise
+        vm.create()
+        return vm
 
     def start_vm(vm_id: str):
-        try:
-            vm = Vm.get(vm_id)
-            return vm.start()
-        except Exception:
-            raise
+        vm = Vm.get(vm_id)
+        return vm.start()
+
     def stop_vm(vm_id: str):
-        try:
-            vm = Vm.get(vm_id)
-            return vm.stop()
-        except Exception:
-            raise
+        vm = Vm.get(vm_id)
+        return vm.stop()
+
