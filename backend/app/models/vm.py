@@ -9,7 +9,7 @@ class VmBase(BaseModel):
 
 class VmRead(VmBase):
     id: str
-    status: Optional[str] = None
+    state: str
 
 class VmCreate(VmBase):
     pass

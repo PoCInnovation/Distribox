@@ -1,7 +1,4 @@
-from typing import Union
-from fastapi import FastAPI, status
-from app.models.vm import VmCreate
-from app.services.vm_service import VmService
+from fastapi import FastAPI
 from app.routes import vms 
 
 app = FastAPI()

@@ -12,6 +12,14 @@ def get_vm(vm_id: str):
         raise
     return vm
 
+@router.get("/{vm_id}/state", status_code=status.HTTP_200_OK)
+def get_vm(vm_id: str):
+    try:
+        state = VmService.get_state(vm_id)
+    except Exception as e:
+        raise
+    return state
+
 @router.post("/{vm_id}/start", status_code=status.HTTP_200_OK)
 def start_vm(vm_id: str):
     try:
