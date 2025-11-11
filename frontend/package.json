@@ -9,10 +9,16 @@
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-progress": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-tabs": "^1.1.13",
     "@react-router/node": "^7.9.2",
     "@react-router/serve": "^7.9.2",
     "@unpic/react": "^1.0.1",
+    "ag-grid-community": "^34.3.1",
+    "ag-grid-react": "^34.3.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "isbot": "^5.1.31",

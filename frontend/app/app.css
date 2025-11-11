@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "ag-grid-community/styles/ag-grid.css";
+@import "ag-grid-community/styles/ag-theme-quartz.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -162,4 +164,17 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* AG Grid Dark Theme Overrides */
+.ag-theme-quartz {
+  --ag-background-color: oklch(0.16 0.015 240);
+  --ag-foreground-color: oklch(0.98 0.01 240);
+  --ag-header-background-color: oklch(0.14 0.015 240);
+  --ag-header-foreground-color: oklch(0.98 0.01 240);
+  --ag-odd-row-background-color: oklch(0.14 0.015 240);
+  --ag-border-color: oklch(0.24 0.02 240);
+  --ag-row-hover-color: oklch(0.22 0.02 240);
+  --ag-selected-row-background-color: oklch(0.22 0.02 240);
+  --ag-range-selection-background-color: oklch(0.22 0.02 240);
 }
