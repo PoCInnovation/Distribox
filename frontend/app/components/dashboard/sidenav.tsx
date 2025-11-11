@@ -29,7 +29,7 @@ export function DashboardSidenav() {
         collapsed ? "w-18" : "w-64",
       )}
     >
-      <div className="flex h-16 pl-3 items-center border-b border-border">
+      <div className="flex h-16 pl-3 items-center border-b border-border pointer-events-none">
         <Image className="" src="/favicon.ico" width={50} height={50} alt="" />
         {!collapsed && (
           <span className="ml-3 font-mono text-lg font-bold tracking-tight text-foreground">
