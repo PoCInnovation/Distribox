@@ -26,6 +26,8 @@ import {
   Terminal,
   RotateCw,
   Search,
+  SearchX,
+  X,
 } from "lucide-react";
 
 export type VM = {
@@ -322,8 +324,18 @@ export function DashboardVMsTable({
             placeholder="Search by name, ID, or OS..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className={searchQuery ? "pl-9 pr-9" : "pl-9"}
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
         <div className="flex gap-2">
           <Button
@@ -351,7 +363,8 @@ export function DashboardVMsTable({
       </div>
 
       {filteredVMs.length === 0 ? (
-        <div className="flex items-center justify-center h-[600px] text-muted-foreground">
+        <div className="flex items-center justify-center h-[600px] text-muted-foreground space-x-2">
+          <SearchX />
           <p>No virtual machines found</p>
         </div>
       ) : (
