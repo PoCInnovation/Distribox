@@ -215,47 +215,61 @@ export function DashboardVMsTable({
                   asChild
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Button variant="ghost" size="icon-sm" disabled={isOperating}>
+                  <Button
+                    className="hover:bg-primary"
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={isOperating}
+                  >
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {onConnectVM && (
-                    <DropdownMenuItem onClick={(e) => onConnectVM(vm, e)}>
-                      <Terminal className="mr-2 h-4 w-4" />
+                    <DropdownMenuItem
+                      className="focus:bg-primary/10 focus:text-primary"
+                      onClick={(e) => onConnectVM(vm, e)}
+                    >
+                      <Terminal className="mr-2 h-4 w-4 text-inherit" />
                       Connect
                     </DropdownMenuItem>
                   )}
                   {onStartVM && (
                     <DropdownMenuItem
+                      className="focus:bg-primary/10 focus:text-primary"
                       disabled={vm.status === "running"}
                       onClick={(e) => onStartVM(vm, e)}
                     >
-                      <Play className="mr-2 h-4 w-4" />
+                      <Play className="mr-2 h-4 w-4 text-inherit" />
                       Start
                     </DropdownMenuItem>
                   )}
                   {onStopVM && (
                     <DropdownMenuItem
+                      className="focus:bg-primary/10 focus:text-primary"
                       disabled={vm.status === "stopped"}
                       onClick={(e) => onStopVM(vm, e)}
                     >
-                      <Square className="mr-2 h-4 w-4" />
+                      <Square className="mr-2 h-4 w-4 text-inherit" />
                       Stop
                     </DropdownMenuItem>
                   )}
                   {onRestartVM && (
                     <DropdownMenuItem
+                      className="focus:bg-primary/10 focus:text-primary"
                       disabled={vm.status === "stopped"}
                       onClick={(e) => onRestartVM(vm, e)}
                     >
-                      <RotateCw className="mr-2 h-4 w-4" />
+                      <RotateCw className="mr-2 h-4 w-4 text-inherit" />
                       Restart
                     </DropdownMenuItem>
                   )}
                   {onConfigureVM && (
-                    <DropdownMenuItem onClick={(e) => onConfigureVM(vm, e)}>
-                      <Settings className="mr-2 h-4 w-4" />
+                    <DropdownMenuItem
+                      className="focus:bg-primary/10 focus:text-primary"
+                      onClick={(e) => onConfigureVM(vm, e)}
+                    >
+                      <Settings className="mr-2 h-4 w-4 text-inherit" />
                       Configure
                     </DropdownMenuItem>
                   )}
@@ -263,13 +277,13 @@ export function DashboardVMsTable({
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        className="text-destructive"
+                        className="focus:bg-destructive/10 focus:text-destructive text-destructive"
                         onClick={(e) => {
                           e.stopPropagation();
                           onDeleteVM(vm);
                         }}
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
+                        <Trash2 className="mr-2 h-4 w-4 text-destructive" />
                         Delete
                       </DropdownMenuItem>
                     </>
