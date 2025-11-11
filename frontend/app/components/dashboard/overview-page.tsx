@@ -386,7 +386,7 @@ export default function OverviewPage() {
       </div>
 
       {/* VMs Table */}
-      <Card className="border-border bg-card overflow-hidden">
+      <Card className="border-border bg-card overflow-hidden py-0">
         <div className="p-4">
           <DashboardVMsTable
             vms={vms}
