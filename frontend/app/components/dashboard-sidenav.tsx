@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutIcon } from "lucide-react";
 import { Image } from "@unpic/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ const navItems = [
   {
     href: "/dashboard",
     label: "Dashboard",
-    icon: ChevronRight,
+    icon: LayoutIcon,
   },
 ];
 
@@ -68,7 +68,7 @@ export function DashboardSidenav() {
           variant="ghost"
           size="sm"
           onClick={toggle}
-          className="w-full justify-center border border-border hover:bg-secondary"
+          className="w-full justify-center border border-border hover:bg-primary/10 hover:text-primary hover:border-primary"
         >
           {collapsed ? (
             <ChevronRight className="h-4 w-4" />
