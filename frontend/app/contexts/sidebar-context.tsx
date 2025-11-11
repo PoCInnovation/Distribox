@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  type ReactNode,
+} from "react";
 
 type SidebarContextType = {
   collapsed: boolean;
@@ -55,4 +61,3 @@ export function useSidebar() {
   }
   return context;
 }
-

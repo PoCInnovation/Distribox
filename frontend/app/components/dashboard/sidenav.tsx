@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router";
-import { ChevronLeft, ChevronRight, LayoutIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutIcon, PlusIcon } from "lucide-react";
 import { Image } from "@unpic/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,11 @@ const navItems = [
     href: "/dashboard",
     label: "Dashboard",
     icon: LayoutIcon,
+  },
+  {
+    href: "/dashboard/provision",
+    label: "Provision VM",
+    icon: PlusIcon,
   },
 ];
 
@@ -25,13 +30,7 @@ export function DashboardSidenav() {
       )}
     >
       <div className="flex h-16 pl-3 items-center border-b border-border">
-        <Image
-          className=""
-          src="/favicon.ico"
-          width={50}
-          height={50}
-          alt=""
-        />
+        <Image className="" src="/favicon.ico" width={50} height={50} alt="" />
         {!collapsed && (
           <span className="ml-3 font-mono text-lg font-bold tracking-tight text-foreground">
             DISTRIBOX
@@ -41,7 +40,8 @@ export function DashboardSidenav() {
 
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const isActive =
+            pathname === item.href || pathname === item.href + "/";
           const Icon = item.icon;
           return (
             <Link
@@ -53,7 +53,7 @@ export function DashboardSidenav() {
                 isActive
                   ? "border-primary bg-primary/10 text-primary"
                   : "text-muted-foreground hover:border-border hover:bg-secondary hover:text-foreground",
-                collapsed ? "justify-center" : ""
+                collapsed ? "justify-center" : "",
               )}
             >
               <Icon className="h-5 w-5 shrink-0" />

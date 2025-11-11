@@ -1,6 +1,6 @@
 import { Outlet } from "react-router";
 import type { Route } from "./+types/dashboard";
-import { DashboardSidenav } from "@/components/dashboard-sidenav";
+import { DashboardSidenav } from "~/components/dashboard/sidenav";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -19,4 +19,3 @@ export default function DashboardLayout() {
     </div>
   );
 }
-
