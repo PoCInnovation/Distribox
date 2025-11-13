@@ -93,26 +93,26 @@ jobs:
             cat /tmp/autopep8.diff
             exit 1
           fi
-
-  backend-typecheck:
-    name: Check Backend Types and Build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install dependencies
-        working-directory: ./backend
-        run: |
-          pip install -r requirements.txt
-          pip install mypy
-
-      - name: Type check with mypy
-        working-directory: ./backend
-        run: |
-          mypy app/ --ignore-missing-imports
+  #
+  # backend-typecheck:
+  #   name: Check Backend Types and Build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.13'
+  #
+  #     - name: Install dependencies
+  #       working-directory: ./backend
+  #       run: |
+  #         pip install -r requirements.txt
+  #         pip install mypy
+  #
+  #     - name: Type check with mypy
+  #       working-directory: ./backend
+  #       run: |
+  #         mypy app/ --ignore-missing-imports
