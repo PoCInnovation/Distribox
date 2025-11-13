@@ -9,3 +9,4 @@ class VmORM(SQLModel, table=True, ):
     mem: int
     vcpus: int
     disk_size: int
+    password: str | None = None

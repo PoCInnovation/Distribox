@@ -1,13 +1,14 @@
 import uuid
 import shutil
 import libvirt
+import hashlib
 from app.utils.vm import wait_for_state
 from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
 from app.models.vm import VmCreate
 from app.core.xml_builder import build_xml
 from app.core.config import QEMUConfig, engine
-from sqlmodel import Session, select
+from sqlmodel import Session, select, update
 from app.orm.vm import VmORM
 from fastapi import status, HTTPException
 
@@ -121,6 +122,22 @@ class Vm:
             raise 
         return {"state" : VM_STATE_NAMES.get(state, 'None')}
     
+    def generate_password(self):
+        try:
+            random_uuid = str(uuid.uuid4())
+            uuid_bytes = random_uuid.encode('utf-8')
+            hasher = hashlib.sha256()
+            hasher.update(uuid_bytes)
+            password = hasher.hexdigest()
+            with Session(engine) as session:
+                statement = update(VmORM).where(VmORM.id == self.id).values(password=password)
+                session.exec(statement)
+                session.commit()
+            return {"password": password}
+        except Exception:
+            raise
+
+    
 class VmService:
 
     def get_vm_list():
@@ -147,4 +164,9 @@ class VmService:
     def stop_vm(vm_id: str):
         vm = Vm.get(vm_id)
         return vm.stop()
+    
+    def set_vm_password(vm_id: str):
+        vm = Vm.get(vm_id)
+        return vm.generate_password()
+        
 
