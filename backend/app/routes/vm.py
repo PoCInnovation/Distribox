@@ -4,6 +4,11 @@ from app.services.vm_service import VmService
 
 router = APIRouter()
 
+@router.get('/', status_code=status.HTTP_200_OK)
+def get_vm_list():
+    vm_list = VmService.get_vm_list()
+    return vm_list
+
 @router.get("/{vm_id}", status_code=status.HTTP_200_OK)
 def get_vm(vm_id: str):
     vm = VmService.get_vm(vm_id)

@@ -7,7 +7,7 @@ from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
 from app.models.vm import VmCreate
 from app.core.xml_builder import build_xml
 from app.core.config import QEMUConfig, engine
-from sqlmodel import Session
+from sqlmodel import Session, select
 from app.orm.vm import VmORM
 from fastapi import status, HTTPException
 
@@ -68,6 +68,19 @@ class Vm:
         except Exception:
             raise
         return vm_instance
+    
+    @classmethod
+    def get_all(cls):
+        try:
+            with Session(engine) as session:
+                statement = select(VmORM)
+                vm_records = session.scalars(statement).all()
+            vm_list = []
+            for vm_record in vm_records:
+                vm_list.append(cls.get(str(vm_record.id)))
+            return vm_list
+        except Exception:
+            raise
 
     def start(self):
         try:
@@ -109,6 +122,10 @@ class Vm:
         return {"state" : VM_STATE_NAMES.get(state, 'None')}
     
 class VmService:
+
+    def get_vm_list():
+        vm = Vm.get_all()
+        return vm
     def get_vm(vm_id: str):
         vm = Vm.get(vm_id)
         return vm
