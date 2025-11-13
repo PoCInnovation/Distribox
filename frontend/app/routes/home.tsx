@@ -1,13 +1,16 @@
 import type { Route } from "./+types/home";
-import { Welcome } from "../welcome/welcome";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
+    { title: "Distribox" },
+    {
+      name: "description",
+      content: "Meets all your needs to share Virtual Machines.",
+    },
   ];
 }
 
+// TODO: Implement the login / vm credentials page
 export default function Home() {
-  return <Welcome />;
+  return <h1 className="font-mono">Hello world</h1>;
 }
