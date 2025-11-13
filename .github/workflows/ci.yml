@@ -22,6 +22,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
+          cache-dependency-path: 'frontend/pnpm-lock.yaml'
 
       - name: Install pnpm
         run: corepack enable && corepack prepare pnpm@latest --activate
@@ -55,19 +56,18 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
+          cache-dependency-path: 'frontend/pnpm-lock.yaml'
 
       - name: Install pnpm
         run: corepack enable && corepack prepare pnpm@latest --activate
 
       - name: Install dependencies
-        run: |
-          cd frontend
-          pnpm install --frozen-lockfile
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
 
       - name: Build frontend
-        run: |
-          cd frontend
-          pnpm build
+        working-directory: ./frontend
+        run: pnpm build
 
   backend-format:
     name: Check Backend Format
@@ -85,8 +85,8 @@ jobs:
         run: pip install autopep8
 
       - name: Check formatting with autopep8
+        working-directory: ./backend
         run: |
-          cd backend
           autopep8 --diff --recursive --select=E,W app/ > /tmp/autopep8.diff || true
           if [ -s /tmp/autopep8.diff ]; then
             echo "Code formatting issues found. Please run: autopep8 --in-place --recursive --select=E,W app/"
@@ -107,12 +107,12 @@ jobs:
           python-version: '3.13'
 
       - name: Install dependencies
+        working-directory: ./backend
         run: |
-          cd backend
           pip install -r requirements.txt
           pip install mypy
 
       - name: Type check with mypy
+        working-directory: ./backend
         run: |
-          cd backend
           mypy app/ --ignore-missing-imports
