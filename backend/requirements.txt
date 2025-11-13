@@ -1,3 +1,5 @@
 fastapi[standard]
 libvirt-python
 lxml
+sqlmodel
+psycopg2

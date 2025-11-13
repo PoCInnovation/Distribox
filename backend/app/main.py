@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from app.routes import vm 
+from app.routes import vm
 app = FastAPI()
 
 
@@ -10,6 +10,7 @@ async def global_exception_handler(_, exc: HTTPException):
         status_code=exc.status_code,
         content={"detail": exc.detail}
     )
+
 
 @app.exception_handler(Exception)
 async def global_exception_handler(_, exc: Exception):

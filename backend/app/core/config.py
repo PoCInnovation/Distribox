@@ -15,15 +15,15 @@ database_url = f"postgresql+psycopg2://{db_user}:{db_pass}@localhost:{db_port}/{
 engine = create_engine(database_url, echo=True)
 SQLModel.metadata.create_all(engine)
 
+
 class QEMUConfig:
     qemu_conn = None
 
     @classmethod
     def get_connection(cls):
         if cls.qemu_conn is None or cls.qemu_conn.isAlive() == 0:
-            try: 
+            try:
                 qemu_conn = libvirt.open("qemu:///system")
             except libvirt.libvirtError:
                 raise
         return qemu_conn
-
