@@ -151,7 +151,17 @@ class Vm:
             return {"password": password}
         except Exception:
             raise
+    
+    def remove_password(self):
+        try:
+            with Session(engine) as session:
+                statement = update(VmORM).where(VmORM.id == self.id).values(password=None)
+                session.exec(statement)
+                session.commit()
 
+        except Exception:
+            raise
+ 
     
 class VmService:
 
@@ -187,5 +197,10 @@ class VmService:
     def set_vm_password(vm_id: str):
         vm = Vm.get(vm_id)
         return vm.generate_password()
+    
+    def remove_vm_password(vm_id: str):
+        vm = Vm.get(vm_id)
+        vm.remove_password()
+
         
 

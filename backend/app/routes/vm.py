@@ -41,3 +41,7 @@ def set_vm_password(vm_id):
 @router.delete("/{vm_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_vm (vm_id: str):
     VmService.remove_vm(vm_id)
+
+@router.delete("/{vm_id}/password", status_code=status.HTTP_204_NO_CONTENT)
+def remove_vm_password(vm_id: str):
+    VmService.remove_vm_password(vm_id)
