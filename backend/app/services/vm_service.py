@@ -1,5 +1,5 @@
 import uuid
-import shutil
+from shutil import copy, rmtree
 import libvirt
 import hashlib
 from app.utils.vm import wait_for_state
@@ -8,7 +8,7 @@ from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
 from app.models.vm import VmCreate
 from app.core.xml_builder import build_xml
 from app.core.config import QEMUConfig, engine
-from sqlmodel import Session, select, update
+from sqlmodel import Session, select, update, delete
 from app.orm.vm import VmORM
 from fastapi import status, HTTPException
 
@@ -30,7 +30,7 @@ class Vm:
         distribox_image_dir = IMAGES_DIR / f"distribox-{self.os}.qcow2"
         try:
             vm_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy(distribox_image_dir, vm_dir)
+            copy(distribox_image_dir, vm_dir)
             vm_xml = build_xml(self)
             conn = QEMUConfig.get_connection()
             conn.defineXML(vm_xml)
@@ -122,6 +122,21 @@ class Vm:
             raise 
         return {"state" : VM_STATE_NAMES.get(state, 'None')}
     
+    def remove(self):
+        try:
+            self.stop()
+            conn = QEMUConfig.get_connection()
+            vm = conn.lookupByName(str(self.id))
+            vm.undefine()
+            vm_dir = VMS_DIR / str(self.id)
+            rmtree(vm_dir)
+            with Session(engine) as session:
+                statement = delete(VmORM).where(VmORM.id == self.id)
+                session.exec(statement)
+                session.commit()
+        except Exception: 
+            raise
+
     def generate_password(self):
         try:
             random_uuid = str(uuid.uuid4())
@@ -164,6 +179,10 @@ class VmService:
     def stop_vm(vm_id: str):
         vm = Vm.get(vm_id)
         return vm.stop()
+    
+    def remove_vm(vm_id: str):
+        vm = Vm.get(vm_id)
+        vm.remove()
     
     def set_vm_password(vm_id: str):
         vm = Vm.get(vm_id)
