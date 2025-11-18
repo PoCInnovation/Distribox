@@ -1,26 +1,60 @@
-> If you see this section, you've just created a repository using [PoC Innovation's Open-Source project template](https://github.com/PoCInnovation/open-source-project-template). Check the [getting started guide](./.github/getting-started.md).
+# Distribox
 
-# [PROJECT'S NAME]
+<div align="center">
+  <img src=".github/assets/distribox.png" alt="Distribox Logo" width="200"/>
+</div>
 
-[Project's description]
+> This project is currently undergoing development, and is not functional as of yet.
+
+Distribox is a self-hosted solution designed to simplify sharing virtual machine (VM) instances with a broader audience. Its main goal is to provide an intuitive web interface that caters to both hosts and users.
+
+In Distribox, the host is the person who deploys the platform on their own machine. The user is anyone who accesses and utilizes the designated VMs provided by the host.
+
+Distribox offers two main interfaces:
+
+1. **User Web Client:** Allows users to connect to a VM directly through their browser, using credentials provided by the host. No additional software is required on the user's end.
+2. **Admin Dashboard:** Enables hosts to easily create, manage, and configure VM instances and user credentials. Additional administrative features empower hosts to control access, monitor usage, and handle VM lifecycle operations.
+
+This dual-interface approach ensures both hosts and users have a straightforward, secure, and effective experience with VM sharing.
 
 ## How does it work?
 
-[Explain how this project is working]
+Distribox uses the standard Python libvirt API in its backend. The backend runs inside a Docker container, but all virtualization is performed directly on the host machine by sharing the libvirt UNIX socket with the container. For added security, Distribox creates its own user group (similar to how Docker manages its own group for virtualization tasks). This user group is responsible for running the platform and managing virtual machines, which limits permissions and helps prevent unauthorized access.
+
+The virtual machines managed by Distribox are complete, fully isolated VMs—not lightweight or process-isolated Docker containers. This means users can run a wide variety of operating systems and configurations on different VMs, making Distribox suitable for many scenarios.
+
+Libvirt interfaces with KVM (Kernel-based Virtual Machine) as its primary virtualization technology on Linux. KVM is a type-1 hypervisor built directly into the Linux kernel, enabling near-native performance and advanced isolation for VMs. This integration means that Distribox can offer virtual machines that are both performant and secure, leveraging the strengths of KVM for reliable virtualization.
+
+All communication between the user's web client and the virtual machines happens exclusively through the Distribox backend. Users never connect directly to the VM instances themselves; access is strictly managed and mediated by the backend for security and control. This approach maintains a clear separation between the management interface and the actual VMs, helping hosts strictly regulate who can access which resources.
 
 ## Getting Started
 
 ### Installation
 
-[Explain how to install all of the project's dependencies]
+An installation script is provided, compatible with multiple Linux distributions. For the skeptics among us, here is a short, non-exhaustive list of dependencies:
+- python3
+- genisoimage
+- qemu-kvm
+- libvirt-daemon-system
+- libvirt-clients
+- bridge-utils
+- virtinst
+- pkg-config
+- libvirt-dev
+
+We recommend running the script to initialize user privileges for the distribox user group.
 
 ### Quickstart
 
-[Explain how to run this project]
+It's that easy 🚀
+```bash
+bash install.sh
+docker compose up -d
+```
 
 ### Usage
 
-[Explain how to use this project]
+Once the application started, you will find your application portal at `localhost:3000`. For further use and deployment we recommend applying a reverse proxy for convenience of your users.
 
 ## Get involved
 
@@ -31,11 +65,11 @@ If you're interested in how the project is organized at a higher level, please c
 ## Our PoC team ❤️
 
 Developers
-| [<img src="https://github.com/MrZalTy.png?size=85" width=85><br><sub>[Developer's name]</sub>](https://github.com/MrZalTy) | [<img src="https://github.com/MrZalTy.png?size=85" width=85><br><sub>[Developer's name]</sub>](https://github.com/MrZalTy) | [<img src="https://github.com/MrZalTy.png?size=85" width=85><br><sub>[Developer's name]</sub>](https://github.com/MrZalTy)
-| :---: | :---: | :---: |
+| [<img src=".github/assets/loan.jpeg" width=85><br><sub>Loan Riyanto</sub>](https://github.com/skl1017)
+| :---: |
 
 Manager
-| [<img src="https://github.com/adrienfort.png?size=85" width=85><br><sub>[Manager's name]</sub>](https://github.com/adrienfort)
+| [<img src=".github/assets/laurent.jpg" width=85><br><sub>Laurent Gonzalez</sub>](https://github.com/lg-epitech)
 | :---: |
 
 <h2 align=center>
