@@ -26,7 +26,7 @@
     <!-- Disque principal basé sur cloud image -->
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2'/>
-      <source file='/var/lib/distribox/images/os.qcow2'/>
+      <source file='/var/lib/distribox/images/distribox-virtio.qcow2'/>
       <target dev='vda' bus='virtio'/>
     </disk>
 
