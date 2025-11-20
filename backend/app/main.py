@@ -1,15 +1,20 @@
-from typing import Union
-
-from fastapi import FastAPI
-
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from app.routes import vm 
 app = FastAPI()
 
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+@app.exception_handler(HTTPException)
+async def global_exception_handler(_, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
 
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
+@app.exception_handler(Exception)
+async def global_exception_handler(_, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)}
+    )
+app.include_router(vm.router, prefix="/vms")
