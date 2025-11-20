@@ -9,7 +9,7 @@ CLOUD_IMG_URL=$1
 DISTRIBOX_IMG_PATH="/var/lib/distribox/images/"
 CLOUD_IMG_SOURCE="${CLOUD_IMG_URL##*/}"
 
-wget -nc -O "/tmp/${CLOUD_IMG_SOURCE}" $CLOUD_IMG_URL
+wget -O "/tmp/${CLOUD_IMG_SOURCE}" $CLOUD_IMG_URL
 
 set -e 
 sudo qemu-img create -f qcow2 /tmp/resized_image.qcow2 9G
@@ -20,7 +20,7 @@ sudo virt-resize --expand /dev/sda1 \
 sudo virt-customize -a /tmp/resized_image.qcow2 \
     --network \
     --update \
-    --install vim,qemu-guest-agent,cloud-init,linux-virtual-hwe-22.04 \
+    --install vim,qemu-guest-agent,cloud-init \
     --run-command 'update-initramfs -u' \
     --run-command 'update-grub' \
     --run-command 'grub-install /dev/sda'
