@@ -1,11 +1,5 @@
 #!/bin/bash
-
-if [[ $# -ne 2 ]]; then
-    echo "ERROR: need first argument: image url, second argument image name"
-    exit 1
-fi
-
-CLOUD_IMG_URL=$1
+CLOUD_IMG_URL=https://cdimage.debian.org/images/cloud/bookworm/20251112-2294/debian-12-generic-amd64-20251112-2294.qcow2
 DISTRIBOX_IMG_PATH="/var/lib/distribox/images/"
 CLOUD_IMG_SOURCE="${CLOUD_IMG_URL##*/}"
 
@@ -28,6 +22,7 @@ sudo virt-customize -a /tmp/resized_image.qcow2 \
 sudo virt-sysprep -a /tmp/resized_image.qcow2 --operations machine-id,ssh-hostkeys
 
 sudo virt-sparsify --compress /tmp/resized_image.qcow2 \
-    "/var/lib/distribox/images/distribox-$2.qcow2"
+    "/var/lib/distribox/images/distribox-debian.qcow2"
 
 sudo rm -f /tmp/resized_image.qcow2
+
