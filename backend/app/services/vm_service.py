@@ -1,4 +1,5 @@
 import uuid
+import subprocess
 from shutil import copy, rmtree
 import libvirt
 import hashlib
@@ -31,6 +32,8 @@ class Vm:
         try:
             vm_dir.mkdir(parents=True, exist_ok=True)
             copy(distribox_image_dir, vm_dir)
+            vm_path = vm_dir / f"distribox-{self.os}.qcow2"
+            subprocess.run(["qemu-img", "resize", vm_path, f"+{self.disk_size}G"])
             vm_xml = build_xml(self)
             conn = QEMUConfig.get_connection()
             conn.defineXML(vm_xml)
