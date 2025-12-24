@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from app.routes import vm, image
+from app.routes import vm, image, host
 app = FastAPI()
 
 
@@ -19,3 +19,4 @@ async def global_exception_handler(_, exc: Exception):
     )
 app.include_router(vm.router, prefix="/vms")
 app.include_router(image.router, prefix="/images")
+app.include_router(host.router, prefix="/host")
