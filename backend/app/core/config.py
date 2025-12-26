@@ -1,8 +1,9 @@
 import libvirt
-from app.orm.vm import VmORM
 from dotenv import load_dotenv
 from os import getenv
 from sqlmodel import create_engine, SQLModel
+from app.telemetry.monitor import SystemMonitor
+from app.orm.vm import VmORM
 
 load_dotenv()
 
@@ -15,6 +16,7 @@ database_url = f"postgresql+psycopg2://{db_user}:{db_pass}@localhost:{db_port}/{
 engine = create_engine(database_url, echo=True)
 SQLModel.metadata.create_all(engine)
 
+
 class QEMUConfig:
     qemu_conn = None
 
@@ -22,8 +24,9 @@ class QEMUConfig:
     def get_connection(cls):
         if cls.qemu_conn is None or cls.qemu_conn.isAlive() == 0:
             try: 
-                qemu_conn = libvirt.open("qemu:///system")
+                cls.qemu_conn = libvirt.open("qemu:///system")
             except libvirt.libvirtError:
                 raise
-        return qemu_conn
+        return cls.qemu_conn
 
+system_monitor = SystemMonitor(interval=3, get_connection=QEMUConfig.get_connection)
