@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from uuid import UUID
 
 class VmBase(BaseModel):
     os: str
@@ -8,8 +8,11 @@ class VmBase(BaseModel):
     disk_size: int
 
 class VmRead(VmBase):
-    id: str
+    id: UUID
     state: str
 
 class VmCreate(VmBase):
     pass
+
+class PasswordCreated(BaseModel):
+    password: str
