@@ -3,3 +3,4 @@ libvirt-python
 lxml
 sqlmodel
 psycopg2
+supertokens-python

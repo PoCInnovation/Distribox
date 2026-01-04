@@ -10,7 +10,9 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-// TODO: Implement the login / vm credentials page
 export default function Home() {
-  return <h1 className="font-mono">Hello world</h1>;
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+    </div>
+  );
 }
