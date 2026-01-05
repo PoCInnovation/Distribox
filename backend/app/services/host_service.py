@@ -13,7 +13,8 @@ from app.core.config import system_monitor
 # usage_per_cpu = []
 
 # def get_cpu_usage_percent(cpu_idle_time_t2, cpu_idle_time_t1, cpu_total_time_t2, cpu_total_time_t1):
-#     return (1 - (cpu_idle_time_t2 - cpu_idle_time_t1)/ (sum(cpu_total_time_t2) - sum(cpu_total_time_t1))) * 100
+# return (1 - (cpu_idle_time_t2 - cpu_idle_time_t1)/
+# (sum(cpu_total_time_t2) - sum(cpu_total_time_t1))) * 100
 
 # def get_cpu_counters():
 #     per_cpus = psutil.cpu_times(percpu=True)
@@ -35,14 +36,15 @@ from app.core.config import system_monitor
 #       cpu_total_usage = get_cpu_usage_percent(cpu_usage_t2["cpu_total"].idle, cpu_usage_t1["cpu_total"].idle, cpu_usage_t2["cpu_total"], cpu_usage_t1["cpu_total"])
 #       usage_per_cpu = []
 #       for i in range(len(cpu_usage_t1["per_cpus"])):
-#           usage_per_cpu.append(round(get_cpu_usage_percent(cpu_usage_t2["per_cpus"][i].idle, cpu_usage_t1["per_cpus"][i].idle, cpu_usage_t2["per_cpus"][i], cpu_usage_t1["per_cpus"][i]), 2)) 
+#           usage_per_cpu.append(round(get_cpu_usage_percent(cpu_usage_t2["per_cpus"][i].idle, cpu_usage_t1["per_cpus"][i].idle, cpu_usage_t2["per_cpus"][i], cpu_usage_t1["per_cpus"][i]), 2))
 
 
 # Thread(target=get_cpu_usage, daemon=True).start()
 
 conn = QEMUConfig.get_connection()
-stats = conn.getAllDomainStats(stats = libvirt.VIR_DOMAIN_STATS_CPU_TOTAL | libvirt.VIR_DOMAIN_STATS_INTERFACE,
-    flags = libvirt.VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING)
+stats = conn.getAllDomainStats(
+    stats=libvirt.VIR_DOMAIN_STATS_CPU_TOTAL | libvirt.VIR_DOMAIN_STATS_INTERFACE,
+    flags=libvirt.VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING)
 
 for s in stats:
     print('lol')
@@ -77,7 +79,7 @@ class HostService:
     def get_host_info():
         disk_usage = shutil.disk_usage("/")
         mem_usage = psutil.virtual_memory()
-        
+
         disk = {
             "total": round(disk_usage.total / 2**30, 2),
             "used": round(disk_usage.used / 2**30, 2),

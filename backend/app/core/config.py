@@ -12,7 +12,8 @@ db_user = getenv("POSTGRES_USER", "distribox_user")
 db_pass = getenv("POSTGRES_PASSWORD", "distribox_password")
 db_port = getenv("POSTGRES_PORT", "5432")
 
-database_url = f"postgresql+psycopg2://{db_user}:{db_pass}@localhost:{db_port}/{db_name}"
+database_url = f"postgresql+psycopg2://{db_user}:{
+    db_pass}@localhost:{db_port}/{db_name}"
 engine = create_engine(database_url, echo=True)
 SQLModel.metadata.create_all(engine)
 
@@ -23,10 +24,12 @@ class QEMUConfig:
     @classmethod
     def get_connection(cls):
         if cls.qemu_conn is None or cls.qemu_conn.isAlive() == 0:
-            try: 
+            try:
                 cls.qemu_conn = libvirt.open("qemu:///system")
             except libvirt.libvirtError:
                 raise
         return cls.qemu_conn
 
-system_monitor = SystemMonitor(interval=3, get_connection=QEMUConfig.get_connection)
+
+system_monitor = SystemMonitor(interval=3,
+                               get_connection=QEMUConfig.get_connection)

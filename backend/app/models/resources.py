@@ -1,16 +1,20 @@
 from pydantic import BaseModel
 
+
 class ResourceStatsBase(BaseModel):
     total: float
     used: float
     available: float
     percent_used: float
 
+
 class DiskInfoBase(ResourceStatsBase):
-    pass  
+    pass
+
 
 class MemoryInfoBase(ResourceStatsBase):
-    pass 
+    pass
+
 
 class CPUInfoBase(BaseModel):
     percent_used_total: float

@@ -43,7 +43,10 @@ def build_xml(vm_read: VmRead):
 
     disk_seed = etree.SubElement(devices, "disk", type="file", device="cdrom")
     etree.SubElement(disk_seed, "driver", name="qemu", type="raw")
-    etree.SubElement(disk_seed, "source", file="/var/lib/distribox/images/seed.iso")
+    etree.SubElement(
+        disk_seed,
+        "source",
+        file="/var/lib/distribox/images/seed.iso")
     etree.SubElement(disk_seed, "target", dev="hdb", bus="ide")
     etree.SubElement(disk_seed, "readonly")
 

@@ -33,7 +33,8 @@ class Vm:
             vm_dir.mkdir(parents=True, exist_ok=True)
             copy(distribox_image_dir, vm_dir)
             vm_path = vm_dir / f"distribox-{self.os}.qcow2"
-            subprocess.run(["qemu-img", "resize", vm_path, f"+{self.disk_size}G"])
+            subprocess.run(
+                ["qemu-img", "resize", vm_path, f"+{self.disk_size}G"])
             vm_xml = build_xml(self)
             conn = QEMUConfig.get_connection()
             conn.defineXML(vm_xml)
@@ -125,9 +126,9 @@ class Vm:
             vm = conn.lookupByName(str(self.id))
             state, _ = vm.state()
         except Exception:
-            raise 
-        return {"state" : VM_STATE_NAMES.get(state, 'None')}
-    
+            raise
+        return {"state": VM_STATE_NAMES.get(state, 'None')}
+
     def remove(self):
         try:
             self.stop()
@@ -140,7 +141,7 @@ class Vm:
                 statement = delete(VmORM).where(VmORM.id == self.id)
                 session.exec(statement)
                 session.commit()
-        except Exception: 
+        except Exception:
             raise
 
     def generate_password(self):
@@ -158,18 +159,20 @@ class Vm:
             return {"password": password}
         except Exception:
             raise
-    
+
     def remove_password(self):
         try:
             with Session(engine) as session:
-                statement = update(VmORM).where(VmORM.id == self.id).values(password=None)
+                statement = update(VmORM).where(
+                    VmORM.id == self.id).values(
+                    password=None)
                 session.exec(statement)
                 session.commit()
 
         except Exception:
             raise
- 
-    
+
+
 class VmService:
 
     def get_vm_list():
@@ -197,19 +200,15 @@ class VmService:
     def stop_vm(vm_id: str):
         vm = Vm.get(vm_id)
         return vm.stop()
-    
+
     def remove_vm(vm_id: str):
         vm = Vm.get(vm_id)
         vm.remove()
-    
+
     def set_vm_password(vm_id: str):
         vm = Vm.get(vm_id)
         return vm.generate_password()
-    
+
     def remove_vm_password(vm_id: str):
         vm = Vm.get(vm_id)
         vm.remove_password()
-
-
-        
-

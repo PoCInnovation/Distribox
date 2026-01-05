@@ -5,7 +5,9 @@ from app.models.image import ImageRead
 
 router = APIRouter()
 
-@router.get("/", status_code=status.HTTP_200_OK, response_model=list[ImageRead])
+
+@router.get("/", status_code=status.HTTP_200_OK,
+            response_model=list[ImageRead])
 def get_distribox_image_list():
     try:
         return ImageService.get_distribox_image_list()

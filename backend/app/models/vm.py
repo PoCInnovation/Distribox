@@ -17,5 +17,6 @@ class VmRead(VmBase):
 class VmCreate(VmBase):
     pass
 
+
 class PasswordCreated(BaseModel):
     password: str

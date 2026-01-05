@@ -5,6 +5,8 @@ from app.models.host import HostInfoBase
 
 router = APIRouter()
 
-@router.get("/info", status_code=status.HTTP_200_OK, response_model=HostInfoBase)
+
+@router.get("/info", status_code=status.HTTP_200_OK,
+            response_model=HostInfoBase)
 def get_host_info():
     return HostService.get_host_info()
