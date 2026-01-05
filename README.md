@@ -68,8 +68,13 @@ Developers
 | [<img src=".github/assets/loan.jpeg" width=85><br><sub>Loan Riyanto</sub>](https://github.com/skl1017)
 | :---: |
 
+<<<<<<< HEAD
 Manager
 | [<img src=".github/assets/laurent.jpg" width=85><br><sub>Laurent Gonzalez</sub>](https://github.com/lg-epitech)
+=======
+### Manager
+| [<img src="https://avatars.githubusercontent.com/lg-epitech" width=85><br><sub>Laurent Gonzalez</sub>](https://github.com/lg-epitech) |
+>>>>>>> main
 | :---: |
 
 <h2 align=center>

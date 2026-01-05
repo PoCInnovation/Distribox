@@ -13,6 +13,7 @@ from sqlmodel import Session, select, update, delete
 from app.orm.vm import VmORM
 from fastapi import status, HTTPException
 
+
 class Vm:
     def __init__(self, vm_create: VmCreate):
         self.id = uuid.uuid4()
@@ -21,10 +22,9 @@ class Vm:
         self.vcpus = vm_create.vcpus
         self.disk_size = vm_create.disk_size
         self.state: Optional[str] = None
-    
 
     def create(self):
-        if self.state :
+        if self.state:
             return self
         self.state = 'Stopped'
         vm_dir = VMS_DIR / str(self.id)
@@ -39,11 +39,11 @@ class Vm:
             conn.defineXML(vm_xml)
             with Session(engine) as session:
                 vm_record = VmORM(
-                    id = self.id,
-                    os = self.os,
-                    mem = self.mem,
-                    vcpus = self.vcpus,
-                    disk_size= self.disk_size,
+                    id=self.id,
+                    os=self.os,
+                    mem=self.mem,
+                    vcpus=self.vcpus,
+                    disk_size=self.disk_size,
                 )
                 session.add(vm_record)
                 session.commit()
@@ -53,7 +53,7 @@ class Vm:
 
     @classmethod
     def get(cls, vm_id: str):
-        try: 
+        try:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(vm_id)
             vm_state, _ = vm.state()
@@ -64,15 +64,16 @@ class Vm:
                 vm_instance.os = vm_record.os
                 vm_instance.mem = vm_record.mem
                 vm_instance.vcpus = vm_record.vcpus
-                vm_instance.disk_size =vm_record.disk_size
+                vm_instance.disk_size = vm_record.disk_size
             vm_instance.state = VM_STATE_NAMES.get(vm_state, 'None')
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f'Vm {vm_id} not found')
+                raise HTTPException(status.HTTP_404_NOT_FOUND,
+                                    f'Vm {vm_id} not found')
         except Exception:
             raise
         return vm_instance
-    
+
     @classmethod
     def get_all(cls):
         try:
@@ -94,13 +95,14 @@ class Vm:
                 vm.create()
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f'Vm {vm.id} not found')
+                raise HTTPException(status.HTTP_404_NOT_FOUND,
+                                    f'Vm {vm.id} not found')
         except Exception:
             raise
         state_code = wait_for_state(vm, libvirt.VIR_DOMAIN_RUNNING, 0.5, 10)
-        self.state=VM_STATE_NAMES.get(state_code, 'None')
+        self.state = VM_STATE_NAMES.get(state_code, 'None')
         return self
-    
+
     def stop(self):
         try:
             conn = QEMUConfig.get_connection()
@@ -109,13 +111,14 @@ class Vm:
                 vm.shutdown()
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f'Vm {vm.id} not found')                
+                raise HTTPException(status.HTTP_404_NOT_FOUND,
+                                    f'Vm {vm.id} not found')
         except Exception:
             raise
         state_code = wait_for_state(vm, libvirt.VIR_DOMAIN_SHUTOFF, 5, 10)
-        self.state=VM_STATE_NAMES.get(state_code, 'None')
+        self.state = VM_STATE_NAMES.get(state_code, 'None')
         return self
-    
+
     def get_state(self):
         try:
             conn = QEMUConfig.get_connection()
@@ -148,7 +151,8 @@ class Vm:
             hasher.update(uuid_bytes)
             password = hasher.hexdigest()
             with Session(engine) as session:
-                statement = update(VmORM).where(VmORM.id == self.id).values(password=password)
+                statement = update(VmORM).where(
+                    VmORM.id == self.id).values(password=password)
                 session.exec(statement)
                 session.commit()
             return {"password": password}
@@ -171,11 +175,12 @@ class VmService:
     def get_vm_list():
         vm = Vm.get_all()
         return vm
+
     def get_vm(vm_id: str):
         vm = Vm.get(vm_id)
         return vm
 
-    def get_state(vm_id:str):
+    def get_state(vm_id: str):
         vm = Vm.get(vm_id)
         state = vm.get_state()
         return state

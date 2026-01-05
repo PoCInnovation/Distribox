@@ -11,6 +11,7 @@ async def global_exception_handler(_, exc: HTTPException):
         content={"detail": exc.detail}
     )
 
+
 @app.exception_handler(Exception)
 async def global_exception_handler(_, exc: Exception):
     return JSONResponse(
