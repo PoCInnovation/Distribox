@@ -2,3 +2,9 @@ fastapi[standard]
 libvirt-python
 lxml
 psutil
+sqlmodel
+psycopg2
+sniffio
+bcrypt
+pyjwt
+python-multipart
