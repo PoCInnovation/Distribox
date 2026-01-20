@@ -5,6 +5,6 @@ export function useHostInfo() {
   return useQuery({
     queryKey: ["host", "info"],
     queryFn: getHostInfo,
-    refetchInterval: 2000,
+    refetchInterval: 1000,
   });
 }
