@@ -17,7 +17,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Server, Cpu, HardDrive, MemoryStick, Check, AlertCircle } from "lucide-react";
+import {
+  Server,
+  Cpu,
+  HardDrive,
+  MemoryStick,
+  Check,
+  AlertCircle,
+} from "lucide-react";
 import { useHostInfo } from "@/hooks/useHostInfo";
 import { useImages } from "@/hooks/useImages";
 import { useCreateVM } from "@/hooks/useCreateVM";
@@ -46,11 +53,15 @@ export default function ProvisionPage() {
   // Calculate available resources (in GB)
   // Backend returns values already in GB
   const availableMemGB = hostInfo
-    ? (hostInfo.mem.available > 0 ? hostInfo.mem.available : (hostInfo.mem.total - hostInfo.mem.used))
+    ? hostInfo.mem.available > 0
+      ? hostInfo.mem.available
+      : hostInfo.mem.total - hostInfo.mem.used
     : 0;
 
   const availableDiskGB = hostInfo
-    ? (hostInfo.disk.available > 0 ? hostInfo.disk.available : (hostInfo.disk.total - hostInfo.disk.used))
+    ? hostInfo.disk.available > 0
+      ? hostInfo.disk.available
+      : hostInfo.disk.total - hostInfo.disk.used
     : 0;
 
   const totalCPUs = hostInfo?.cpu.cpu_count || 0;
@@ -127,7 +138,9 @@ export default function ProvisionPage() {
               <div className="space-y-2">
                 <Label htmlFor="os-template">Image</Label>
                 {imagesLoading ? (
-                  <div className="text-sm text-muted-foreground">Loading images...</div>
+                  <div className="text-sm text-muted-foreground">
+                    Loading images...
+                  </div>
                 ) : (
                   <Select value={selectedOS} onValueChange={setSelectedOS}>
                     <SelectTrigger id="os-template">
@@ -253,7 +266,9 @@ export default function ProvisionPage() {
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
-                  <span className="text-sm text-muted-foreground">OS Image</span>
+                  <span className="text-sm text-muted-foreground">
+                    OS Image
+                  </span>
                   <span className="font-mono text-sm text-right max-w-[60%] break-words">
                     {selectedOS || "Not selected"}
                   </span>
@@ -294,14 +309,17 @@ export default function ProvisionPage() {
 
               <Separator />
 
-              {(memExceedsAvailable || diskExceedsAvailable || cpuExceedsAvailable) && (
+              {(memExceedsAvailable ||
+                diskExceedsAvailable ||
+                cpuExceedsAvailable) && (
                 <>
                   <div className="rounded-md bg-destructive/10 border border-destructive p-3">
                     <p className="text-sm text-destructive font-medium">
                       Resource limits exceeded
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Please adjust your configuration to fit within available resources
+                      Please adjust your configuration to fit within available
+                      resources
                     </p>
                   </div>
                   <Separator />
@@ -360,14 +378,16 @@ export default function ProvisionPage() {
               <div className="space-y-1">
                 <p className="text-sm font-medium">Start conservative</p>
                 <p className="text-xs text-muted-foreground">
-                  Allocate only what you need initially. You can always adjust later.
+                  Allocate only what you need initially. You can always adjust
+                  later.
                 </p>
               </div>
               <Separator />
               <div className="space-y-1">
                 <p className="text-sm font-medium">Leave headroom</p>
                 <p className="text-xs text-muted-foreground">
-                  Don't allocate all available resources - leave some for the host system.
+                  Don't allocate all available resources - leave some for the
+                  host system.
                 </p>
               </div>
             </CardContent>

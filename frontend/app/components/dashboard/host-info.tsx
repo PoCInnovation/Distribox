@@ -126,15 +126,11 @@ function MemoryInfo({ mem }: { mem: HostInfo["mem"] }) {
         <div className="grid grid-cols-3 gap-4 border-t border-border pt-3">
           <div>
             <p className="text-xs text-muted-foreground">Total</p>
-            <p className="font-mono text-sm font-bold">
-              {formatGB(mem.total)}
-            </p>
+            <p className="font-mono text-sm font-bold">{formatGB(mem.total)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Used</p>
-            <p className="font-mono text-sm font-bold">
-              {formatGB(mem.used)}
-            </p>
+            <p className="font-mono text-sm font-bold">{formatGB(mem.used)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Available</p>
@@ -171,9 +167,7 @@ function DiskInfo({ disk }: { disk: HostInfo["disk"] }) {
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Used</p>
-            <p className="font-mono text-sm font-bold">
-              {formatGB(disk.used)}
-            </p>
+            <p className="font-mono text-sm font-bold">{formatGB(disk.used)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Available</p>

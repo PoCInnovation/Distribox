@@ -157,9 +157,7 @@ export function CompactMemoryInfo({ mem }: { mem: HostInfo["mem"] }) {
       <div className="grid grid-cols-3 gap-4">
         <div>
           <p className="text-xs text-muted-foreground">Total</p>
-          <p className="font-mono text-sm font-bold">
-            {formatGB(mem.total)}
-          </p>
+          <p className="font-mono text-sm font-bold">{formatGB(mem.total)}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Used</p>
@@ -192,15 +190,11 @@ export function CompactDiskInfo({ disk }: { disk: HostInfo["disk"] }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className="text-xs text-muted-foreground">Total</p>
-          <p className="font-mono text-sm font-bold">
-            {formatGB(disk.total)}
-          </p>
+          <p className="font-mono text-sm font-bold">{formatGB(disk.total)}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Used</p>
-          <p className="font-mono text-sm font-bold">
-            {formatGB(disk.used)}
-          </p>
+          <p className="font-mono text-sm font-bold">{formatGB(disk.used)}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Available</p>
