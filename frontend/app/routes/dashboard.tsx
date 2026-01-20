@@ -1,6 +1,7 @@
 import { Outlet } from "react-router";
 import type { Route } from "./+types/dashboard";
 import { DashboardSidenav } from "~/components/dashboard/sidenav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -11,11 +12,13 @@ export function meta({}: Route.MetaArgs) {
 
 export default function DashboardLayout() {
   return (
-    <div className="flex h-screen overflow-hidden">
-      <DashboardSidenav />
-      <main className="flex-1 overflow-y-auto">
-        <Outlet />
-      </main>
-    </div>
+    <ProtectedRoute>
+      <div className="flex h-screen overflow-hidden">
+        <DashboardSidenav />
+        <main className="flex-1 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
+    </ProtectedRoute>
   );
 }

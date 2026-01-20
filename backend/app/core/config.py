@@ -1,5 +1,6 @@
 import libvirt
 from app.orm.vm import VmORM
+from app.orm.user import UserORM
 from dotenv import load_dotenv
 from os import getenv
 from sqlmodel import create_engine, SQLModel
