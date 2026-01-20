@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Cpu, HardDrive, MemoryStick, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Cpu,
+  HardDrive,
+  MemoryStick,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { HostInfo } from "@/lib/api";
 import { formatBytes } from "@/lib/utils";
@@ -26,7 +32,9 @@ function CompactCard({
   children?: React.ReactNode;
 }) {
   return (
-    <Card className={`border-border bg-card overflow-hidden w-full ${!isExpanded ? "h-fit" : ""}`}>
+    <Card
+      className={`border-border bg-card overflow-hidden w-full ${!isExpanded ? "h-fit" : ""}`}
+    >
       <Button
         variant="ghost"
         className="w-full p-4 h-auto flex items-center justify-between hover:bg-secondary/50 rounded-none"
@@ -41,13 +49,13 @@ function CompactCard({
           <div className="flex-1 text-left">
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-medium">{title}</span>
-              <span className="font-mono text-sm font-bold">{percentage.toFixed(1)}%</span>
+              <span className="font-mono text-sm font-bold">
+                {percentage.toFixed(1)}%
+              </span>
             </div>
             <Progress value={percentage} className="h-1.5" />
             {subtitle && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {subtitle}
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
             )}
           </div>
           {isExpanded ? (
@@ -92,13 +100,17 @@ export function CompactCPUInfo({ cpu }: { cpu: HostInfo["cpu"] }) {
 
         {cpu.percent_used_per_cpu.length > 0 && (
           <div className="space-y-2">
-            <span className="text-xs font-medium text-muted-foreground">Per Core Usage</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              Per Core Usage
+            </span>
             <div className="grid grid-cols-2 gap-2">
               {cpu.percent_used_per_cpu.map((usage, index) => (
                 <div key={index} className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs">Core {index}</span>
-                    <span className="font-mono text-xs">{usage.toFixed(1)}%</span>
+                    <span className="font-mono text-xs">
+                      {usage.toFixed(1)}%
+                    </span>
                   </div>
                   <Progress value={usage} className="h-1" />
                 </div>
@@ -109,7 +121,9 @@ export function CompactCPUInfo({ cpu }: { cpu: HostInfo["cpu"] }) {
 
         {cpu.percent_used_per_vm.length > 0 && (
           <div className="space-y-2">
-            <span className="text-xs font-medium text-muted-foreground">Per VM Usage</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              Per VM Usage
+            </span>
             <div className="space-y-1">
               {cpu.percent_used_per_vm.map((vmInfo, index) => (
                 <div
@@ -143,7 +157,9 @@ export function CompactMemoryInfo({ mem }: { mem: HostInfo["mem"] }) {
       <div className="grid grid-cols-3 gap-4">
         <div>
           <p className="text-xs text-muted-foreground">Total</p>
-          <p className="font-mono text-sm font-bold">{formatBytes(mem.total)}</p>
+          <p className="font-mono text-sm font-bold">
+            {formatBytes(mem.total)}
+          </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Used</p>
@@ -176,11 +192,15 @@ export function CompactDiskInfo({ disk }: { disk: HostInfo["disk"] }) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className="text-xs text-muted-foreground">Total</p>
-          <p className="font-mono text-sm font-bold">{formatBytes(disk.total)}</p>
+          <p className="font-mono text-sm font-bold">
+            {formatBytes(disk.total)}
+          </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Used</p>
-          <p className="font-mono text-sm font-bold">{formatBytes(disk.used)}</p>
+          <p className="font-mono text-sm font-bold">
+            {formatBytes(disk.used)}
+          </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Available</p>

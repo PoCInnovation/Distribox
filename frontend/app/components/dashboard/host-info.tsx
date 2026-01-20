@@ -63,13 +63,17 @@ function CPUInfo({ cpu }: { cpu: HostInfo["cpu"] }) {
 
           {cpu.percent_used_per_cpu.length > 0 && (
             <div className="mt-3 space-y-2">
-              <span className="text-xs text-muted-foreground">Per Core Usage</span>
+              <span className="text-xs text-muted-foreground">
+                Per Core Usage
+              </span>
               <div className="grid grid-cols-2 gap-2">
                 {cpu.percent_used_per_cpu.map((usage, index) => (
                   <div key={index} className="space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-xs">Core {index}</span>
-                      <span className="font-mono text-xs">{usage.toFixed(1)}%</span>
+                      <span className="font-mono text-xs">
+                        {usage.toFixed(1)}%
+                      </span>
                     </div>
                     <Progress value={usage} className="h-1" />
                   </div>
@@ -80,7 +84,9 @@ function CPUInfo({ cpu }: { cpu: HostInfo["cpu"] }) {
 
           {cpu.percent_used_per_vm.length > 0 && (
             <div className="mt-3 space-y-2">
-              <span className="text-xs text-muted-foreground">Per VM Usage</span>
+              <span className="text-xs text-muted-foreground">
+                Per VM Usage
+              </span>
               <div className="space-y-1">
                 {cpu.percent_used_per_vm.map((vmInfo, index) => (
                   <div
@@ -101,7 +107,11 @@ function CPUInfo({ cpu }: { cpu: HostInfo["cpu"] }) {
 
 function MemoryInfo({ mem }: { mem: HostInfo["mem"] }) {
   return (
-    <HostInfoCard title="Memory Usage" icon={MemoryStick} iconColor="text-chart-2">
+    <HostInfoCard
+      title="Memory Usage"
+      icon={MemoryStick}
+      iconColor="text-chart-2"
+    >
       <div className="space-y-4">
         <div>
           <div className="mb-2 flex items-center justify-between">
@@ -116,11 +126,15 @@ function MemoryInfo({ mem }: { mem: HostInfo["mem"] }) {
         <div className="grid grid-cols-3 gap-4 border-t border-border pt-3">
           <div>
             <p className="text-xs text-muted-foreground">Total</p>
-            <p className="font-mono text-sm font-bold">{formatBytes(mem.total)}</p>
+            <p className="font-mono text-sm font-bold">
+              {formatBytes(mem.total)}
+            </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Used</p>
-            <p className="font-mono text-sm font-bold">{formatBytes(mem.used)}</p>
+            <p className="font-mono text-sm font-bold">
+              {formatBytes(mem.used)}
+            </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Available</p>
@@ -151,11 +165,15 @@ function DiskInfo({ disk }: { disk: HostInfo["disk"] }) {
         <div className="grid grid-cols-2 gap-4 border-t border-border pt-3">
           <div>
             <p className="text-xs text-muted-foreground">Total</p>
-            <p className="font-mono text-sm font-bold">{formatBytes(disk.total)}</p>
+            <p className="font-mono text-sm font-bold">
+              {formatBytes(disk.total)}
+            </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Used</p>
-            <p className="font-mono text-sm font-bold">{formatBytes(disk.used)}</p>
+            <p className="font-mono text-sm font-bold">
+              {formatBytes(disk.used)}
+            </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Available</p>
