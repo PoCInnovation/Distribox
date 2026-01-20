@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
-from app.routes import vm, auth
+from app.routes import vm, image, host, auth
 from app.orm.user import UserORM
 from app.utils.auth import hash_password
 from app.core.config import engine
@@ -63,3 +63,5 @@ async def general_exception_handler(_, exc: Exception):
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(vm.router, prefix="/vms", tags=["vms"])
+app.include_router(image.router, prefix="/images", tags=["images"])
+app.include_router(host.router, prefix="/host", tags=["host"])
