@@ -41,7 +41,7 @@ export function clearAuthToken(): void {
  */
 export async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const token = getAuthToken();
@@ -68,7 +68,9 @@ export async function apiRequest<T>(
       window.location.href = "/auth/login";
     }
 
-    const error = await response.json().catch(() => ({ detail: "Request failed" }));
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Request failed" }));
     throw new Error(error.detail || `HTTP ${response.status}`);
   }
 
@@ -103,7 +105,9 @@ export async function login(username: string, password: string): Promise<void> {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Login failed" }));
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "Login failed" }));
     throw new Error(error.detail || "Login failed");
   }
 
@@ -127,7 +131,10 @@ export async function getCurrentUser(): Promise<User> {
 /**
  * Change the current user's password
  */
-export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
   await apiRequest("/auth/change-password", {
     method: "POST",
     body: JSON.stringify({

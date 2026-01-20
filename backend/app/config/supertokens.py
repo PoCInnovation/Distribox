@@ -10,12 +10,14 @@ def init_supertokens():
         app_info=InputAppInfo(
             app_name=os.getenv("APP_NAME", "Distribox"),
             api_domain=os.getenv("API_DOMAIN", "http://localhost:8000"),
-            website_domain=os.getenv("WEBSITE_DOMAIN", "http://localhost:5173"),
+            website_domain=os.getenv(
+                "WEBSITE_DOMAIN", "http://localhost:5173"),
             api_base_path="/auth",
             website_base_path="/auth",
         ),
         supertokens_config=SupertokensConfig(
-            connection_uri=os.getenv("SUPERTOKENS_CONNECTION_URI", "http://localhost:3567"),
+            connection_uri=os.getenv(
+                "SUPERTOKENS_CONNECTION_URI", "http://localhost:3567"),
             api_key=os.getenv("SUPERTOKENS_API_KEY", ""),
         ),
         framework="fastapi",

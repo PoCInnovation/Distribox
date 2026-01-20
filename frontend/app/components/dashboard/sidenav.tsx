@@ -1,5 +1,13 @@
 import { Link, useLocation } from "react-router";
-import { ChevronLeft, ChevronRight, LayoutIcon, PlusIcon, User, LogOut, KeyRound } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  LayoutIcon,
+  PlusIcon,
+  User,
+  LogOut,
+  KeyRound,
+} from "lucide-react";
 import { Image } from "@unpic/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -92,7 +100,7 @@ export function DashboardSidenav() {
               size="sm"
               className={cn(
                 "w-full border border-border hover:bg-primary/10 hover:text-primary hover:border-primary",
-                collapsed ? "justify-center" : "justify-start"
+                collapsed ? "justify-center" : "justify-start",
               )}
             >
               <User className="h-4 w-4" />

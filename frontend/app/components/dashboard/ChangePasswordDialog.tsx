@@ -17,7 +17,10 @@ interface ChangePasswordDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialogProps) {
+export function ChangePasswordDialog({
+  open,
+  onOpenChange,
+}: ChangePasswordDialogProps) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -61,7 +64,9 @@ export function ChangePasswordDialog({ open, onOpenChange }: ChangePasswordDialo
         setSuccess(false);
       }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to change password");
+      setError(
+        err instanceof Error ? err.message : "Failed to change password",
+      );
     } finally {
       setIsLoading(false);
     }

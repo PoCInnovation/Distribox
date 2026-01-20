@@ -46,7 +46,8 @@ class UserResponse(BaseModel):
 async def login(login_data: LoginRequest):
     """Login endpoint that returns a JWT token."""
     with Session(engine) as session:
-        statement = select(UserORM).where(UserORM.username == login_data.username)
+        statement = select(UserORM).where(
+            UserORM.username == login_data.username)
         user = session.exec(statement).first()
 
         if not user:
@@ -62,7 +63,8 @@ async def login(login_data: LoginRequest):
             )
 
         access_token = create_access_token(
-            data={"sub": str(user.id), "username": user.username, "is_admin": user.is_admin}
+            data={"sub": str(user.id), "username": user.username,
+                  "is_admin": user.is_admin}
         )
 
         return TokenResponse(access_token=access_token)
@@ -75,7 +77,8 @@ async def create_user(
 ):
     """Create a new user. Only admins can create users."""
     with Session(engine) as session:
-        statement = select(UserORM).where(UserORM.username == user_data.username)
+        statement = select(UserORM).where(
+            UserORM.username == user_data.username)
         existing_user = session.exec(statement).first()
 
         if existing_user:

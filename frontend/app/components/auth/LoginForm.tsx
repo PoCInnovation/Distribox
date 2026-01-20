@@ -26,7 +26,12 @@ export function LoginForm() {
 
     console.log("=== Login form submitted ===");
     console.log("Username:", username);
-    console.log("Form values - username:", username, "password length:", password.length);
+    console.log(
+      "Form values - username:",
+      username,
+      "password length:",
+      password.length,
+    );
 
     if (!username || !password) {
       setError("Please enter both username and password");
@@ -39,7 +44,9 @@ export function LoginForm() {
     try {
       console.log("Calling login function...");
       await login(username, password);
-      console.log("Login successful! Token stored. Redirecting to dashboard...");
+      console.log(
+        "Login successful! Token stored. Redirecting to dashboard...",
+      );
 
       // Use window.location for a hard navigation to ensure client-side state is fresh
       window.location.href = "/dashboard";
@@ -47,9 +54,11 @@ export function LoginForm() {
       console.error("Login error:", err);
       console.error("Error details:", {
         message: err instanceof Error ? err.message : "Unknown error",
-        stack: err instanceof Error ? err.stack : undefined
+        stack: err instanceof Error ? err.stack : undefined,
       });
-      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+      setError(
+        err instanceof Error ? err.message : "Login failed. Please try again.",
+      );
       setIsLoading(false);
     }
   };
@@ -62,7 +71,11 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4" onSubmitCapture={(e) => e.preventDefault()}>
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4"
+      onSubmitCapture={(e) => e.preventDefault()}
+    >
       <div className="space-y-2">
         <Label htmlFor="username">Username</Label>
         <Input
@@ -94,7 +107,12 @@ export function LoginForm() {
           {error}
         </div>
       )}
-      <Button type="button" className="w-full" disabled={isLoading} onClick={handleButtonClick}>
+      <Button
+        type="button"
+        className="w-full"
+        disabled={isLoading}
+        onClick={handleButtonClick}
+      >
         {isLoading ? "Signing in..." : "Sign In"}
       </Button>
     </form>
