@@ -30,7 +30,6 @@ import {
   CompactMemoryInfo,
   CompactDiskInfo,
 } from "@/components/dashboard/compact-host-info";
-import { formatBytes } from "@/lib/utils";
 
 const mockVMs: VM[] = [
   {
@@ -361,11 +360,11 @@ export default function OverviewPage() {
                 Storage Used
               </p>
               <p className="mt-2 font-mono text-3xl font-bold">
-                {hostInfo ? formatBytes(hostInfo.disk.used) : "..."}
+                {hostInfo ? `${hostInfo.disk.used.toFixed(2)} GB` : "..."}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {hostInfo
-                  ? `of ${formatBytes(hostInfo.disk.total)} (${hostInfo.disk.percent_used.toFixed(1)}%)`
+                  ? `of ${hostInfo.disk.total.toFixed(2)} GB (${hostInfo.disk.percent_used.toFixed(1)}%)`
                   : "Loading..."}
               </p>
             </div>

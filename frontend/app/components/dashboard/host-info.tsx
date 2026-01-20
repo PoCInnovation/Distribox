@@ -3,7 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { Cpu, HardDrive, MemoryStick, Server } from "lucide-react";
 import { useHostInfo } from "@/hooks/useHostInfo";
 import type { HostInfo } from "@/lib/api";
-import { formatBytes } from "@/lib/utils";
+import { formatGB } from "@/lib/utils";
 
 function HostInfoCard({
   title,
@@ -127,19 +127,19 @@ function MemoryInfo({ mem }: { mem: HostInfo["mem"] }) {
           <div>
             <p className="text-xs text-muted-foreground">Total</p>
             <p className="font-mono text-sm font-bold">
-              {formatBytes(mem.total)}
+              {formatGB(mem.total)}
             </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Used</p>
             <p className="font-mono text-sm font-bold">
-              {formatBytes(mem.used)}
+              {formatGB(mem.used)}
             </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Available</p>
             <p className="font-mono text-sm font-bold">
-              {formatBytes(mem.available)}
+              {formatGB(mem.available)}
             </p>
           </div>
         </div>
@@ -166,25 +166,25 @@ function DiskInfo({ disk }: { disk: HostInfo["disk"] }) {
           <div>
             <p className="text-xs text-muted-foreground">Total</p>
             <p className="font-mono text-sm font-bold">
-              {formatBytes(disk.total)}
+              {formatGB(disk.total)}
             </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Used</p>
             <p className="font-mono text-sm font-bold">
-              {formatBytes(disk.used)}
+              {formatGB(disk.used)}
             </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Available</p>
             <p className="font-mono text-sm font-bold">
-              {formatBytes(disk.available)}
+              {formatGB(disk.available)}
             </p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Distribox Used</p>
             <p className="font-mono text-sm font-bold">
-              {formatBytes(disk.distribox_used)}
+              {formatGB(disk.distribox_used)}
             </p>
           </div>
         </div>

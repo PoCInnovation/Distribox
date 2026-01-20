@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { HostInfo } from "@/lib/api";
-import { formatBytes } from "@/lib/utils";
+import { formatGB } from "@/lib/utils";
 
 function CompactCard({
   title,
@@ -149,7 +149,7 @@ export function CompactMemoryInfo({ mem }: { mem: HostInfo["mem"] }) {
       title="Memory Usage"
       icon={MemoryStick}
       iconColor="text-chart-2"
-      subtitle={`${formatBytes(mem.used)} of ${formatBytes(mem.total)}`}
+      subtitle={`${formatGB(mem.used)} of ${formatGB(mem.total)}`}
       percentage={mem.percent_used}
       isExpanded={isExpanded}
       onToggle={() => setIsExpanded(!isExpanded)}
@@ -158,17 +158,17 @@ export function CompactMemoryInfo({ mem }: { mem: HostInfo["mem"] }) {
         <div>
           <p className="text-xs text-muted-foreground">Total</p>
           <p className="font-mono text-sm font-bold">
-            {formatBytes(mem.total)}
+            {formatGB(mem.total)}
           </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Used</p>
-          <p className="font-mono text-sm font-bold">{formatBytes(mem.used)}</p>
+          <p className="font-mono text-sm font-bold">{formatGB(mem.used)}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Available</p>
           <p className="font-mono text-sm font-bold">
-            {formatBytes(mem.available)}
+            {formatGB(mem.available)}
           </p>
         </div>
       </div>
@@ -184,7 +184,7 @@ export function CompactDiskInfo({ disk }: { disk: HostInfo["disk"] }) {
       title="Disk Usage"
       icon={HardDrive}
       iconColor="text-chart-4"
-      subtitle={`${formatBytes(disk.used)} of ${formatBytes(disk.total)}`}
+      subtitle={`${formatGB(disk.used)} of ${formatGB(disk.total)}`}
       percentage={disk.percent_used}
       isExpanded={isExpanded}
       onToggle={() => setIsExpanded(!isExpanded)}
@@ -193,25 +193,25 @@ export function CompactDiskInfo({ disk }: { disk: HostInfo["disk"] }) {
         <div>
           <p className="text-xs text-muted-foreground">Total</p>
           <p className="font-mono text-sm font-bold">
-            {formatBytes(disk.total)}
+            {formatGB(disk.total)}
           </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Used</p>
           <p className="font-mono text-sm font-bold">
-            {formatBytes(disk.used)}
+            {formatGB(disk.used)}
           </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Available</p>
           <p className="font-mono text-sm font-bold">
-            {formatBytes(disk.available)}
+            {formatGB(disk.available)}
           </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Distribox Used</p>
           <p className="font-mono text-sm font-bold">
-            {formatBytes(disk.distribox_used)}
+            {formatGB(disk.distribox_used)}
           </p>
         </div>
       </div>
