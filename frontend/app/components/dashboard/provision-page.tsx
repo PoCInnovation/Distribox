@@ -17,65 +17,89 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Server, Cpu, HardDrive, Network, Check } from "lucide-react";
-
-const osTemplates = [
-  { id: "ubuntu-22", name: "Ubuntu 22.04 LTS", category: "Linux" },
-  { id: "ubuntu-24", name: "Ubuntu 24.04 LTS", category: "Linux" },
-  { id: "debian-12", name: "Debian 12", category: "Linux" },
-  { id: "centos-9", name: "CentOS Stream 9", category: "Linux" },
-  { id: "fedora-39", name: "Fedora 39", category: "Linux" },
-  { id: "windows-2022", name: "Windows Server 2022", category: "Windows" },
-  { id: "windows-2019", name: "Windows Server 2019", category: "Windows" },
-];
-
-const cpuOptions = [
-  { value: "1", label: "1 vCPU", price: 5 },
-  { value: "2", label: "2 vCPU", price: 10 },
-  { value: "4", label: "4 vCPU", price: 20 },
-  { value: "8", label: "8 vCPU", price: 40 },
-  { value: "16", label: "16 vCPU", price: 80 },
-];
-
-const ramOptions = [
-  { value: "2", label: "2 GB", price: 5 },
-  { value: "4", label: "4 GB", price: 10 },
-  { value: "8", label: "8 GB", price: 20 },
-  { value: "16", label: "16 GB", price: 40 },
-  { value: "32", label: "32 GB", price: 80 },
-  { value: "64", label: "64 GB", price: 160 },
-];
-
-const diskOptions = [
-  { value: "20", label: "20 GB SSD", price: 2 },
-  { value: "40", label: "40 GB SSD", price: 4 },
-  { value: "80", label: "80 GB SSD", price: 8 },
-  { value: "160", label: "160 GB SSD", price: 16 },
-  { value: "320", label: "320 GB SSD", price: 32 },
-  { value: "500", label: "500 GB SSD", price: 50 },
-];
+import {
+  Server,
+  Cpu,
+  HardDrive,
+  MemoryStick,
+  Check,
+  AlertCircle,
+} from "lucide-react";
+import { useHostInfo } from "@/hooks/useHostInfo";
+import { useImages } from "@/hooks/useImages";
+import { useCreateVM } from "@/hooks/useCreateVM";
+import {
+  CompactCPUInfo,
+  CompactMemoryInfo,
+  CompactDiskInfo,
+} from "@/components/dashboard/compact-host-info";
+import { useNavigate } from "react-router";
 
 export default function ProvisionPage() {
-  const [vmName, setVmName] = useState("");
+  const navigate = useNavigate();
+  const { data: hostInfo } = useHostInfo();
+  const { data: images, isLoading: imagesLoading } = useImages();
+  const createVM = useCreateVM();
+
   const [selectedOS, setSelectedOS] = useState("");
-  const [cpu, setCpu] = useState("2");
-  const [ram, setRam] = useState("4");
-  const [disk, setDisk] = useState("40");
-  const [isProvisioning, setIsProvisioning] = useState(false);
+  const [vcpus, setVcpus] = useState("2");
+  const [mem, setMem] = useState("4");
+  const [diskSize, setDiskSize] = useState("20");
+
+  const vcpusNum = Number.parseInt(vcpus) || 0;
+  const memNum = Number.parseInt(mem) || 0;
+  const diskNum = Number.parseInt(diskSize) || 0;
+
+  // Calculate available resources (in GB)
+  // Backend returns values already in GB
+  const availableMemGB = hostInfo
+    ? hostInfo.mem.available > 0
+      ? hostInfo.mem.available
+      : hostInfo.mem.total - hostInfo.mem.used
+    : 0;
+
+  const availableDiskGB = hostInfo
+    ? hostInfo.disk.available > 0
+      ? hostInfo.disk.available
+      : hostInfo.disk.total - hostInfo.disk.used
+    : 0;
+
+  const totalCPUs = hostInfo?.cpu.cpu_count || 0;
+
+  // Validation
+  const memExceedsAvailable = memNum > availableMemGB;
+  const diskExceedsAvailable = diskNum > availableDiskGB;
+  const cpuExceedsAvailable = vcpusNum > totalCPUs;
+
+  const isFormValid =
+    selectedOS !== "" &&
+    vcpusNum > 0 &&
+    memNum > 0 &&
+    diskNum > 0 &&
+    !memExceedsAvailable &&
+    !diskExceedsAvailable &&
+    !cpuExceedsAvailable;
 
   const handleProvision = async () => {
-    setIsProvisioning(true);
-    // Simulate provisioning
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    console.log("Provisioning VM:", { vmName, selectedOS, cpu, ram, disk });
-    setIsProvisioning(false);
-  };
+    if (!isFormValid) return;
 
-  const isFormValid = vmName.trim() !== "" && selectedOS !== "";
+    try {
+      await createVM.mutateAsync({
+        os: selectedOS,
+        vcpus: vcpusNum,
+        mem: memNum,
+        disk_size: diskNum,
+      });
+
+      // Navigate back to dashboard on success
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Failed to provision VM:", error);
+    }
+  };
 
   return (
     <div className="h-full p-8">
-      {/* Header */}
       <div className="mb-8">
         <h1 className="mb-2 font-mono text-3xl font-bold tracking-tight text-balance">
           Provision Virtual Machine
@@ -85,69 +109,61 @@ export default function ProvisionPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Configuration Form */}
+      {hostInfo && (
+        <div className="mb-8">
+          <h2 className="mb-4 font-mono text-lg font-bold">
+            Available Resources
+          </h2>
+          <div className="grid gap-4 md:grid-cols-3">
+            <CompactCPUInfo cpu={hostInfo.cpu} />
+            <CompactMemoryInfo mem={hostInfo.mem} />
+            <CompactDiskInfo disk={hostInfo.disk} />
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-3 pb-8">
         <div className="lg:col-span-2 space-y-6">
-          {/* Basic Configuration */}
           <Card className="border-border bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Server className="h-5 w-5 text-primary" />
-                Basic Configuration
+                Operating System
               </CardTitle>
               <CardDescription>
-                Set up the basic details for your virtual machine
+                Select the base image for your virtual machine
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="vm-name">VM Name</Label>
-                <Input
-                  id="vm-name"
-                  placeholder="e.g., prod-web-server-01"
-                  value={vmName}
-                  onChange={(e) => setVmName(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Choose a descriptive name for your virtual machine
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="os-template">Operating System</Label>
-                <Select value={selectedOS} onValueChange={setSelectedOS}>
-                  <SelectTrigger id="os-template" className="w-40">
-                    <SelectValue placeholder="Select an OS template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                      Linux
-                    </div>
-                    {osTemplates
-                      .filter((os) => os.category === "Linux")
-                      .map((os) => (
-                        <SelectItem key={os.id} value={os.id}>
-                          {os.name}
+                <Label htmlFor="os-template">Image</Label>
+                {imagesLoading ? (
+                  <div className="text-sm text-muted-foreground">
+                    Loading images...
+                  </div>
+                ) : (
+                  <Select value={selectedOS} onValueChange={setSelectedOS}>
+                    <SelectTrigger id="os-template">
+                      <SelectValue placeholder="Select an OS image" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {images?.map((image) => (
+                        <SelectItem key={image.name} value={image.name}>
+                          <div className="flex items-center justify-between gap-4">
+                            <span>{image.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {image.virtual_size.toFixed(2)} GB
+                            </span>
+                          </div>
                         </SelectItem>
                       ))}
-                    <Separator className="my-1" />
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                      Windows
-                    </div>
-                    {osTemplates
-                      .filter((os) => os.category === "Windows")
-                      .map((os) => (
-                        <SelectItem key={os.id} value={os.id}>
-                          {os.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Resource Configuration */}
           <Card className="border-border bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -160,65 +176,88 @@ export default function ProvisionPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="cpu">CPU</Label>
-                <Select value={cpu} onValueChange={setCpu}>
-                  <SelectTrigger id="cpu" className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cpuOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex items-center justify-between gap-4">
-                          <span>{opt.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="vcpus" className="flex items-center gap-2">
+                  <Cpu className="h-4 w-4" />
+                  Virtual CPUs
+                </Label>
+                <Input
+                  id="vcpus"
+                  type="number"
+                  min="1"
+                  max={totalCPUs}
+                  value={vcpus}
+                  onChange={(e) => setVcpus(e.target.value)}
+                  className={cpuExceedsAvailable ? "border-destructive" : ""}
+                />
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    Available: {totalCPUs} cores
+                  </span>
+                  {cpuExceedsAvailable && (
+                    <span className="text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Exceeds available CPUs
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="ram">RAM</Label>
-                <Select value={ram} onValueChange={setRam}>
-                  <SelectTrigger id="ram" className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ramOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex items-center justify-between gap-4">
-                          <span>{opt.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="mem" className="flex items-center gap-2">
+                  <MemoryStick className="h-4 w-4" />
+                  Memory (GB)
+                </Label>
+                <Input
+                  id="mem"
+                  type="number"
+                  min="1"
+                  value={mem}
+                  onChange={(e) => setMem(e.target.value)}
+                  className={memExceedsAvailable ? "border-destructive" : ""}
+                />
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    Available: {availableMemGB.toFixed(2)} GB
+                  </span>
+                  {memExceedsAvailable && (
+                    <span className="text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Exceeds available memory
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="disk">Storage</Label>
-                <Select value={disk} onValueChange={setDisk}>
-                  <SelectTrigger id="disk" className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {diskOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex items-center justify-between gap-4">
-                          <span>{opt.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="disk" className="flex items-center gap-2">
+                  <HardDrive className="h-4 w-4" />
+                  Disk Size (GB)
+                </Label>
+                <Input
+                  id="disk"
+                  type="number"
+                  min="1"
+                  value={diskSize}
+                  onChange={(e) => setDiskSize(e.target.value)}
+                  className={diskExceedsAvailable ? "border-destructive" : ""}
+                />
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    Available: {availableDiskGB.toFixed(2)} GB
+                  </span>
+                  {diskExceedsAvailable && (
+                    <span className="text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Exceeds available disk space
+                    </span>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Summary Sidebar */}
         <div className="space-y-6">
-          {/* Configuration Summary */}
           <Card className="border-border bg-card sticky top-8">
             <CardHeader>
               <CardTitle>Configuration Summary</CardTitle>
@@ -227,17 +266,11 @@ export default function ProvisionPage() {
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
-                  <span className="text-sm text-muted-foreground">Name</span>
-                  <span className="font-mono text-sm text-right">
-                    {vmName || "Not set"}
+                  <span className="text-sm text-muted-foreground">
+                    OS Image
                   </span>
-                </div>
-                <div className="flex items-start justify-between">
-                  <span className="text-sm text-muted-foreground">OS</span>
-                  <span className="text-sm text-right">
-                    {selectedOS
-                      ? osTemplates.find((os) => os.id === selectedOS)?.name
-                      : "Not selected"}
+                  <span className="font-mono text-sm text-right max-w-[60%] break-words">
+                    {selectedOS || "Not selected"}
                   </span>
                 </div>
               </div>
@@ -248,40 +281,57 @@ export default function ProvisionPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Cpu className="h-4 w-4 text-primary" />
-                    <span className="text-sm">CPU</span>
+                    <span className="text-sm">vCPUs</span>
                   </div>
                   <span className="font-mono text-sm">
-                    {cpuOptions.find((opt) => opt.value === cpu)?.label}
+                    {vcpusNum > 0 ? vcpusNum : "-"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <HardDrive className="h-4 w-4 text-chart-2" />
-                    <span className="text-sm">RAM</span>
+                    <MemoryStick className="h-4 w-4 text-chart-2" />
+                    <span className="text-sm">Memory</span>
                   </div>
                   <span className="font-mono text-sm">
-                    {ramOptions.find((opt) => opt.value === ram)?.label}
+                    {memNum > 0 ? `${memNum} GB` : "-"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Network className="h-4 w-4 text-chart-4" />
-                    <span className="text-sm">Storage</span>
+                    <HardDrive className="h-4 w-4 text-chart-4" />
+                    <span className="text-sm">Disk</span>
                   </div>
                   <span className="font-mono text-sm">
-                    {diskOptions.find((opt) => opt.value === disk)?.label}
+                    {diskNum > 0 ? `${diskNum} GB` : "-"}
                   </span>
                 </div>
               </div>
 
               <Separator />
 
+              {(memExceedsAvailable ||
+                diskExceedsAvailable ||
+                cpuExceedsAvailable) && (
+                <>
+                  <div className="rounded-md bg-destructive/10 border border-destructive p-3">
+                    <p className="text-sm text-destructive font-medium">
+                      Resource limits exceeded
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Please adjust your configuration to fit within available
+                      resources
+                    </p>
+                  </div>
+                  <Separator />
+                </>
+              )}
+
               <Button
                 className="w-full"
-                disabled={!isFormValid || isProvisioning}
+                disabled={!isFormValid || createVM.isPending}
                 onClick={handleProvision}
               >
-                {isProvisioning ? (
+                {createVM.isPending ? (
                   <>
                     <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                     Provisioning...
@@ -293,27 +343,51 @@ export default function ProvisionPage() {
                   </>
                 )}
               </Button>
+
+              {createVM.isError && (
+                <div className="rounded-md bg-destructive/10 border border-destructive p-3">
+                  <p className="text-sm text-destructive font-medium">
+                    Failed to provision VM
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {createVM.error instanceof Error
+                      ? createVM.error.message
+                      : "Unknown error occurred"}
+                  </p>
+                </div>
+              )}
+
+              {createVM.isSuccess && (
+                <div className="rounded-md bg-chart-3/10 border border-chart-3 p-3">
+                  <p className="text-sm text-chart-3 font-medium">
+                    VM provisioned successfully!
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Redirecting to dashboard...
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Quick Tips */}
           <Card className="border-border bg-card">
             <CardHeader>
-              <CardTitle className="text-base">Quick Tips</CardTitle>
+              <CardTitle className="text-base">Resource Guidelines</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1">
-                <p className="text-sm font-medium">Start small, scale up</p>
+                <p className="text-sm font-medium">Start conservative</p>
                 <p className="text-xs text-muted-foreground">
-                  You can always upgrade resources later as your needs grow
+                  Allocate only what you need initially. You can always adjust
+                  later.
                 </p>
               </div>
               <Separator />
               <div className="space-y-1">
-                <p className="text-sm font-medium">Use descriptive names</p>
+                <p className="text-sm font-medium">Leave headroom</p>
                 <p className="text-xs text-muted-foreground">
-                  Include environment and purpose in VM names for easy
-                  identification
+                  Don't allocate all available resources - leave some for the
+                  host system.
                 </p>
               </div>
             </CardContent>
