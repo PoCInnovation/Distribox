@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import Session from "supertokens-auth-react/recipe/session";
+import { isAuthenticated } from "@/lib/api";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -8,28 +8,22 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    async function checkAuth() {
-      const sessionExists = await Session.doesSessionExist();
-      
-      if (!sessionExists) {
-        navigate("/auth");
+    // Only check auth on client side
+    if (typeof window !== "undefined") {
+      if (!isAuthenticated()) {
+        navigate("/auth/login", { replace: true });
       } else {
-        setIsLoading(false);
+        setIsChecking(false);
       }
     }
-
-    checkAuth();
   }, [navigate]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
+  // Show nothing while checking (prevents flash of content)
+  if (isChecking) {
+    return null;
   }
 
   return <>{children}</>;

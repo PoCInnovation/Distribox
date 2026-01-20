@@ -3,4 +3,7 @@ libvirt-python
 lxml
 sqlmodel
 psycopg2
-supertokens-python
+sniffio
+bcrypt
+pyjwt
+python-multipart

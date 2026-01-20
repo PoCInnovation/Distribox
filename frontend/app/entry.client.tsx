@@ -1,13 +1,12 @@
-import { hydrateRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import { initSuperTokens } from './config/supertokens';
-import App from './root';
+import { startTransition, StrictMode } from "react";
+import { hydrateRoot } from "react-dom/client";
+import { HydratedRouter } from "react-router/dom";
 
-initSuperTokens();
-
-hydrateRoot(
-  document.getElementById('root') as HTMLElement,
-  <BrowserRouter>
-    <App />
-  </BrowserRouter>
-);
+startTransition(() => {
+  hydrateRoot(
+    document,
+    <StrictMode>
+      <HydratedRouter />
+    </StrictMode>
+  );
+});
