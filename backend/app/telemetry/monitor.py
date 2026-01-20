@@ -86,7 +86,8 @@ class SystemMonitor:
             self.cpu["percent_used_per_vm"] = []
             for vm_counter_t1 in cpu_usage_t1["per_vm_counter"]:
                 vm_counter_t2 = next(
-                    (vm for vm in cpu_usage_t2["per_vm_counter"] if vm["id"] == vm_counter_t1["id"]),
+                    (vm for vm in cpu_usage_t2["per_vm_counter"]
+                     if vm["id"] == vm_counter_t1["id"]),
                     None)
                 if vm_counter_t2 is None:
                     continue

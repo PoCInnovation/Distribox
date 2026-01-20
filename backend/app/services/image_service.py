@@ -20,7 +20,9 @@ class ImageService():
             image_info_json = json.loads(image_info.stdout)
             image_list.append(ImageRead(
                 name=image_info_json["filename"].split("/")[-1],
-                virtual_size=round(image_info_json["virtual-size"] / (1024 ** 3), 2),
-                actual_size=round(image_info_json["actual-size"] / (1024 ** 3), 2)
+                virtual_size=round(
+                    image_info_json["virtual-size"] / (1024 ** 3), 2),
+                actual_size=round(
+                    image_info_json["actual-size"] / (1024 ** 3), 2)
             ))
         return image_list
