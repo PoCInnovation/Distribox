@@ -8,3 +8,4 @@ sniffio
 bcrypt
 pyjwt
 python-multipart
+psutil
