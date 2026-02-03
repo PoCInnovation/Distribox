@@ -1,6 +1,6 @@
 sudo apt update
 echo "Installing libvirt dependencies..."
-sudo apt install -y qemu-kvm libvirt-daemon-system genisoimage libvirt-clients bridge-utils virtinst pkg-config libvirt-dev python3-dev 
+sudo apt install -y qemu-kvm libvirt-daemon-system genisoimage libvirt-clients bridge-utils virtinst pkg-config libvirt-dev python3-dev libguestfs-tools
 echo "Enabling libvirt daemon (libvirtd)..."
 sudo systemctl enable --now libvirtd
 

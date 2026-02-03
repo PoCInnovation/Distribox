@@ -3,7 +3,7 @@ libvirt-python
 lxml
 psutil
 sqlmodel
-psycopg2
+psycopg2-binary
 sniffio
 bcrypt
 pyjwt
