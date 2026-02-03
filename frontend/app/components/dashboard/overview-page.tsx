@@ -22,41 +22,14 @@ import {
   Cpu,
   HardDrive,
   Network,
-  Activity,
-  Users,
 } from "lucide-react";
 import { DashboardVMsTable, type VM } from "@/components/dashboard/vms-table";
-
-const stats = [
-  {
-    label: "Total VMs",
-    value: "24",
-    change: "+3 this week",
-    icon: Server,
-    color: "text-primary",
-  },
-  {
-    label: "Active VMs",
-    value: "18",
-    change: "75% utilization",
-    icon: Activity,
-    color: "text-chart-3",
-  },
-  {
-    label: "Total Users",
-    value: "47",
-    change: "+5 this month",
-    icon: Users,
-    color: "text-accent",
-  },
-  {
-    label: "Storage Used",
-    value: "2.4 TB",
-    change: "of 5 TB",
-    icon: HardDrive,
-    color: "text-chart-4",
-  },
-];
+import { useHostInfo } from "@/hooks/useHostInfo";
+import {
+  CompactCPUInfo,
+  CompactMemoryInfo,
+  CompactDiskInfo,
+} from "@/components/dashboard/compact-host-info";
 
 const mockVMs: VM[] = [
   {
@@ -195,6 +168,10 @@ export default function OverviewPage() {
   const [vmToDelete, setVmToDelete] = useState<VM | null>(null);
   const [vms, setVms] = useState(mockVMs);
   const [operatingVMs, setOperatingVMs] = useState<Set<string>>(new Set());
+  const { data: hostInfo } = useHostInfo();
+
+  const totalVMs = vms.length;
+  const activeVMs = vms.filter((vm) => vm.status === "running").length;
 
   const handleStartVM = async (vm: VM, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -354,38 +331,58 @@ export default function OverviewPage() {
         </p>
       </div>
 
-      <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card
-              key={stat.label}
-              className="border-border bg-card p-6 transition-all hover:border-primary/50"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {stat.label}
-                  </p>
-                  <p className="mt-2 font-mono text-3xl font-bold">
-                    {stat.value}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {stat.change}
-                  </p>
-                </div>
-                <div
-                  className={`flex h-12 w-12 items-center justify-center border border-border bg-secondary ${stat.color}`}
-                >
-                  <Icon className="h-6 w-6" />
-                </div>
-              </div>
-            </Card>
-          );
-        })}
+      <div className="mb-6 grid gap-4 md:grid-cols-2">
+        <Card className="border-border bg-card p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Virtual Machines
+              </p>
+              <p className="mt-2 font-mono text-3xl font-bold">
+                <span className="text-accent">{activeVMs}</span>
+                <span className="text-muted-foreground">/</span>
+                {totalVMs}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {activeVMs} active, {totalVMs - activeVMs} stopped
+              </p>
+            </div>
+            <div className="flex h-12 w-12 items-center justify-center border border-border bg-secondary text-primary">
+              <Server className="h-6 w-6" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="border-border bg-card p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Storage Used
+              </p>
+              <p className="mt-2 font-mono text-3xl font-bold">
+                {hostInfo ? `${hostInfo.disk.used.toFixed(2)} GB` : "..."}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {hostInfo
+                  ? `of ${hostInfo.disk.total.toFixed(2)} GB (${hostInfo.disk.percent_used.toFixed(1)}%)`
+                  : "Loading..."}
+              </p>
+            </div>
+            <div className="flex h-12 w-12 items-center justify-center border border-border bg-secondary text-chart-4">
+              <HardDrive className="h-6 w-6" />
+            </div>
+          </div>
+        </Card>
       </div>
 
-      {/* VMs Table */}
+      {hostInfo && (
+        <div className="mb-8 w-full flex flex-row space-x-2">
+          <CompactCPUInfo cpu={hostInfo.cpu} />
+          <CompactMemoryInfo mem={hostInfo.mem} />
+          <CompactDiskInfo disk={hostInfo.disk} />
+        </div>
+      )}
+
       <Card className="border-border bg-card overflow-hidden py-0">
         <div className="p-4">
           <DashboardVMsTable
@@ -402,7 +399,6 @@ export default function OverviewPage() {
         </div>
       </Card>
 
-      {/* VM Details Dialog */}
       <Dialog open={!!selectedVM} onOpenChange={() => setSelectedVM(null)}>
         <DialogContent className="max-w-2xl">
           {selectedVM && (
@@ -612,7 +608,6 @@ export default function OverviewPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
