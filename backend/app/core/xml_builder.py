@@ -33,7 +33,7 @@ def build_xml(vm_read: VmRead):
     disk_main = etree.SubElement(devices, "disk", type="file", device="disk")
     etree.SubElement(disk_main, "driver", name="qemu", type="qcow2")
     etree.SubElement(disk_main, "source", file=str(
-        VMS_DIR / str(vm_read.id) / f"distribox-{vm_read.os}.qcow2"))
+        VMS_DIR / str(vm_read.id) / vm_read.os))
     etree.SubElement(disk_main, "target", dev="vda", bus="virtio")
 
     channel = etree.SubElement(devices, "channel", type="unix")
