@@ -20,18 +20,18 @@ def get_vm(vm_id: str):
 @router.post("/{vm_id}/start",
              status_code=status.HTTP_200_OK,
              response_model=VmRead)
+
 def start_vm(vm_id: str):
     vm = VmService.start_vm(vm_id)
     return vm
 
-
 @router.post("/{vm_id}/stop",
              status_code=status.HTTP_200_OK,
              response_model=VmRead)
+
 def stop_vm(vm_id: str):
     vm = VmService.stop_vm(vm_id)
     return vm
-
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=VmRead)
 def create_vm(vm: VmCreate):

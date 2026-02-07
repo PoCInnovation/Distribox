@@ -15,6 +15,7 @@ class VmRead(VmBase):
 
 
 class VmCreate(VmBase):
+    activate_at_start: bool
     pass
 
 
