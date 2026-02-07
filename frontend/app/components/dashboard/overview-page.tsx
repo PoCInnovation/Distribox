@@ -321,7 +321,7 @@ export default function OverviewPage() {
   };
 
   return (
-    <div className="h-full p-8">
+    <div className="h-full p-8 mb-10">
       <div className="mb-8">
         <h1 className="mb-2 font-mono text-3xl font-bold tracking-tight text-balance">
           Dashboard Overview
@@ -376,14 +376,14 @@ export default function OverviewPage() {
       </div>
 
       {hostInfo && (
-        <div className="mb-8 w-full flex flex-row space-x-2">
+        <div className="mb-8 w-full grid lg:grid-cols-3 gap-2">
           <CompactCPUInfo cpu={hostInfo.cpu} />
           <CompactMemoryInfo mem={hostInfo.mem} />
           <CompactDiskInfo disk={hostInfo.disk} />
         </div>
       )}
 
-      <Card className="border-border bg-card overflow-hidden py-0">
+      <Card className="border-border bg-card py-0">
         <div className="p-4">
           <DashboardVMsTable
             vms={vms}
