@@ -77,7 +77,7 @@ export default function ProvisionPage() {
 
     try {
       await createVM.mutateAsync({
-        os: selectedOS.split("-")[1].split(".")[0],
+        os: selectedOS,
         vcpus: vcpusNum,
         mem: memNum,
         disk_size: diskNum,
