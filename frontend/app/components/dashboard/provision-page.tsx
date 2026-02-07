@@ -77,7 +77,7 @@ export default function ProvisionPage() {
 
     try {
       await createVM.mutateAsync({
-        os: selectedOS,
+        os: selectedOS.split("-")[1].split(".")[0],
         vcpus: vcpusNum,
         mem: memNum,
         disk_size: diskNum,
@@ -126,7 +126,7 @@ export default function ProvisionPage() {
                 Select the base image for your virtual machine
               </CardDescription>
             </CardHeader>
-            <CardContent className="w-full flex justify-center">
+            <CardContent className="w-full">
               <VMImageSelect selectedOS={selectedOS} setSelectedOS={setSelectedOS} />
             </CardContent>
           </Card>
@@ -294,7 +294,7 @@ export default function ProvisionPage() {
               )}
 
               <Button
-                className="w-full"
+                className="w-full cursor-pointer"
                 disabled={!isFormValid || createVM.isPending}
                 onClick={handleProvision}
               >
