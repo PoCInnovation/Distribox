@@ -1,3 +1,4 @@
+set -e
 sudo apt update
 echo "Installing libvirt dependencies..."
 sudo apt install -y qemu-kvm libvirt-daemon-system genisoimage libvirt-clients bridge-utils virtinst pkg-config libvirt-dev python3-dev libguestfs-tools
@@ -10,7 +11,7 @@ sudo mkdir /var/lib/distribox/images
 sudo mkdir /var/lib/distribox/vms
 
 sudo groupadd -f distribox
-sudo usermod -aG distribox,kvm "$SUDO_USER"
+sudo usermod -aG distribox,kvm "$USER"
 
 sudo chown -R root:distribox /var/lib/distribox
 sudo chown -R root:distribox /var/lib/distribox/images
