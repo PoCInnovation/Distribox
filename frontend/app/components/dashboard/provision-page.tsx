@@ -127,7 +127,10 @@ export default function ProvisionPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="w-full">
-              <VMImageSelect selectedOS={selectedOS} setSelectedOS={setSelectedOS} />
+              <VMImageSelect
+                selectedOS={selectedOS}
+                setSelectedOS={setSelectedOS}
+              />
             </CardContent>
           </Card>
 

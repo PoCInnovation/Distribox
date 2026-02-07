@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/empty";
 import { CloudIcon, FrownIcon, LoaderCircleIcon, XIcon } from "lucide-react";
 import type { Image as ImageType } from "~/lib/api";
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Image } from "@unpic/react";
 
 interface VMImageSelectProps {
@@ -95,8 +95,18 @@ function ImageSelectOptions({ images }: { images: ImageType[] }) {
     <ScrollArea className="rounded-lg border-dashed text-center text-balance h-80 p-2">
       <div className="space-y-2">
         {images?.map((image) => (
-          <SelectItem key={image.name} value={image.name} className="focus:bg-primary/25 focus:text-inherit h-fit border border-primary bg-primary/10 cursor-pointer">
-            <Image className="transform translate-x-3" src="https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/debian-logo-icon.png" width={45} height={45} alt="" />
+          <SelectItem
+            key={image.name}
+            value={image.name}
+            className="focus:bg-primary/25 focus:text-inherit h-fit border border-primary bg-primary/10 cursor-pointer"
+          >
+            <Image
+              className="transform translate-x-3"
+              src="https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/debian-logo-icon.png"
+              width={45}
+              height={45}
+              alt=""
+            />
             <div className="grid grid-cols-1 text-left py-5 px-6">
               <div className="space-x-3">
                 <span className="text-l font-mono">Debian 12</span>
@@ -110,8 +120,18 @@ function ImageSelectOptions({ images }: { images: ImageType[] }) {
             </div>
           </SelectItem>
         ))}
-        <SelectItem key={"ubuntu"} value={"ubuntu"} className="focus:bg-primary/25 focus:text-inherit h-fit border border-primary bg-primary/10 cursor-pointer">
-          <Image className="transform translate-x-3" src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/UbuntuCoF.svg/960px-UbuntuCoF.svg.png" width={45} height={45} alt="" />
+        <SelectItem
+          key={"ubuntu"}
+          value={"ubuntu"}
+          className="focus:bg-primary/25 focus:text-inherit h-fit border border-primary bg-primary/10 cursor-pointer"
+        >
+          <Image
+            className="transform translate-x-3"
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/UbuntuCoF.svg/960px-UbuntuCoF.svg.png"
+            width={45}
+            height={45}
+            alt=""
+          />
           <div className="flex flex-col items-start justify-between gap-1 py-5 px-6">
             <div className="space-x-3">
               <span className="text-l font-mono">Ubuntu 25.10</span>
