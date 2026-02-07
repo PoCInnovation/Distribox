@@ -383,7 +383,7 @@ export default function OverviewPage() {
         </div>
       )}
 
-      <Card className="border-border bg-card py-0">
+      <Card className="border-border bg-card py-0 pb-10 mb-10">
         <div className="p-4">
           <DashboardVMsTable
             vms={vms}

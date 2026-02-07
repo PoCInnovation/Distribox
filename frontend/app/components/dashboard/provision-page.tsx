@@ -9,13 +9,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   Server,
@@ -26,7 +19,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useHostInfo } from "@/hooks/useHostInfo";
-import { useImages } from "@/hooks/useImages";
 import { useCreateVM } from "@/hooks/useCreateVM";
 import {
   CompactCPUInfo,
@@ -34,11 +26,11 @@ import {
   CompactDiskInfo,
 } from "@/components/dashboard/compact-host-info";
 import { useNavigate } from "react-router";
+import { VMImageSelect } from "@/components/dashboard/vm-image-select";
 
 export default function ProvisionPage() {
   const navigate = useNavigate();
   const { data: hostInfo } = useHostInfo();
-  const { data: images, isLoading: imagesLoading } = useImages();
   const createVM = useCreateVM();
 
   const [selectedOS, setSelectedOS] = useState("");
@@ -134,33 +126,8 @@ export default function ProvisionPage() {
                 Select the base image for your virtual machine
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="os-template">Image</Label>
-                {imagesLoading ? (
-                  <div className="text-sm text-muted-foreground">
-                    Loading images...
-                  </div>
-                ) : (
-                  <Select value={selectedOS} onValueChange={setSelectedOS}>
-                    <SelectTrigger id="os-template">
-                      <SelectValue placeholder="Select an OS image" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {images?.map((image) => (
-                        <SelectItem key={image.name} value={image.name}>
-                          <div className="flex items-center justify-between gap-4">
-                            <span>{image.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {image.virtual_size.toFixed(2)} GB
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
+            <CardContent className="w-full flex justify-center">
+              <VMImageSelect selectedOS={selectedOS} setSelectedOS={setSelectedOS} />
             </CardContent>
           </Card>
 
@@ -187,14 +154,14 @@ export default function ProvisionPage() {
                   max={totalCPUs}
                   value={vcpus}
                   onChange={(e) => setVcpus(e.target.value)}
-                  className={cpuExceedsAvailable ? "border-destructive" : ""}
+                  className={cpuExceedsAvailable ? "border-accent" : ""}
                 />
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
                     Available: {totalCPUs} cores
                   </span>
                   {cpuExceedsAvailable && (
-                    <span className="text-destructive flex items-center gap-1">
+                    <span className="text-accent flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />
                       Exceeds available CPUs
                     </span>
@@ -213,14 +180,14 @@ export default function ProvisionPage() {
                   min="1"
                   value={mem}
                   onChange={(e) => setMem(e.target.value)}
-                  className={memExceedsAvailable ? "border-destructive" : ""}
+                  className={memExceedsAvailable ? "border-accent" : ""}
                 />
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
                     Available: {availableMemGB.toFixed(2)} GB
                   </span>
                   {memExceedsAvailable && (
-                    <span className="text-destructive flex items-center gap-1">
+                    <span className="text-accent flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />
                       Exceeds available memory
                     </span>
@@ -239,14 +206,14 @@ export default function ProvisionPage() {
                   min="1"
                   value={diskSize}
                   onChange={(e) => setDiskSize(e.target.value)}
-                  className={diskExceedsAvailable ? "border-destructive" : ""}
+                  className={diskExceedsAvailable ? "border-accent" : ""}
                 />
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
                     Available: {availableDiskGB.toFixed(2)} GB
                   </span>
                   {diskExceedsAvailable && (
-                    <span className="text-destructive flex items-center gap-1">
+                    <span className="text-accent flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />
                       Exceeds available disk space
                     </span>
@@ -313,8 +280,8 @@ export default function ProvisionPage() {
                 diskExceedsAvailable ||
                 cpuExceedsAvailable) && (
                 <>
-                  <div className="rounded-md bg-destructive/10 border border-destructive p-3">
-                    <p className="text-sm text-destructive font-medium">
+                  <div className="rounded-md bg-accent/10 border border-accent p-3">
+                    <p className="text-sm text-accent font-medium">
                       Resource limits exceeded
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -345,8 +312,8 @@ export default function ProvisionPage() {
               </Button>
 
               {createVM.isError && (
-                <div className="rounded-md bg-destructive/10 border border-destructive p-3">
-                  <p className="text-sm text-destructive font-medium">
+                <div className="rounded-md bg-accent/10 border border-accent p-3">
+                  <p className="text-sm text-accent font-medium">
                     Failed to provision VM
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
