@@ -31,7 +31,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     )
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+        data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Create a JWT access token."""
     to_encode = data.copy()
     if expires_delta:
@@ -55,7 +56,8 @@ def decode_access_token(token: str) -> Optional[dict]:
         return None
 
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> UserORM:
+async def get_current_user(
+        credentials: HTTPAuthorizationCredentials = Depends(security)) -> UserORM:
     """
     Dependency to get the current authenticated user from JWT token.
     Use this in your route handlers to protect endpoints.
@@ -86,7 +88,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         return user
 
 
-async def get_current_admin_user(current_user: UserORM = Depends(get_current_user)) -> UserORM:
+async def get_current_admin_user(
+        current_user: UserORM = Depends(get_current_user)) -> UserORM:
     """
     Dependency to ensure the current user is an admin.
     """

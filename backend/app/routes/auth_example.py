@@ -19,7 +19,8 @@ async def get_user_info(session: SessionContainer = Depends(get_current_user)):
 
 
 @router.get("/protected")
-async def protected_route(session: SessionContainer = Depends(get_current_user)):
+async def protected_route(
+        session: SessionContainer = Depends(get_current_user)):
     """
     Another example of a protected endpoint.
     """
