@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 from app.routes import vm, image, host, auth
 from app.orm.user import UserORM
 from app.utils.auth import hash_password
-from app.core.config import engine
+from app.core.config import engine, init_db
 import os
 
 app = FastAPI()
@@ -22,7 +22,9 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Create default admin user if it doesn't exist."""
+    """Initialize database and create default admin user if it doesn't exist."""
+    init_db()  # This might be temporary
+
     admin_username = os.getenv("ADMIN_USERNAME", "admin")
     admin_password = os.getenv("ADMIN_PASSWORD", "admin")
 

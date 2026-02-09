@@ -1,12 +1,7 @@
 import shutil
 import psutil
-from app.core.config import QEMUConfig
-from threading import Thread
 from app.models.host import HostInfoBase
 from app.services.vm_service import VmService
-import libvirt
-from time import sleep
-from collections import Counter
 from app.core.config import system_monitor
 
 # cpu_total_usage = 0
@@ -40,15 +35,6 @@ from app.core.config import system_monitor
 
 
 # Thread(target=get_cpu_usage, daemon=True).start()
-
-conn = QEMUConfig.get_connection()
-stats = conn.getAllDomainStats(
-    stats=libvirt.VIR_DOMAIN_STATS_CPU_TOTAL | libvirt.VIR_DOMAIN_STATS_INTERFACE,
-    flags=libvirt.VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING)
-
-for s in stats:
-    print('lol')
-    print(s[0].name(), s[1])
 
 # cpu_overall_time_t1 = psutil.cpu_times(percpu=True)
 # cpu_total_time_t1 = psutil.cpu_times()
