@@ -1,11 +1,13 @@
 #!/bin/bash
+
+set -e
+
 CLOUD_IMG_URL=https://fastly.mirror.pkgbuild.com/images/v20250901.414475/Arch-Linux-x86_64-cloudimg.qcow2
 DISTRIBOX_IMG_PATH="/var/lib/distribox/images/"
 CLOUD_IMG_SOURCE="${CLOUD_IMG_URL##*/}"
 
 wget -O "/tmp/${CLOUD_IMG_SOURCE}" $CLOUD_IMG_URL
 
-set -e 
 sudo qemu-img create -f qcow2 /tmp/resized_image.qcow2 9G
 sudo virt-resize --expand /dev/sda3 \
     "/tmp/$CLOUD_IMG_SOURCE" \
