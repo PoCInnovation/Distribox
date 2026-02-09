@@ -11,6 +11,8 @@ if [ -z "$IMAGE" ]; then
     exit 1
 fi
 
+mkdir -p $OUTPUT_DIR
+
 docker build --build-arg "IMAGE=$IMAGE" -t $IMAGE_NAME .
 
 docker run --rm --privileged \
