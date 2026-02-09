@@ -20,6 +20,9 @@ importers:
       commander:
         specifier: ^14.0.3
         version: 14.0.3
+      dotenv:
+        specifier: ^17.2.4
+        version: 17.2.4
       ora:
         specifier: ^9.3.0
         version: 9.3.0
@@ -512,6 +515,10 @@ packages:
   diff@4.0.4:
     resolution: {integrity: sha512-X07nttJQkwkfKfvTPG/KSnE2OMdcUCao6+eXF3wmnIQRn2aPAHH3VxDbDOdegkd6JbPsXqShpvEOHfAT+nCNwQ==}
     engines: {node: '>=0.3.1'}
+
+  dotenv@17.2.4:
+    resolution: {integrity: sha512-mudtfb4zRB4bVvdj0xRo+e6duH1csJRM8IukBqfTRvHotn9+LBXB8ynAidP9zHqoRC/fsllXgk4kCKlR21fIhw==}
+    engines: {node: '>=12'}
 
   events@3.3.0:
     resolution: {integrity: sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==}
@@ -1549,6 +1556,8 @@ snapshots:
   create-require@1.1.1: {}
 
   diff@4.0.4: {}
+
+  dotenv@17.2.4: {}
 
   events@3.3.0: {}
 

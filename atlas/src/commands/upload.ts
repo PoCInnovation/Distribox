@@ -28,11 +28,11 @@ export async function upload(path: string) {
 
   try {
     if (pathInfo.isFile) {
-      await uploadFile(path);
+      await uploadFile(path, spinner);
     }
 
     if (pathInfo.isDirectory) {
-      await uploadDirectory(path);
+      await uploadDirectory(path, spinner);
     }
   } catch (error) {
     if (error instanceof Error) {
