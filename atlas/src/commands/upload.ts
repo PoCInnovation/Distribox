@@ -8,7 +8,7 @@ export async function upload(path: string) {
   const pathInfo = await getPathInfo(path);
   const spinner = ora(
     "Processing your request with the minutiae of a crocodile...",
-  ).start();
+  ).info();
 
   if (!pathInfo.exists) {
     spinner.fail(

@@ -16,7 +16,7 @@ export async function uploadDirectory(path: string, spinner: Ora) {
   }
 
   for (const [index, image] of images.entries()) {
-    spinner.info(
+    spinner.start(
       `Uploading ${chalk.cyan(image)} (${chalk.yellow(index + 1)}/${chalk.yellow(images.length)})...`,
     );
     await s3uploadImage(`${path}/${image}`, image);

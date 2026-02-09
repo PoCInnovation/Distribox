@@ -14,6 +14,6 @@ export async function uploadFile(path: string, spinner: Ora) {
 
   console.log(chalk.cyan(`\`${filename}\` is a valid qcow2 image.`));
 
-  spinner.info(`Uploading ${chalk.cyan(filename)}...`);
+  spinner.start(`Uploading ${chalk.cyan(filename)}...`);
   await s3uploadImage(path, filename);
 }
