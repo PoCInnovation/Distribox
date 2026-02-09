@@ -154,6 +154,7 @@ export interface CreateVMPayload {
   mem: number;
   vcpus: number;
   disk_size: number;
+  activate_at_start: boolean;
 }
 
 export async function createVM(payload: CreateVMPayload): Promise<void> {

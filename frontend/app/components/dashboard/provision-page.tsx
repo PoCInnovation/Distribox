@@ -27,12 +27,14 @@ import {
 } from "@/components/dashboard/compact-host-info";
 import { useNavigate } from "react-router";
 import { VMImageSelect } from "@/components/dashboard/vm-image-select";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function ProvisionPage() {
   const navigate = useNavigate();
   const { data: hostInfo } = useHostInfo();
   const createVM = useCreateVM();
 
+  const [autoStart, setAutoStart] = useState(false);
   const [selectedOS, setSelectedOS] = useState("");
   const [vcpus, setVcpus] = useState("2");
   const [mem, setMem] = useState("4");
@@ -81,6 +83,7 @@ export default function ProvisionPage() {
         vcpus: vcpusNum,
         mem: memNum,
         disk_size: diskNum,
+        activate_at_start: autoStart,
       });
 
       // Navigate back to dashboard on success
@@ -295,6 +298,18 @@ export default function ProvisionPage() {
                   <Separator />
                 </>
               )}
+
+              <div className="w-full flex flex-row items-center space-x-2">
+                <Checkbox
+                  checked={autoStart}
+                  onCheckedChange={(checked) =>
+                    setAutoStart(typeof checked === "boolean" ? checked : false)
+                  }
+                />
+                <span className="text-sm text-muted-foreground">
+                  Automatically start after creation
+                </span>
+              </div>
 
               <Button
                 className="w-full cursor-pointer"
