@@ -11,7 +11,7 @@ chmod +x libvirt-install.sh
 ./libvirt-install.sh
 ```
 
-> Note: This script is only works on debian-based systems. Other distributions are
+> Note: This script is only works on debian-based systems. Other distributions are in the backlog.
 
 ## Create an image
 
