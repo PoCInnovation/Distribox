@@ -24,4 +24,4 @@ docker run --rm \
 
 chmod 775 $IMAGE
 
-echo "Distribox image is in $IMAGE"
+echo "Distribox image is in $OUTPUT_DIR"
