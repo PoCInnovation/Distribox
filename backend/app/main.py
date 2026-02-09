@@ -13,7 +13,7 @@ app = FastAPI()
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["GET", "PUT", "POST", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Content-Type", "Authorization"],
@@ -59,7 +59,6 @@ async def general_exception_handler(_, exc: Exception):
         status_code=500,
         content={"detail": str(exc)}
     )
-
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(vm.router, prefix="/vms", tags=["vms"])

@@ -22,10 +22,6 @@ class Vm:
         self.vcpus = vm_create.vcpus
         self.disk_size = vm_create.disk_size
         self.state: Optional[str] = None
-
-    def create(self):
-        if self.state:
-            return self
         self.state = 'Stopped'
         vm_dir = VMS_DIR / str(self.id)
         distribox_image_dir = IMAGES_DIR / f"distribox-{self.os}.qcow2"
@@ -48,9 +44,11 @@ class Vm:
                 )
                 session.add(vm_record)
                 session.commit()
-            return self
+            if vm_create.activate_at_start is True:
+                self.start()
         except Exception:
             raise
+    # def create(self):
 
     @classmethod
     def get(cls, vm_id: str):
@@ -190,7 +188,7 @@ class VmService:
 
     def create_vm(vm_create: VmCreate):
         vm = Vm(vm_create)
-        vm.create()
+        # vm.create()
         return vm
 
     def start_vm(vm_id: str):
