@@ -34,3 +34,14 @@ docker run --rm \
     -v $(pwd)/dist:/var/lib/distribox/images \ # This maps the output of the builder to the `dist` folder through a shared volume
     qcow2-builder
 ```
+
+## Build all images
+
+You can use the `create-image.sh` script to build all images at once:
+
+```bash
+cd images
+./create-image.sh scripts/*.sh
+```
+
+> Note: This script will take a while to run and takes up a lot of disk space (about 2GB per image).
