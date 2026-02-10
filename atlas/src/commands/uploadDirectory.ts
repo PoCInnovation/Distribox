@@ -31,31 +31,33 @@ export async function uploadDirectory(directoryPath: string, spinner: Ora) {
 
   const metadataFiles = await s3fetchAllMetadata();
 
-  for (const [index, image] of images.entries()) {
+  for (const [index, imagePath] of images.entries()) {
     spinner.start(
-      `Processing ${chalk.cyan(image)} (${chalk.yellow(index + 1)}/${chalk.yellow(images.length)})...`,
+      `Processing ${chalk.cyan(imagePath)} (${chalk.yellow(index + 1)}/${chalk.yellow(images.length)})...`,
     );
 
-    const [_, filename] = await splitFile(image);
+    const [_, filename] = await splitFile(imagePath);
 
     const configFilename = `${filename.split(".")[0]}.metadata.yaml`;
     const configPath = `${directoryPath}/${configFilename}`;
 
     const metadata = await readMetadata(configPath);
-    const remoteMetadata = metadataFiles.find((m) => m.image === image);
+    const remoteMetadata = metadataFiles.find((m) => m.image === imagePath);
 
     // Upload if the image metadata isn't on the registry or the revision has changed
     if (!remoteMetadata || remoteMetadata.revision !== metadata.revision) {
       spinner.start(
-        `Uploading ${chalk.cyan(image)} (${chalk.yellow(index + 1)}/${chalk.yellow(images.length)})...`,
+        `Uploading ${chalk.cyan(imagePath)} (${chalk.yellow(index + 1)}/${chalk.yellow(images.length)})...`,
       );
 
-      await s3uploadObject(`${directoryPath}/${image}`, image);
+      const [_, imageFilename] = await splitFile(imagePath);
+
+      await s3uploadObject(imagePath, imageFilename);
       await s3uploadObject(configPath, configFilename);
     } else {
       console.log(
         chalk.cyan(
-          `Skipping ${chalk.cyan(image)} (${chalk.yellow(index + 1)}/${chalk.yellow(images.length)})...`,
+          `Skipping ${chalk.cyan(imagePath)} (${chalk.yellow(index + 1)}/${chalk.yellow(images.length)})...`,
         ),
       );
     }
