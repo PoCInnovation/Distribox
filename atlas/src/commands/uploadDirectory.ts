@@ -36,7 +36,9 @@ export async function uploadDirectory(directoryPath: string, spinner: Ora) {
       `Processing ${chalk.cyan(image)} (${chalk.yellow(index + 1)}/${chalk.yellow(images.length)})...`,
     );
 
-    const configFilename = `${image.split(".")[0]}.metadata.yaml`;
+    const [_, filename] = await splitFile(image);
+
+    const configFilename = `${filename.split(".")[0]}.metadata.yaml`;
     const configPath = `${directoryPath}/${configFilename}`;
 
     const metadata = await readMetadata(configPath);
