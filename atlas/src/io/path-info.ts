@@ -35,7 +35,6 @@ export async function getPathInfo(path: string): Promise<PathInfo> {
   if (result.isDirectory) {
     try {
       await readdir(path);
-      result.readable = false;
     } catch {
       result.readable = false;
     }
