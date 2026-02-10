@@ -1,0 +1,6 @@
+name: Arch Linux
+image: distribox-archlinux-rolling.qcow2
+version: rolling
+distribution: archlinux
+family: arch
+revision: 0

@@ -1,0 +1,6 @@
+name: AlmaLinux 9
+image: distribox-almalinux-9.qcow2
+version: 9
+distribution: almalinux
+family: redhat
+revision: 0

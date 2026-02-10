@@ -1,0 +1,6 @@
+name: CentOS Stream 10
+image: distribox-centos-10.qcow2
+version: 10
+distribution: centos
+family: redhat
+revision: 0
