@@ -4,7 +4,7 @@ import { getBucket } from "./bucket";
 import chalk from "chalk";
 import { Upload } from "@aws-sdk/lib-storage";
 
-export async function s3uploadImage(path: string, imageName: string) {
+export async function s3uploadObject(path: string, imageName: string) {
   const bucket = getBucket();
 
   const upload = new Upload({
