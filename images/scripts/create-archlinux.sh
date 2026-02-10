@@ -28,7 +28,7 @@ sudo virt-sysprep -a /tmp/resized_image.qcow2 --operations machine-id,ssh-hostke
 sudo virt-sparsify --compress /tmp/resized_image.qcow2 \
     "/var/lib/distribox/images/distribox-archlinux-rolling.qcow2"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR=/usr/local/bin
 sudo cp "${SCRIPT_DIR}/distribox-archlinux-rolling.metadata.yaml" ${DISTRIBOX_IMG_PATH}
 
 chmod 775 "${DISTRIBOX_IMG_PATH}distribox-archlinux-rolling.qcow2"
