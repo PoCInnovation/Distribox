@@ -117,6 +117,8 @@ The next step is to create a new metadata file in the `scripts/` directory. The 
 
 The metadata file is a YAML file that describes the image. Let's take a look at `distribox-ubuntu-22-04.metadata.yaml` as an example:
 
+> IMPORTANT: The version inside of the metadata **MUST BE separated by a dash**. For example, the version of `distribox-ubuntu-22-04.metadata.yaml` is `22-04` not `22.04`.
+
 ```yaml
 name: Ubuntu 22.04
 image: distribox-ubuntu-22.04.qcow2

@@ -6,7 +6,7 @@ import { splitFile } from "../io";
 
 export async function uploadDirectory(directoryPath: string, spinner: Ora) {
   console.log(
-    chalk.cyan(`Processing directory ${chalk.yellow(directoryPath)}...`),
+    chalk.cyan(`\nProcessing directory ${chalk.yellow(directoryPath)}...`),
   );
 
   const pattern = /^distribox-(.*)\.qcow2$/;
@@ -42,7 +42,7 @@ export async function uploadDirectory(directoryPath: string, spinner: Ora) {
     const configPath = `${directoryPath}/${configFilename}`;
 
     const metadata = await readMetadata(configPath);
-    const remoteMetadata = metadataFiles.find((m) => m.image === imagePath);
+    const remoteMetadata = metadataFiles.find((m) => m.image === filename);
 
     // Upload if the image metadata isn't on the registry or the revision has changed
     if (!remoteMetadata || remoteMetadata.revision !== metadata.revision) {
@@ -62,7 +62,7 @@ export async function uploadDirectory(directoryPath: string, spinner: Ora) {
     } else {
       console.log(
         chalk.cyan(
-          `Skipping ${chalk.cyan(imagePath)} (${chalk.yellow(index + 1)}/${chalk.yellow(images.length)})...`,
+          `\nSkipping ${chalk.cyan(imagePath)} (${chalk.yellow(index + 1)}/${chalk.yellow(images.length)}). Nothing to do.\nif you want to update this image on the registry please bump the revision.`,
         ),
       );
     }

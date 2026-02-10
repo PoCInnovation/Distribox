@@ -14,7 +14,7 @@ export async function uploadFile(path: string, spinner: Ora) {
 
   const [base, filename] = await splitFile(path);
 
-  console.log(chalk.cyan(`\`${filename}\` is a valid qcow2 image.`));
+  console.log(chalk.cyan(`\n\`${filename}\` is a valid qcow2 image.`));
 
   if (!pattern.test(filename)) {
     throw new Error(
@@ -38,7 +38,7 @@ export async function uploadFile(path: string, spinner: Ora) {
   } else {
     console.log(
       chalk.yellow(
-        `Nothing to do for ${chalk.cyan(filename)}. If you want to update this image on the registry, please bump the revision.`,
+        `\nNothing to do for ${chalk.cyan(filename)}.\nIf you want to update this image on the registry please bump the revision.`,
       ),
     );
   }
