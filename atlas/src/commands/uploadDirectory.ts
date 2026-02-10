@@ -53,6 +53,11 @@ export async function uploadDirectory(directoryPath: string, spinner: Ora) {
       const [_, imageFilename] = await splitFile(imagePath);
 
       await s3uploadObject(imagePath, imageFilename);
+
+      spinner.start(
+        `Uploading ${chalk.cyan(configPath)} (${chalk.yellow(index + 1)}/${chalk.yellow(images.length)})...`,
+      );
+
       await s3uploadObject(configPath, configFilename);
     } else {
       console.log(

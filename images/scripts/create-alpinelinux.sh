@@ -26,11 +26,11 @@ sudo virt-customize -a /tmp/resized_image.qcow2 \
 sudo virt-sysprep -a /tmp/resized_image.qcow2 --operations machine-id,ssh-hostkeys
 
 sudo virt-sparsify --compress /tmp/resized_image.qcow2 \
-    "/var/lib/distribox/images/distribox-alpinelinux-3.21.qcow2"
+    "/var/lib/distribox/images/distribox-alpinelinux-3-21.qcow2"
 
 SCRIPT_DIR=/usr/local/bin
-sudo cp "${SCRIPT_DIR}/distribox-alpinelinux-3.21.metadata.yaml" ${DISTRIBOX_IMG_PATH}
+sudo cp "${SCRIPT_DIR}/distribox-alpinelinux-3-21.metadata.yaml" ${DISTRIBOX_IMG_PATH}
 
-chmod 775 "${DISTRIBOX_IMG_PATH}distribox-alpinelinux-3.21.qcow2"
+chmod 775 "${DISTRIBOX_IMG_PATH}distribox-alpinelinux-3-21.qcow2"
 
 sudo rm -f /tmp/resized_image.qcow2

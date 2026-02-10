@@ -20,6 +20,6 @@ export async function s3uploadObject(path: string, imageName: string) {
   await upload.done();
 
   console.log(
-    `Image ${chalk.green(imageName)} uploaded to ${chalk.yellow(bucket)}`,
+    `Object ${chalk.green(imageName)} uploaded to ${chalk.yellow(bucket)}`,
   );
 }
