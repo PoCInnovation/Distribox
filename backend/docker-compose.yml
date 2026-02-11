@@ -8,12 +8,15 @@ services:
     environment:
       - POSTGRES_HOST=${POSTGRES_HOST:-database}
       - POSTGRES_PORT=${POSTGRES_PORT:-5432}
-      - POSTGRES_DB=${POSTGRES_NAME:-distribox}
+      - POSTGRES_NAME=${POSTGRES_NAME:-distribox}
       - POSTGRES_USER=${POSTGRES_USER:-distribox_user}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-distribox_password}
       - BACKEND_PORT=${BACKEND_PORT:-8080}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      - "${BACKEND_PORT:-8080}:${BACKEND_PORT:-8080}"
     volumes:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock
       - /var/lib/distribox:/var/lib/distribox
@@ -34,12 +37,15 @@ services:
     environment:
       - POSTGRES_HOST=${POSTGRES_HOST:-database}
       - POSTGRES_PORT=${POSTGRES_PORT:-5432}
-      - POSTGRES_DB=${POSTGRES_NAME:-distribox}
+      - POSTGRES_NAME=${POSTGRES_NAME:-distribox}
       - POSTGRES_USER=${POSTGRES_USER:-distribox_user}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-distribox_password}
       - BACKEND_PORT=${BACKEND_PORT:-8080}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      - "${BACKEND_PORT:-8080}:${BACKEND_PORT:-8080}"
     volumes:
       - ./app:/code/app
       - ./.env:/code/.env
