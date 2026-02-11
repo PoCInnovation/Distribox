@@ -52,6 +52,8 @@ Copy the `.env.default` file to `.env` and configure the following environment v
 - `AWS_REGION`: The AWS region to use. `eu-west-3` if you followed the instructions above.
 - `DISTRIBOX_BUCKET_REGISTRY`: The name of the bucket to use for the Distribox registry. You can use the `distribox-images` bucket.
 
+> Note: If you already have a profile setup, you might need to `unset AWS_PROFILE` before running atlas. It won't overwrite the profile if it's already set, therefore it will use the wrong credentials.
+
 ## Usage
 
 At it's core, the atlas is a CLI tool that allows you to upload images to the Distribox registry.
