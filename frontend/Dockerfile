@@ -1,21 +1,17 @@
-FROM node:20-alpine AS builder
-
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
+FROM node:24-alpine
+COPY . /app
 WORKDIR /app
 
-COPY pnpm-lock.yaml package.json ./
-
+RUN corepack enable && corepack prepare pnpm@latest --activate
+COPY ./package.json ./pnpm-lock.yaml /app/
+WORKDIR /app
 RUN pnpm install --frozen-lockfile
-
-COPY . .
 
 RUN pnpm build
 
-FROM nginx:stable-alpine AS production
+ENV PORT="3000"
+ENV NODE_ENV="production"
 
-COPY --from=builder /app/dist /usr/share/nginx/html
+WORKDIR /app
 
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["pnpm", "start"]

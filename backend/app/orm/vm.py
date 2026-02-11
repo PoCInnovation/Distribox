@@ -1,5 +1,6 @@
 from sqlmodel import SQLModel, Field
 import uuid
+from typing import Optional
 
 
 class VmORM(SQLModel, table=True, ):
@@ -10,4 +11,4 @@ class VmORM(SQLModel, table=True, ):
     mem: int
     vcpus: int
     disk_size: int
-    password: str | None = None
+    password: Optional[str] = None

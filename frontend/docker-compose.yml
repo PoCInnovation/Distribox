@@ -1,0 +1,18 @@
+---
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: distribox-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - distribox-network
+
+networks:
+  distribox-network:
+    name: distribox-network
