@@ -27,7 +27,34 @@ Libvirt interfaces with KVM (Kernel-based Virtual Machine) as its primary virtua
 
 All communication between the user's web client and the virtual machines happens exclusively through the Distribox backend. Users never connect directly to the VM instances themselves; access is strictly managed and mediated by the backend for security and control. This approach maintains a clear separation between the management interface and the actual VMs, helping hosts strictly regulate who can access which resources.
 
+## How to run the application
+
+To start the application in production mode, you can use the `prod` profile:
+
+```bash
+docker compose --profile prod up -d --build
+```
+
+This will:
+*   Build the `backend` service using the `production-stage` in `backend/Dockerfile`.
+*   Build the `frontend` service using the `production-stage` in `frontend/Dockerfile`.
+*   Start the `database` service.
+
+To start the development environment with automatic rebuilds for both backend and frontend:
+
+```bash
+docker compose --profile dev up --build
+```
+
+This command will:
+*   Build the `backend-dev` service using the `dev-stage` in `backend/Dockerfile`, with `uvicorn --reload`.
+*   Mount your local `backend/app` and `backend/.env` directories into the container for hot-reloading.
+*   Build the `frontend-dev` service using the `dev-stage` in `frontend/Dockerfile`, with `pnpm dev`.
+*   Mount your local `frontend` directory into the container for hot-reloading.
+*   Start the `database` service.
+
 ## Getting Started
+
 
 ### Installation
 
