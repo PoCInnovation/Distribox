@@ -14,6 +14,7 @@ ENV LIBGUESTFS_BACKEND=direct
 RUN mkdir -p /var/lib/distribox/images/
 
 COPY $IMAGE /usr/local/bin/build_script.sh
+COPY scripts/*.metadata.yaml /usr/local/bin/
 RUN chmod +x /usr/local/bin/build_script.sh
 
 ENTRYPOINT ["/usr/local/bin/build_script.sh"]

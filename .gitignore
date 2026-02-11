@@ -1,6 +1,5 @@
 .DS_Store
 .env
-/frontend/node_modules/
 
 # React Router
 /frontend/.react-router/
@@ -12,4 +11,5 @@ __pycache__/
 
 .vscode/
 
-/images/dist/
+*/node_modules
+*/dist

@@ -1,0 +1,6 @@
+name: Fedora 43
+image: distribox-fedora-43.qcow2
+version: 43
+distribution: fedora
+family: redhat
+revision: 0

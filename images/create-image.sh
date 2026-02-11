@@ -26,8 +26,6 @@ for IMAGE in "$@"; do
         alpine \
         chown -R "$(id -u):$(id -g)" /data
 
-    chmod 775 "$IMAGE"
-
     echo "=== Done: $IMAGE ==="
 done
 
