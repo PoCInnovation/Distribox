@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { Command } from "commander";
-import { upload } from "./commands";
+import { upload, list } from "./commands";
 
 const program = new Command();
 
@@ -19,5 +19,7 @@ program
     "Path to the directory containing images to upload or a single image to upload",
   )
   .action(upload);
+
+program.command("list").description("List images on the registry").action(list);
 
 program.parse();
