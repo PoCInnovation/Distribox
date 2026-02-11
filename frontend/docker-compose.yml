@@ -1,9 +1,9 @@
----
 services:
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
+      target: production-stage
     container_name: distribox-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
@@ -12,6 +12,26 @@ services:
         condition: service_started
     networks:
       - distribox-network
+    profiles: ["prod"]
+
+
+  frontend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev-stage
+    container_name: distribox-frontend-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      backend-dev:
+        condition: service_started
+    networks:
+      - distribox-network
+    profiles: ["dev"]
 
 networks:
   distribox-network:

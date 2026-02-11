@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: production-stage
     container_name: distribox-backend
     environment:
       - POSTGRES_HOST=${POSTGRES_HOST:-database}
@@ -14,7 +15,6 @@ services:
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     volumes:
-      - ./backend:/backend
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock
       - /var/lib/distribox:/var/lib/distribox
     depends_on:
@@ -22,6 +22,35 @@ services:
         condition: service_healthy
     networks:
       - distribox-network
+    profiles: ["prod"]
+
+
+  backend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev-stage
+    container_name: distribox-backend-dev
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST:-database}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_DB=${POSTGRES_NAME:-distribox}
+      - POSTGRES_USER=${POSTGRES_USER:-distribox_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-distribox_password}
+      - BACKEND_PORT=${BACKEND_PORT:-8080}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - ./app:/code/app
+      - ./.env:/code/.env
+      - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock
+      - /var/lib/distribox:/var/lib/distribox
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - distribox-network
+    profiles: ["dev"]
 
 volumes:
   backend:
