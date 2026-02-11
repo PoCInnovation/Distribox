@@ -8,6 +8,7 @@
     "start": "ts-node src/index.ts",
     "build": "tsc",
     "upload:all": "node dist/index.js upload ../images/dist",
+    "images:list": "node dist/index.js list",
     "upload": "node dist/index.js upload",
     "execute": "node dist/index.js"
   },
