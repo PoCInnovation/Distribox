@@ -17,8 +17,9 @@ db_name = get_env_or_default("POSTGRES_NAME", "distribox")
 db_user = get_env_or_default("POSTGRES_USER", "distribox_user")
 db_pass = get_env_or_default("POSTGRES_PASSWORD", "distribox_password")
 db_port = get_env_or_default("POSTGRES_PORT", "5432")
+db_host = get_env_or_default("POSTGRES_HOST", "localhost")
 
-database_url = f"postgresql+psycopg2://{db_user}:{db_pass}@localhost:{db_port}/{db_name}"
+database_url = f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 engine = create_engine(database_url, echo=True)
 
 
