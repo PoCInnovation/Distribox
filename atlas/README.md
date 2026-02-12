@@ -68,6 +68,10 @@ You can use the scripts to upload images.
 pnpm upload path # ../images/dist/distribox-ubuntu-22-04.qcow2
 
 pnpm upload:all # ../images/dist/
+
+pnpm images:list # List all images on the registry
+
+pnpm images:delete distribox-ubuntu-22-04.qcow2 # Delete distribox-ubuntu-22-04 from the registry, you can also delete multiple images at once
 ```
 
 Where `<path>` is the path to the directory containing the images to upload or a single image to upload.
