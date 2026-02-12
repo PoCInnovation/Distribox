@@ -9,6 +9,7 @@
     "build": "tsc",
     "upload:all": "node dist/index.js upload ../images/dist",
     "images:list": "node dist/index.js list",
+    "images:delete": "node dist/index.js delete",
     "upload": "node dist/index.js upload",
     "execute": "node dist/index.js"
   },

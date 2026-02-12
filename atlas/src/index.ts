@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { Command } from "commander";
-import { upload, list } from "./commands";
+import { upload, list, deleteCmd } from "./commands";
 
 const program = new Command();
 
@@ -21,5 +21,14 @@ program
   .action(upload);
 
 program.command("list").description("List images on the registry").action(list);
+
+program
+  .command("delete")
+  .description("Delete one or more images from the registry")
+  .argument(
+    "<image...>",
+    "Name of the image(s) to delete. Ex: distribox-ubuntu-20-04.qcow2",
+  )
+  .action(deleteCmd);
 
 program.parse();
