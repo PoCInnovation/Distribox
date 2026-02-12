@@ -11,6 +11,10 @@ Before installing the atlas, you need to install the following dependencies:
 - Node.js v22.18.0, use [nvm](https://github.com/nvm-sh/nvm) to manage Node.js versions automatically.
 - [pnpm](https://pnpm.io/) (v10.x or higher), you can alternatively use corepack to manage pnpm.
 
+If you are a user that wants to use atlas to create your own registry, you can use our terraform config to setup the bucket and the permissions. [See here.](#use-terraform)
+
+- Install [terraform](https://www.terraform.io/downloads.html).
+
 ### Installing the dependencies
 
 To install the dependencies, run the following command:
@@ -69,3 +73,20 @@ pnpm upload:all # ../images/dist/
 Where `<path>` is the path to the directory containing the images to upload or a single image to upload.
 
 To build images you can check the [available documentation](/images/README.md).
+
+## Use Terraform
+
+After installing terraform, you can use the terraform config to setup the bucket and the permissions.
+
+```bash
+terraform init
+
+# This is optional, but you should check the terraform plan before applying it.
+terraform plan
+
+terraform apply
+```
+
+This should ensure your registry is setup correctly.
+
+It will create a bucket called `distribox-images` and set the correct permissions.
