@@ -13,6 +13,7 @@ class VmBase(BaseModel):
 class VmRead(VmBase):
     id: UUID
     state: str
+    ipv4: str | None
 
 
 class VmCreate(VmBase):
