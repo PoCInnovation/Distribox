@@ -25,6 +25,7 @@ class Vm:
         self.disk_size = vm_create.disk_size
         self.state: Optional[str] = None
         self.state = 'Stopped'
+        self.ipv4: Optional[str] = None
         vm_dir = VMS_DIR / str(self.id)
         distribox_image_dir = IMAGES_DIR / self.os
         try:

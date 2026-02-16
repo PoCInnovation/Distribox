@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 from uuid import UUID
 
@@ -13,7 +14,7 @@ class VmBase(BaseModel):
 class VmRead(VmBase):
     id: UUID
     state: str
-    ipv4: str | None
+    ipv4: Optional[str]
 
 
 class VmCreate(VmBase):

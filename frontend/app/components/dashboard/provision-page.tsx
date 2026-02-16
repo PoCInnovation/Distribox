@@ -17,6 +17,7 @@ import {
   MemoryStick,
   Check,
   AlertCircle,
+  Pencil,
 } from "lucide-react";
 import { useHostInfo } from "@/hooks/useHostInfo";
 import { useCreateVM } from "@/hooks/useCreateVM";
@@ -34,6 +35,7 @@ export default function ProvisionPage() {
   const { data: hostInfo } = useHostInfo();
   const createVM = useCreateVM();
 
+  const [name, setName] = useState("");
   const [autoStart, setAutoStart] = useState(false);
   const [selectedOS, setSelectedOS] = useState("");
   const [vcpus, setVcpus] = useState("2");
@@ -64,8 +66,10 @@ export default function ProvisionPage() {
   const memExceedsAvailable = memNum > availableMemGB;
   const diskExceedsAvailable = diskNum > availableDiskGB;
   const cpuExceedsAvailable = vcpusNum > totalCPUs;
+  const isNameEmpty = name.trim() === "";
 
   const isFormValid =
+    !isNameEmpty &&
     selectedOS !== "" &&
     vcpusNum > 0 &&
     memNum > 0 &&
@@ -80,6 +84,7 @@ export default function ProvisionPage() {
     try {
       await createVM.mutateAsync({
         os: selectedOS,
+        name: name.trim(),
         vcpus: vcpusNum,
         mem: memNum,
         disk_size: diskNum,
@@ -119,6 +124,33 @@ export default function ProvisionPage() {
 
       <div className="grid gap-6 lg:grid-cols-3 pb-8">
         <div className="lg:col-span-2 space-y-6">
+          <Card className="border-border bg-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Pencil className="h-5 w-5 text-primary" />
+                Virtual Machine Name
+              </CardTitle>
+              <CardDescription>
+                Give your virtual machine a unique and descriptive name.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., my-dev-server"
+                className={isNameEmpty ? "border-accent" : ""}
+              />
+              {isNameEmpty && (
+                <div className="text-accent flex items-center gap-1 text-xs mt-2">
+                  <AlertCircle className="h-3 w-3" />
+                  Name is required
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="border-border bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -238,6 +270,12 @@ export default function ProvisionPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
+                <div className="flex items-start justify-between">
+                  <span className="text-sm text-muted-foreground">Name</span>
+                  <span className="font-mono text-sm text-right max-w-[60%] break-words">
+                    {name.trim() || "Not set"}
+                  </span>
+                </div>
                 <div className="flex items-start justify-between">
                   <span className="text-sm text-muted-foreground">
                     OS Image
