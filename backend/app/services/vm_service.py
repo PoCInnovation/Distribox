@@ -17,6 +17,7 @@ from fastapi import status, HTTPException
 class Vm:
     def __init__(self, vm_create: VmCreate):
         self.id = uuid.uuid4()
+        self.name = vm_create.name
         self.os = vm_create.os
         self.mem = vm_create.mem
         self.vcpus = vm_create.vcpus
@@ -37,6 +38,7 @@ class Vm:
             with Session(engine) as session:
                 vm_record = VmORM(
                     id=self.id,
+                    name=self.name,
                     os=self.os,
                     mem=self.mem,
                     vcpus=self.vcpus,
@@ -60,6 +62,7 @@ class Vm:
                 vm_record = session.get(VmORM, uuid.UUID(vm_id))
                 vm_instance = cls.__new__(cls)
                 vm_instance.id = vm_record.id
+                vm_instance.name = vm_record.name
                 vm_instance.os = vm_record.os
                 vm_instance.mem = vm_record.mem
                 vm_instance.vcpus = vm_record.vcpus
