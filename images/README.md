@@ -121,7 +121,7 @@ The metadata file is a YAML file that describes the image. Let's take a look at 
 
 ```yaml
 name: Ubuntu 22.04
-image: distribox-ubuntu-22.04.qcow2
+image: distribox-ubuntu-22-04.qcow2
 version: 22.04
 distribution: ubuntu
 family: debian
