@@ -24,12 +24,7 @@ import {
   Network,
 } from "lucide-react";
 import { DashboardVMsTable, type VM } from "@/components/dashboard/vms-table";
-import { useHostInfo } from "@/hooks/useHostInfo";
-import {
-  CompactCPUInfo,
-  CompactMemoryInfo,
-  CompactDiskInfo,
-} from "@/components/dashboard/compact-host-info";
+import { HostInfo } from "./host-info";
 
 const mockVMs: VM[] = [
   {
@@ -168,21 +163,12 @@ export default function OverviewPage() {
   const [vmToDelete, setVmToDelete] = useState<VM | null>(null);
   const [vms, setVms] = useState(mockVMs);
   const [operatingVMs, setOperatingVMs] = useState<Set<string>>(new Set());
-  const { data: hostInfo } = useHostInfo();
-
-  const totalVMs = vms.length;
-  const activeVMs = vms.filter((vm) => vm.status === "running").length;
 
   const handleStartVM = async (vm: VM, e?: React.MouseEvent) => {
     e?.stopPropagation();
     setOperatingVMs((prev) => new Set(prev).add(vm.id));
 
-    // toast({
-    //   title: "Starting VM",
-    //   description: `${vm.name} is starting up...`,
-    // })
-
-    // Simulate API call
+    // TODO: remove
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     setVms((prev) =>
@@ -204,23 +190,13 @@ export default function OverviewPage() {
       next.delete(vm.id);
       return next;
     });
-
-    // toast({
-    //   title: "VM Started",
-    //   description: `${vm.name} is now running`,
-    // })
   };
 
   const handleStopVM = async (vm: VM, e?: React.MouseEvent) => {
     e?.stopPropagation();
     setOperatingVMs((prev) => new Set(prev).add(vm.id));
 
-    // toast({
-    //   title: "Stopping VM",
-    //   description: `${vm.name} is shutting down...`,
-    // })
-
-    // Simulate API call
+    // TODO: remove
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     setVms((prev) =>
@@ -242,23 +218,13 @@ export default function OverviewPage() {
       next.delete(vm.id);
       return next;
     });
-
-    // toast({
-    //   title: "VM Stopped",
-    //   description: `${vm.name} has been stopped`,
-    // })
   };
 
   const handleRestartVM = async (vm: VM, e?: React.MouseEvent) => {
     e?.stopPropagation();
     setOperatingVMs((prev) => new Set(prev).add(vm.id));
 
-    // toast({
-    //   title: "Restarting VM",
-    //   description: `${vm.name} is restarting...`,
-    // })
-
-    // Simulate API call
+    // TODO: remove
     await new Promise((resolve) => setTimeout(resolve, 3000));
 
     setVms((prev) =>
@@ -270,11 +236,6 @@ export default function OverviewPage() {
       next.delete(vm.id);
       return next;
     });
-
-    // toast({
-    //   title: "VM Restarted",
-    //   description: `${vm.name} has been restarted`,
-    // })
   };
 
   const handleDeleteVM = (vm: VM) => {
@@ -285,39 +246,20 @@ export default function OverviewPage() {
   const confirmDelete = async () => {
     if (!vmToDelete) return;
 
-    // toast({
-    //   title: "Deleting VM",
-    //   description: `${vmToDelete.name} is being deleted...`,
-    // })
-
-    // Simulate API call
+    // TODO: remove
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     setVms((prev) => prev.filter((v) => v.id !== vmToDelete.id));
     setDeleteDialogOpen(false);
     setVmToDelete(null);
-
-    // toast({
-    //   title: "VM Deleted",
-    //   description: `${vmToDelete.name} has been permanently deleted`,
-    //   variant: "destructive",
-    // })
   };
 
   const handleConnectVM = (vm: VM, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    // toast({
-    //   title: "Connecting to VM",
-    //   description: `Opening SSH connection to ${vm.name}...`,
-    // })
   };
 
   const handleConfigureVM = (vm: VM, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    // toast({
-    //   title: "Configure VM",
-    //   description: `Opening configuration for ${vm.name}`,
-    // })
   };
 
   return (
@@ -331,57 +273,7 @@ export default function OverviewPage() {
         </p>
       </div>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-2">
-        <Card className="border-border bg-card p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Virtual Machines
-              </p>
-              <p className="mt-2 font-mono text-3xl font-bold">
-                <span className="text-accent">{activeVMs}</span>
-                <span className="text-muted-foreground">/</span>
-                {totalVMs}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {activeVMs} active, {totalVMs - activeVMs} stopped
-              </p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center border border-border bg-secondary text-primary">
-              <Server className="h-6 w-6" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="border-border bg-card p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Storage Used
-              </p>
-              <p className="mt-2 font-mono text-3xl font-bold">
-                {hostInfo ? `${hostInfo.disk.used.toFixed(2)} GB` : "..."}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {hostInfo
-                  ? `of ${hostInfo.disk.total.toFixed(2)} GB (${hostInfo.disk.percent_used.toFixed(1)}%)`
-                  : "Loading..."}
-              </p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center border border-border bg-secondary text-chart-4">
-              <HardDrive className="h-6 w-6" />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {hostInfo && (
-        <div className="mb-8 w-full grid lg:grid-cols-3 gap-2">
-          <CompactCPUInfo cpu={hostInfo.cpu} />
-          <CompactMemoryInfo mem={hostInfo.mem} />
-          <CompactDiskInfo disk={hostInfo.disk} />
-        </div>
-      )}
+      <HostInfo />
 
       <Card className="border-border bg-card py-0 pb-10 mb-10">
         <div className="p-4">

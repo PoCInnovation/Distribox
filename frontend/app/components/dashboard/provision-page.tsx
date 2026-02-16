@@ -24,7 +24,7 @@ import {
   CompactCPUInfo,
   CompactMemoryInfo,
   CompactDiskInfo,
-} from "@/components/dashboard/compact-host-info";
+} from "@/components/dashboard/host-info";
 import { useNavigate } from "react-router";
 import { VMImageSelect } from "@/components/dashboard/vm-image-select";
 import { Checkbox } from "@/components/ui/checkbox";
