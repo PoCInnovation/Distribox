@@ -1,5 +1,5 @@
 import type React from "react";
-import { useMemo, useRef, useEffect, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
 import type { ColDef, GridOptions } from "ag-grid-community";
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
@@ -29,34 +29,18 @@ import {
   SearchX,
   X,
 } from "lucide-react";
-
-export type VM = {
-  id: string;
-  name: string;
-  status: "running" | "stopped";
-  cpu: number;
-  ram: number;
-  disk: number;
-  os: string;
-  ip: string;
-  uptime: string;
-  cpuUsage: number;
-  ramUsage: number;
-  diskUsage: number;
-  region: string;
-  created: string;
-};
+import type { VirtualMachineMetadata } from "~/lib/types";
 
 interface DashboardVMsTableProps {
-  vms: VM[];
+  vms: VirtualMachineMetadata[];
   operatingVMs: Set<string>;
-  onVMSelect?: (vm: VM) => void;
-  onStartVM?: (vm: VM, e?: React.MouseEvent) => void;
-  onStopVM?: (vm: VM, e?: React.MouseEvent) => void;
-  onRestartVM?: (vm: VM, e?: React.MouseEvent) => void;
-  onDeleteVM?: (vm: VM) => void;
-  onConnectVM?: (vm: VM, e?: React.MouseEvent) => void;
-  onConfigureVM?: (vm: VM, e?: React.MouseEvent) => void;
+  onVMSelect?: (vm: VirtualMachineMetadata) => void;
+  onStartVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
+  onStopVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
+  onRestartVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
+  onDeleteVM?: (vm: VirtualMachineMetadata) => void;
+  onConnectVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
+  onConfigureVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
 }
 
 export function DashboardVMsTable({
@@ -70,7 +54,7 @@ export function DashboardVMsTable({
   onConnectVM,
   onConfigureVM,
 }: DashboardVMsTableProps) {
-  const gridRef = useRef<AgGridReact<VM>>(null);
+  const gridRef = useRef<AgGridReact<VirtualMachineMetadata>>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "running" | "stopped"
@@ -97,7 +81,7 @@ export function DashboardVMsTable({
     [vms],
   );
 
-  const columnDefs = useMemo<ColDef<VM>[]>(
+  const columnDefs = useMemo<ColDef<VirtualMachineMetadata>[]>(
     () => [
       {
         field: "name",
@@ -105,7 +89,7 @@ export function DashboardVMsTable({
         flex: 2,
         cellRenderer: (params: any) => {
           if (!params.data) return null;
-          const vm = params.data as VM;
+          const vm = params.data as VirtualMachineMetadata;
           return (
             <div className="flex items-center gap-3 h-full py-2">
               <div className="flex h-10 w-10 items-center justify-center border border-border bg-secondary flex-shrink-0">
@@ -125,7 +109,7 @@ export function DashboardVMsTable({
         flex: 1,
         cellRenderer: (params: any) => {
           if (!params.data) return null;
-          const vm = params.data as VM;
+          const vm = params.data as VirtualMachineMetadata;
           const isOperating = operatingVMs.has(vm.id);
           return (
             <div className="h-full flex items-center py-2">
@@ -159,12 +143,12 @@ export function DashboardVMsTable({
         flex: 2,
         cellRenderer: (params: any) => {
           if (!params.data) return null;
-          const vm = params.data as VM;
+          const vm = params.data as VirtualMachineMetadata;
           return (
             <div className="space-y-1 py-2">
               <p className="text-sm font-medium">{vm.os}</p>
               <p className="font-mono text-xs text-muted-foreground">
-                {vm.cpu} vCPU • {vm.ram} GB RAM • {vm.disk} GB
+                {vm.vcpus} vCPU • {vm.mem} GB RAM • {vm.disk_size} GB
               </p>
             </div>
           );
@@ -175,28 +159,8 @@ export function DashboardVMsTable({
         headerName: "IP Address",
         flex: 1.5,
         cellRenderer: (params: any) => {
-          const vm = params.data as VM;
+          const vm = params.data as VirtualMachineMetadata;
           return <p className="font-mono text-sm py-2">{vm.ip}</p>;
-        },
-      },
-      {
-        field: "uptime",
-        headerName: "Uptime",
-        flex: 1.5,
-        cellRenderer: (params: any) => {
-          const vm = params.data as VM;
-          return <p className="font-mono text-sm py-2">{vm.uptime}</p>;
-        },
-      },
-      {
-        field: "region",
-        headerName: "Region",
-        flex: 1.5,
-        cellRenderer: (params: any) => {
-          const vm = params.data as VM;
-          return (
-            <p className="text-sm text-muted-foreground py-2">{vm.region}</p>
-          );
         },
       },
       {
@@ -206,7 +170,7 @@ export function DashboardVMsTable({
         filter: false,
         cellRenderer: (params: any) => {
           if (!params.data) return null;
-          const vm = params.data as VM;
+          const vm = params.data as VirtualMachineMetadata;
           const isOperating = operatingVMs.has(vm.id);
           return (
             <div className="h-full flex items-center justify-end py-2">
@@ -315,7 +279,7 @@ export function DashboardVMsTable({
     [],
   );
 
-  const gridOptions = useMemo<GridOptions<VM>>(
+  const gridOptions = useMemo<GridOptions<VirtualMachineMetadata>>(
     () => ({
       rowHeight: 72,
       suppressRowClickSelection: false,
@@ -386,7 +350,7 @@ export function DashboardVMsTable({
           className="w-full ag-theme-quartz"
           style={{ height: "500px", width: "100%" }}
         >
-          <AgGridReact<VM>
+          <AgGridReact<VirtualMachineMetadata>
             ref={gridRef}
             theme="legacy"
             rowData={filteredVMs}

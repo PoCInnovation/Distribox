@@ -10,9 +10,10 @@ import {
   Server,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { HostInfo } from "@/lib/api";
+import type { HostInfo } from "@/lib/types";
 import { formatGB } from "@/lib/utils";
 import { useHostInfo } from "@/hooks/useHostInfo";
+import { useVMs } from "~/hooks/useVMs";
 
 function CompactCard({
   title,
@@ -216,8 +217,10 @@ export function CompactDiskInfo({ disk }: { disk: HostInfo["disk"] }) {
 }
 
 export function HostInfoHeader({ hostInfo }: { hostInfo?: HostInfo }) {
-  const totalVMs = 6; // TODO: These should probably be in a global store eventually
-  const activeVMs = 3;
+  const { vms } = useVMs();
+
+  const totalVMs = vms?.length || 0;
+  const activeVMs = vms?.filter((vm) => vm.status === "running").length || 0;
 
   return (
     <div className="mb-6 grid gap-4 md:grid-cols-2">

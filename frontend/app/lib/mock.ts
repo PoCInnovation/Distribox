@@ -1,4 +1,19 @@
-import type { VM } from "@/components/dashboard/vms-table";
+export type VM = {
+  id: string;
+  name: string;
+  status: "running" | "stopped";
+  cpu: number;
+  ram: number;
+  disk: number;
+  os: string;
+  ip: string;
+  uptime: string;
+  cpuUsage: number;
+  ramUsage: number;
+  diskUsage: number;
+  region: string;
+  created: string;
+};
 
 export const mockVMs: VM[] = [
   {

@@ -1,6 +1,5 @@
-import type React from "react";
-import { useState } from "react";
-
+import { useState, useMemo } from "react";
+import { Server, Trash2, Settings, Terminal } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,122 +11,91 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Server,
-  Trash2,
-  Settings,
-  Terminal,
-  Cpu,
-  HardDrive,
-  Network,
-} from "lucide-react";
-import { DashboardVMsTable, type VM } from "@/components/dashboard/vms-table";
-import { mockVMs } from "@/lib/mock";
+import { DashboardVMsTable } from "@/components/dashboard/vms-table";
+import { useVMs } from "~/hooks/useVMs";
+import type { VirtualMachineMetadata } from "@/lib/types/virtual-machine";
 
 export function DashboardVMsTableContainer() {
-  const [selectedVM, setSelectedVM] = useState<VM | null>(null);
+  const [selectedVM, setSelectedVM] = useState<VirtualMachineMetadata | null>(
+    null,
+  );
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [vmToDelete, setVmToDelete] = useState<VM | null>(null);
-  const [vms, setVms] = useState(mockVMs);
-  const [operatingVMs, setOperatingVMs] = useState<Set<string>>(new Set());
+  const [vmToDelete, setVmToDelete] = useState<VirtualMachineMetadata | null>(
+    null,
+  );
+  const {
+    vms,
+    startVM,
+    stopVM,
+    restartVM,
+    deleteVM,
+    isStartingVM,
+    isStoppingVM,
+    isRestartingVM,
+    isDeletingVM,
+  } = useVMs();
 
-  const handleStartVM = async (vm: VM, e?: React.MouseEvent) => {
+  const operatingVMs = useMemo(() => {
+    const operating = new Set<string>();
+    // Note: This logic assumes only one VM operation can be in progress at a time
+    // or that the selectedVM/vmToDelete is the one being operated on.
+    // A more robust solution would involve tracking which vmId is currently mutating within the useVMs hook.
+    if (isStartingVM && selectedVM) operating.add(selectedVM.id);
+    if (isStoppingVM && selectedVM) operating.add(selectedVM.id);
+    if (isRestartingVM && selectedVM) operating.add(selectedVM.id);
+    if (isDeletingVM && vmToDelete) operating.add(vmToDelete.id);
+    return operating;
+  }, [
+    isStartingVM,
+    isStoppingVM,
+    isRestartingVM,
+    isDeletingVM,
+    selectedVM,
+    vmToDelete,
+  ]);
+
+  const handleStartVM = (vm: VirtualMachineMetadata, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setOperatingVMs((prev) => new Set(prev).add(vm.id));
-
-    // TODO: remove
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    setVms((prev) =>
-      prev.map((v) =>
-        v.id === vm.id
-          ? {
-              ...v,
-              status: "running" as const,
-              uptime: "0h 0m",
-              cpuUsage: 15,
-              ramUsage: 25,
-            }
-          : v,
-      ),
-    );
-
-    setOperatingVMs((prev) => {
-      const next = new Set(prev);
-      next.delete(vm.id);
-      return next;
-    });
+    startVM(vm.id);
   };
 
-  const handleStopVM = async (vm: VM, e?: React.MouseEvent) => {
+  const handleStopVM = (vm: VirtualMachineMetadata, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setOperatingVMs((prev) => new Set(prev).add(vm.id));
-
-    // TODO: remove
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    setVms((prev) =>
-      prev.map((v) =>
-        v.id === vm.id
-          ? {
-              ...v,
-              status: "stopped" as const,
-              uptime: "0h",
-              cpuUsage: 0,
-              ramUsage: 0,
-            }
-          : v,
-      ),
-    );
-
-    setOperatingVMs((prev) => {
-      const next = new Set(prev);
-      next.delete(vm.id);
-      return next;
-    });
+    stopVM(vm.id);
   };
 
-  const handleRestartVM = async (vm: VM, e?: React.MouseEvent) => {
+  const handleRestartVM = (
+    vm: VirtualMachineMetadata,
+    e?: React.MouseEvent,
+  ) => {
     e?.stopPropagation();
-    setOperatingVMs((prev) => new Set(prev).add(vm.id));
-
-    // TODO: remove
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    setVms((prev) =>
-      prev.map((v) => (v.id === vm.id ? { ...v, uptime: "0h 0m" } : v)),
-    );
-
-    setOperatingVMs((prev) => {
-      const next = new Set(prev);
-      next.delete(vm.id);
-      return next;
-    });
+    restartVM(vm.id);
   };
 
-  const handleDeleteVM = (vm: VM) => {
+  const handleDeleteVM = (vm: VirtualMachineMetadata) => {
     setVmToDelete(vm);
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     if (!vmToDelete) return;
-
-    // TODO: remove
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    setVms((prev) => prev.filter((v) => v.id !== vmToDelete.id));
+    deleteVM(vmToDelete.id);
     setDeleteDialogOpen(false);
     setVmToDelete(null);
   };
 
-  const handleConnectVM = (vm: VM, e?: React.MouseEvent) => {
+  const handleConnectVM = (
+    vm: VirtualMachineMetadata,
+    e?: React.MouseEvent,
+  ) => {
     e?.stopPropagation();
   };
 
-  const handleConfigureVM = (vm: VM, e?: React.MouseEvent) => {
+  const handleConfigureVM = (
+    vm: VirtualMachineMetadata,
+    e?: React.MouseEvent,
+  ) => {
     e?.stopPropagation();
   };
 
@@ -136,17 +104,19 @@ export function DashboardVMsTableContainer() {
       <div className="pb-10">
         <Card className="border-border bg-card py-0">
           <div className="p-4">
-            <DashboardVMsTable
-              vms={vms}
-              operatingVMs={operatingVMs}
-              onVMSelect={setSelectedVM}
-              onStartVM={handleStartVM}
-              onStopVM={handleStopVM}
-              onRestartVM={handleRestartVM}
-              onDeleteVM={handleDeleteVM}
-              onConnectVM={handleConnectVM}
-              onConfigureVM={handleConfigureVM}
-            />
+            {vms !== undefined && (
+              <DashboardVMsTable
+                vms={vms}
+                operatingVMs={operatingVMs}
+                onVMSelect={setSelectedVM}
+                onStartVM={handleStartVM}
+                onStopVM={handleStopVM}
+                onRestartVM={handleRestartVM}
+                onDeleteVM={handleDeleteVM}
+                onConnectVM={handleConnectVM}
+                onConfigureVM={handleConfigureVM}
+              />
+            )}
           </div>
         </Card>
       </div>
@@ -170,9 +140,8 @@ export function DashboardVMsTableContainer() {
               </DialogHeader>
 
               <Tabs defaultValue="overview" className="mt-4">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="metrics">Metrics</TabsTrigger>
                   <TabsTrigger value="details">Details</TabsTrigger>
                 </TabsList>
 
@@ -209,76 +178,6 @@ export function DashboardVMsTableContainer() {
                       </span>
                       <span className="font-mono text-sm">{selectedVM.ip}</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        Region
-                      </span>
-                      <span className="text-sm">{selectedVM.region}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        Uptime
-                      </span>
-                      <span className="font-mono text-sm">
-                        {selectedVM.uptime}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        Created
-                      </span>
-                      <span className="text-sm">{selectedVM.created}</span>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="metrics" className="space-y-6">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Cpu className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">CPU Usage</span>
-                      </div>
-                      <span className="font-mono text-sm">
-                        {selectedVM.cpuUsage}%
-                      </span>
-                    </div>
-                    <Progress value={selectedVM.cpuUsage} />
-                    <p className="text-xs text-muted-foreground">
-                      {selectedVM.cpu} vCPU allocated
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <HardDrive className="h-4 w-4 text-chart-2" />
-                        <span className="text-sm font-medium">RAM Usage</span>
-                      </div>
-                      <span className="font-mono text-sm">
-                        {selectedVM.ramUsage}%
-                      </span>
-                    </div>
-                    <Progress value={selectedVM.ramUsage} />
-                    <p className="text-xs text-muted-foreground">
-                      {selectedVM.ram} GB allocated
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Network className="h-4 w-4 text-chart-4" />
-                        <span className="text-sm font-medium">Disk Usage</span>
-                      </div>
-                      <span className="font-mono text-sm">
-                        {selectedVM.diskUsage}%
-                      </span>
-                    </div>
-                    <Progress value={selectedVM.diskUsage} />
-                    <p className="text-xs text-muted-foreground">
-                      {selectedVM.disk} GB allocated
-                    </p>
                   </div>
                 </TabsContent>
 
@@ -294,7 +193,7 @@ export function DashboardVMsTableContainer() {
                             vCPU
                           </span>
                           <span className="font-mono text-sm">
-                            {selectedVM.cpu}
+                            {selectedVM.vcpus}
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -302,7 +201,7 @@ export function DashboardVMsTableContainer() {
                             RAM
                           </span>
                           <span className="font-mono text-sm">
-                            {selectedVM.ram} GB
+                            {selectedVM.mem} GB
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -310,7 +209,7 @@ export function DashboardVMsTableContainer() {
                             Disk
                           </span>
                           <span className="font-mono text-sm">
-                            {selectedVM.disk} GB
+                            {selectedVM.disk_size} GB
                           </span>
                         </div>
                       </div>
@@ -326,12 +225,6 @@ export function DashboardVMsTableContainer() {
                           <span className="font-mono text-sm">
                             {selectedVM.ip}
                           </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">
-                            Region
-                          </span>
-                          <span className="text-sm">{selectedVM.region}</span>
                         </div>
                       </div>
                     </div>
