@@ -72,6 +72,7 @@ export function DashboardVMsTable({
         field: "name",
         headerName: "Virtual Machine",
         flex: 2,
+        cellStyle: { display: "flex", alignItems: "center" },
         cellRenderer: ({ data }: ColumnProps) => <TableVMColumn data={data} />,
       },
       {
@@ -86,6 +87,7 @@ export function DashboardVMsTable({
         field: "os",
         headerName: "Resources",
         flex: 2,
+        cellStyle: { display: "flex", alignItems: "center" },
         cellRenderer: ({ data }: ColumnProps) => (
           <TableResourcesColumn data={data} />
         ),
@@ -94,6 +96,7 @@ export function DashboardVMsTable({
         field: "ipv4",
         headerName: "IP Address",
         flex: 1.5,
+        cellStyle: { display: "flex", alignItems: "center" },
         cellRenderer: ({ data }: ColumnProps) => <TableIPColumn data={data} />,
       },
       {
@@ -141,6 +144,13 @@ export function DashboardVMsTable({
       suppressRowClickSelection: false,
       rowSelection: "single",
       onRowClicked: (event) => {
+        // Check if click originated from an interactive element that should not trigger row selection
+        const target = event.event?.target as HTMLElement;
+        if (target?.closest('[data-no-row-click="true"]')) {
+          console.log("Row click prevented by data-no-row-click");
+          return;
+        }
+        console.log("Row clicked, opening dialog");
         if (event.data && onVMSelect) {
           onVMSelect(event.data);
         }

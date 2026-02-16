@@ -40,11 +40,14 @@ export const TableActionsColumn = ({
   if (!vm) return null;
   const isOperating = operatingVMs.has(vm.id);
   return (
-    <div className="h-full flex items-center justify-end py-2">
+    <div
+      className="h-full flex items-center justify-end py-2"
+      data-no-row-click="true"
+    >
       <DropdownMenu>
         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
           <Button
-            className="hover:bg-primary"
+            className="hover:bg-primary hover:text-secondary"
             variant="ghost"
             size="icon-sm"
             disabled={isOperating}
