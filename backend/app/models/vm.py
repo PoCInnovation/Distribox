@@ -4,6 +4,7 @@ from uuid import UUID
 
 class VmBase(BaseModel):
     os: str
+    name: str
     mem: int
     vcpus: int
     disk_size: int
