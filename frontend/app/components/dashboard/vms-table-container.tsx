@@ -153,17 +153,17 @@ export function DashboardVMsTableContainer() {
                       </span>
                       <Badge
                         variant={
-                          selectedVM.status === "running"
+                          selectedVM.state === "running"
                             ? "default"
                             : "secondary"
                         }
                         className={
-                          selectedVM.status === "running"
+                          selectedVM.state === "running"
                             ? "border-chart-3 bg-chart-3/10 text-chart-3"
                             : "border-muted bg-muted/10 text-muted-foreground"
                         }
                       >
-                        {selectedVM.status}
+                        {selectedVM.state}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
@@ -176,7 +176,7 @@ export function DashboardVMsTableContainer() {
                       <span className="text-sm text-muted-foreground">
                         IP Address
                       </span>
-                      <span className="font-mono text-sm">{selectedVM.ip}</span>
+                      <span className="font-mono text-sm">{selectedVM.ipv4}</span>
                     </div>
                   </div>
                 </TabsContent>
@@ -223,7 +223,7 @@ export function DashboardVMsTableContainer() {
                             Private IP
                           </span>
                           <span className="font-mono text-sm">
-                            {selectedVM.ip}
+                            {selectedVM.ipv4}
                           </span>
                         </div>
                       </div>

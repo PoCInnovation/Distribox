@@ -220,7 +220,7 @@ export function HostInfoHeader({ hostInfo }: { hostInfo?: HostInfo }) {
   const { vms } = useVMs();
 
   const totalVMs = vms?.length || 0;
-  const activeVMs = vms?.filter((vm) => vm.status === "running").length || 0;
+  const activeVMs = vms?.filter((vm) => vm.state === "running").length || 0;
 
   return (
     <div className="mb-6 grid gap-4 md:grid-cols-2">

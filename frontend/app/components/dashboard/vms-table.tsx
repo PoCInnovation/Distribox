@@ -29,7 +29,7 @@ import {
   SearchX,
   X,
 } from "lucide-react";
-import type { VirtualMachineMetadata } from "~/lib/types";
+import { VMState, type VirtualMachineMetadata } from "~/lib/types";
 
 interface DashboardVMsTableProps {
   vms: VirtualMachineMetadata[];
@@ -57,7 +57,7 @@ export function DashboardVMsTable({
   const gridRef = useRef<AgGridReact<VirtualMachineMetadata>>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<
-    "all" | "running" | "stopped"
+    "all" | VMState.RUNNING | VMState.STOPPED
   >("all");
 
   const filteredVMs = useMemo(() => {
@@ -67,17 +67,17 @@ export function DashboardVMsTable({
         vm.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         vm.os.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus =
-        statusFilter === "all" || vm.status === statusFilter;
+        statusFilter === "all" || vm.state === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [vms, searchQuery, statusFilter]);
 
   const runningCount = useMemo(
-    () => vms.filter((vm) => vm.status === "running").length,
+    () => vms.filter((vm) => vm.state === VMState.RUNNING).length,
     [vms],
   );
   const stoppedCount = useMemo(
-    () => vms.filter((vm) => vm.status === "stopped").length,
+    () => vms.filter((vm) => vm.state === VMState.STOPPED).length,
     [vms],
   );
 
@@ -104,7 +104,7 @@ export function DashboardVMsTable({
         },
       },
       {
-        field: "status",
+        field: "state",
         headerName: "Status",
         flex: 1,
         cellRenderer: (params: any) => {
@@ -123,14 +123,14 @@ export function DashboardVMsTable({
                 </Badge>
               ) : (
                 <Badge
-                  variant={vm.status === "running" ? "default" : "secondary"}
+                  variant={vm.state === VMState.RUNNING ? "default" : "secondary"}
                   className={
-                    vm.status === "running"
+                    vm.state === VMState.RUNNING
                       ? "border-chart-3 bg-chart-3/10 text-chart-3"
                       : "border-muted bg-muted/10 text-muted-foreground"
                   }
                 >
-                  {vm.status}
+                  {vm.state}
                 </Badge>
               )}
             </div>
@@ -155,12 +155,12 @@ export function DashboardVMsTable({
         },
       },
       {
-        field: "ip",
+        field: "ipv4",
         headerName: "IP Address",
         flex: 1.5,
         cellRenderer: (params: any) => {
           const vm = params.data as VirtualMachineMetadata;
-          return <p className="font-mono text-sm py-2">{vm.ip}</p>;
+          return <p className="font-mono text-sm py-2">{vm.ipv4}</p>;
         },
       },
       {
@@ -201,7 +201,7 @@ export function DashboardVMsTable({
                   {onStartVM && (
                     <DropdownMenuItem
                       className="focus:bg-primary/10 focus:text-primary"
-                      disabled={vm.status === "running"}
+                      disabled={vm.state === VMState.RUNNING}
                       onClick={(e) => onStartVM(vm, e)}
                     >
                       <Play className="mr-2 h-4 w-4 text-inherit" />
@@ -211,7 +211,7 @@ export function DashboardVMsTable({
                   {onStopVM && (
                     <DropdownMenuItem
                       className="focus:bg-primary/10 focus:text-primary"
-                      disabled={vm.status === "stopped"}
+                      disabled={vm.state === VMState.STOPPED}
                       onClick={(e) => onStopVM(vm, e)}
                     >
                       <Square className="mr-2 h-4 w-4 text-inherit" />
@@ -221,7 +221,7 @@ export function DashboardVMsTable({
                   {onRestartVM && (
                     <DropdownMenuItem
                       className="focus:bg-primary/10 focus:text-primary"
-                      disabled={vm.status === "stopped"}
+                      disabled={vm.state === VMState.STOPPED}
                       onClick={(e) => onRestartVM(vm, e)}
                     >
                       <RotateCw className="mr-2 h-4 w-4 text-inherit" />
@@ -324,15 +324,15 @@ export function DashboardVMsTable({
             All ({vms.length})
           </Button>
           <Button
-            variant={statusFilter === "running" ? "default" : "outline"}
-            onClick={() => setStatusFilter("running")}
+            variant={statusFilter === VMState.RUNNING ? "default" : "outline"}
+            onClick={() => setStatusFilter(VMState.RUNNING)}
             size="sm"
           >
             Running ({runningCount})
           </Button>
           <Button
-            variant={statusFilter === "stopped" ? "default" : "outline"}
-            onClick={() => setStatusFilter("stopped")}
+            variant={statusFilter === VMState.STOPPED ? "default" : "outline"}
+            onClick={() => setStatusFilter(VMState.STOPPED)}
             size="sm"
           >
             Stopped ({stoppedCount})
