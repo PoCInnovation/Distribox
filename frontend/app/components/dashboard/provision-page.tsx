@@ -27,7 +27,7 @@ import {
   CompactDiskInfo,
 } from "@/components/dashboard/host-info";
 import { useNavigate } from "react-router";
-import { VMImageSelect } from "@/components/dashboard/vm-image-select";
+import { VMImageSelect } from "~/components/dashboard/vm-image-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export default function ProvisionPage() {
