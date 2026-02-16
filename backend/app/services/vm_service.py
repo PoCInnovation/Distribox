@@ -14,6 +14,7 @@ from app.orm.vm import VmORM
 from fastapi import status, HTTPException
 from app.utils.vm import get_vm_ip
 
+
 class Vm:
     def __init__(self, vm_create: VmCreate):
         self.id = uuid.uuid4()
