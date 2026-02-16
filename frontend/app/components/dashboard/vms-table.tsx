@@ -2,11 +2,7 @@ import type React from "react";
 import { useMemo, useRef, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
 import type { ColDef, GridOptions } from "ag-grid-community";
-import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 
-ModuleRegistry.registerModules([AllCommunityModule]);
-
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -30,6 +26,11 @@ import {
   X,
 } from "lucide-react";
 import { VMState, type VirtualMachineMetadata } from "~/lib/types";
+import { TableStateColumn } from "./table-state-column";
+
+interface ColumnProps {
+  data?: VirtualMachineMetadata;
+}
 
 interface DashboardVMsTableProps {
   vms: VirtualMachineMetadata[];
@@ -66,8 +67,7 @@ export function DashboardVMsTable({
         vm.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         vm.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         vm.os.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus =
-        statusFilter === "all" || vm.state === statusFilter;
+      const matchesStatus = statusFilter === "all" || vm.state === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [vms, searchQuery, statusFilter]);
@@ -105,37 +105,11 @@ export function DashboardVMsTable({
       },
       {
         field: "state",
-        headerName: "Status",
+        headerName: "State",
         flex: 1,
-        cellRenderer: (params: any) => {
-          if (!params.data) return null;
-          const vm = params.data as VirtualMachineMetadata;
-          const isOperating = operatingVMs.has(vm.id);
-          return (
-            <div className="h-full flex items-center py-2">
-              {isOperating ? (
-                <Badge
-                  variant="secondary"
-                  className="border-muted bg-muted/10 text-muted-foreground"
-                >
-                  <div className="mr-1.5 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  processing
-                </Badge>
-              ) : (
-                <Badge
-                  variant={vm.state === VMState.RUNNING ? "default" : "secondary"}
-                  className={
-                    vm.state === VMState.RUNNING
-                      ? "border-chart-3 bg-chart-3/10 text-chart-3"
-                      : "border-muted bg-muted/10 text-muted-foreground"
-                  }
-                >
-                  {vm.state}
-                </Badge>
-              )}
-            </div>
-          );
-        },
+        cellRenderer: ({ data }: ColumnProps) => (
+          <TableStateColumn data={data} operatingVMs={operatingVMs} />
+        ),
       },
       {
         field: "os",
