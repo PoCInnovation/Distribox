@@ -62,6 +62,21 @@ async def general_exception_handler(_, exc: Exception):
     )
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(vm.router, prefix="/vms", tags=["vms"], dependencies=[Depends(get_current_admin_user)])
-app.include_router(image.router, prefix="/images", tags=["images"], dependencies=[Depends(get_current_user)])
-app.include_router(host.router, prefix="/host", tags=["host"], dependencies=[Depends(get_current_user)])
+app.include_router(
+    vm.router,
+    prefix="/vms",
+    tags=["vms"],
+    dependencies=[
+        Depends(get_current_admin_user)])
+app.include_router(
+    image.router,
+    prefix="/images",
+    tags=["images"],
+    dependencies=[
+        Depends(get_current_user)])
+app.include_router(
+    host.router,
+    prefix="/host",
+    tags=["host"],
+    dependencies=[
+        Depends(get_current_user)])
