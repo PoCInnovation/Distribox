@@ -12,11 +12,13 @@ from app.core.config import QEMUConfig, engine
 from sqlmodel import Session, select, update, delete
 from app.orm.vm import VmORM
 from fastapi import status, HTTPException
+from app.utils.vm import get_vm_ip
 
 
 class Vm:
     def __init__(self, vm_create: VmCreate):
         self.id = uuid.uuid4()
+        self.name = vm_create.name
         self.os = vm_create.os
         self.mem = vm_create.mem
         self.vcpus = vm_create.vcpus
@@ -37,6 +39,7 @@ class Vm:
             with Session(engine) as session:
                 vm_record = VmORM(
                     id=self.id,
+                    name=self.name,
                     os=self.os,
                     mem=self.mem,
                     vcpus=self.vcpus,
@@ -60,11 +63,13 @@ class Vm:
                 vm_record = session.get(VmORM, uuid.UUID(vm_id))
                 vm_instance = cls.__new__(cls)
                 vm_instance.id = vm_record.id
+                vm_instance.name = vm_record.name
                 vm_instance.os = vm_record.os
                 vm_instance.mem = vm_record.mem
                 vm_instance.vcpus = vm_record.vcpus
                 vm_instance.disk_size = vm_record.disk_size
-            vm_instance.state = VM_STATE_NAMES.get(vm_state, 'None')
+                vm_instance.state = VM_STATE_NAMES.get(vm_state, 'None')
+                vm_instance.ipv4 = get_vm_ip(str(vm_instance.id))
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,

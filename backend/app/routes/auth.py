@@ -73,7 +73,7 @@ async def login(login_data: LoginRequest):
 @router.post("/users", response_model=UserResponse)
 async def create_user(
     user_data: CreateUserRequest,
-    current_admin: UserORM = Depends(get_current_admin_user)
+    _: UserORM = Depends(get_current_admin_user)
 ):
     """Create a new user. Only admins can create users."""
     with Session(engine) as session:
@@ -123,7 +123,8 @@ async def list_users(current_admin: UserORM = Depends(get_current_admin_user)):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user: UserORM = Depends(get_current_user)):
+async def get_current_user_info(
+        current_user: UserORM = Depends(get_current_user)):
     """Get information about the currently logged-in user."""
     return UserResponse(
         id=str(current_user.id),
@@ -139,7 +140,8 @@ async def change_password(
 ):
     """Change the current user's password."""
     with Session(engine) as session:
-        if not verify_password(password_data.current_password, current_user.hashed_password):
+        if not verify_password(password_data.current_password,
+                               current_user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Current password is incorrect"
