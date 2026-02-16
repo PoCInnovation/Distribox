@@ -215,57 +215,63 @@ export function CompactDiskInfo({ disk }: { disk: HostInfo["disk"] }) {
   );
 }
 
-export function HostInfo() {
-  const { data: hostInfo } = useHostInfo();
-
-  const totalVMs = 6;
+export function HostInfoHeader({ hostInfo }: { hostInfo?: HostInfo }) {
+  const totalVMs = 6; // TODO: These should probably be in a global store eventually
   const activeVMs = 3;
 
   return (
-    <>
-      <div className="mb-6 grid gap-4 md:grid-cols-2">
-        <Card className="border-border bg-card p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Virtual Machines
-              </p>
-              <p className="mt-2 font-mono text-3xl font-bold">
-                <span className="text-accent">{activeVMs}</span>
-                <span className="text-muted-foreground">/</span>
-                {totalVMs}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {activeVMs} active, {totalVMs - activeVMs} stopped
-              </p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center border border-border bg-secondary text-primary">
-              <Server className="h-6 w-6" />
-            </div>
+    <div className="mb-6 grid gap-4 md:grid-cols-2">
+      <Card className="border-border bg-card p-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">
+              Virtual Machines
+            </p>
+            <p className="mt-2 font-mono text-3xl font-bold">
+              <span className="text-accent">{activeVMs}</span>
+              <span className="text-muted-foreground">/</span>
+              {totalVMs}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {activeVMs} active, {totalVMs - activeVMs} stopped
+            </p>
           </div>
-        </Card>
+          <div className="flex h-12 w-12 items-center justify-center border border-border bg-secondary text-primary">
+            <Server className="h-6 w-6" />
+          </div>
+        </div>
+      </Card>
 
-        <Card className="border-border bg-card p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Storage Used
-              </p>
-              <p className="mt-2 font-mono text-3xl font-bold">
-                {hostInfo ? `${hostInfo.disk.used.toFixed(2)} GB` : "..."}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {hostInfo
-                  ? `of ${hostInfo.disk.total.toFixed(2)} GB (${hostInfo.disk.percent_used.toFixed(1)}%)`
-                  : "Loading..."}
-              </p>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center border border-border bg-secondary text-chart-4">
-              <HardDrive className="h-6 w-6" />
-            </div>
+      <Card className="border-border bg-card p-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">
+              Storage Used
+            </p>
+            <p className="mt-2 font-mono text-3xl font-bold">
+              {hostInfo ? `${hostInfo.disk.used.toFixed(2)} GB` : "..."}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {hostInfo
+                ? `of ${hostInfo.disk.total.toFixed(2)} GB (${hostInfo.disk.percent_used.toFixed(1)}%)`
+                : "Loading..."}
+            </p>
           </div>
-        </Card>
-      </div>
+          <div className="flex h-12 w-12 items-center justify-center border border-border bg-secondary text-chart-4">
+            <HardDrive className="h-6 w-6" />
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+export function HostInfoPanel() {
+  const { data: hostInfo } = useHostInfo();
+
+  return (
+    <>
+      <HostInfoHeader hostInfo={hostInfo} />
 
       {hostInfo && (
         <div className="mb-8 w-full grid lg:grid-cols-3 gap-2">
