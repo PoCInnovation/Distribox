@@ -176,7 +176,9 @@ export function DashboardVMsTableContainer() {
                       <span className="text-sm text-muted-foreground">
                         IP Address
                       </span>
-                      <span className="font-mono text-sm">{selectedVM.ipv4}</span>
+                      <span className="font-mono text-sm">
+                        {selectedVM.ipv4}
+                      </span>
                     </div>
                   </div>
                 </TabsContent>

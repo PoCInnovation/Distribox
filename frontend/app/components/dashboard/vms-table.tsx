@@ -5,28 +5,13 @@ import type { ColDef, GridOptions } from "ag-grid-community";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Server,
-  MoreVertical,
-  Play,
-  Square,
-  Trash2,
-  Settings,
-  Terminal,
-  RotateCw,
-  Search,
-  SearchX,
-  X,
-} from "lucide-react";
+import { Search, SearchX, X } from "lucide-react";
 import { VMState, type VirtualMachineMetadata } from "~/lib/types";
 import { TableStateColumn } from "./table-state-column";
+import { TableVMColumn } from "./table-vm-column";
+import { TableResourcesColumn } from "./table-resources-column";
+import { TableIPColumn } from "./table-ip-column";
+import { TableActionsColumn } from "./table-actions-column";
 
 interface ColumnProps {
   data?: VirtualMachineMetadata;
@@ -87,21 +72,7 @@ export function DashboardVMsTable({
         field: "name",
         headerName: "Virtual Machine",
         flex: 2,
-        cellRenderer: (params: any) => {
-          if (!params.data) return null;
-          const vm = params.data as VirtualMachineMetadata;
-          return (
-            <div className="flex items-center gap-3 h-full py-2">
-              <div className="flex h-10 w-10 items-center justify-center border border-border bg-secondary flex-shrink-0">
-                <Server className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-mono font-medium">{vm.name}</p>
-                <p className="text-xs text-muted-foreground">{vm.id}</p>
-              </div>
-            </div>
-          );
-        },
+        cellRenderer: ({ data }: ColumnProps) => <TableVMColumn data={data} />,
       },
       {
         field: "state",
@@ -115,122 +86,33 @@ export function DashboardVMsTable({
         field: "os",
         headerName: "Resources",
         flex: 2,
-        cellRenderer: (params: any) => {
-          if (!params.data) return null;
-          const vm = params.data as VirtualMachineMetadata;
-          return (
-            <div className="space-y-1 py-2">
-              <p className="text-sm font-medium">{vm.os}</p>
-              <p className="font-mono text-xs text-muted-foreground">
-                {vm.vcpus} vCPU • {vm.mem} GB RAM • {vm.disk_size} GB
-              </p>
-            </div>
-          );
-        },
+        cellRenderer: ({ data }: ColumnProps) => (
+          <TableResourcesColumn data={data} />
+        ),
       },
       {
         field: "ipv4",
         headerName: "IP Address",
         flex: 1.5,
-        cellRenderer: (params: any) => {
-          const vm = params.data as VirtualMachineMetadata;
-          return <p className="font-mono text-sm py-2">{vm.ipv4}</p>;
-        },
+        cellRenderer: ({ data }: ColumnProps) => <TableIPColumn data={data} />,
       },
       {
         headerName: "Actions",
         flex: 1,
         sortable: false,
         filter: false,
-        cellRenderer: (params: any) => {
-          if (!params.data) return null;
-          const vm = params.data as VirtualMachineMetadata;
-          const isOperating = operatingVMs.has(vm.id);
-          return (
-            <div className="h-full flex items-center justify-end py-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  asChild
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    className="hover:bg-primary"
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={isOperating}
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {onConnectVM && (
-                    <DropdownMenuItem
-                      className="focus:bg-primary/10 focus:text-primary"
-                      onClick={(e) => onConnectVM(vm, e)}
-                    >
-                      <Terminal className="mr-2 h-4 w-4 text-inherit" />
-                      Connect
-                    </DropdownMenuItem>
-                  )}
-                  {onStartVM && (
-                    <DropdownMenuItem
-                      className="focus:bg-primary/10 focus:text-primary"
-                      disabled={vm.state === VMState.RUNNING}
-                      onClick={(e) => onStartVM(vm, e)}
-                    >
-                      <Play className="mr-2 h-4 w-4 text-inherit" />
-                      Start
-                    </DropdownMenuItem>
-                  )}
-                  {onStopVM && (
-                    <DropdownMenuItem
-                      className="focus:bg-primary/10 focus:text-primary"
-                      disabled={vm.state === VMState.STOPPED}
-                      onClick={(e) => onStopVM(vm, e)}
-                    >
-                      <Square className="mr-2 h-4 w-4 text-inherit" />
-                      Stop
-                    </DropdownMenuItem>
-                  )}
-                  {onRestartVM && (
-                    <DropdownMenuItem
-                      className="focus:bg-primary/10 focus:text-primary"
-                      disabled={vm.state === VMState.STOPPED}
-                      onClick={(e) => onRestartVM(vm, e)}
-                    >
-                      <RotateCw className="mr-2 h-4 w-4 text-inherit" />
-                      Restart
-                    </DropdownMenuItem>
-                  )}
-                  {onConfigureVM && (
-                    <DropdownMenuItem
-                      className="focus:bg-primary/10 focus:text-primary"
-                      onClick={(e) => onConfigureVM(vm, e)}
-                    >
-                      <Settings className="mr-2 h-4 w-4 text-inherit" />
-                      Configure
-                    </DropdownMenuItem>
-                  )}
-                  {onDeleteVM && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="focus:bg-destructive/10 focus:text-destructive text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteVM(vm);
-                        }}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4 text-destructive" />
-                        Delete
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          );
-        },
+        cellRenderer: ({ data }: ColumnProps) => (
+          <TableActionsColumn
+            data={data}
+            operatingVMs={operatingVMs}
+            onStartVM={onStartVM}
+            onStopVM={onStopVM}
+            onRestartVM={onRestartVM}
+            onDeleteVM={onDeleteVM}
+            onConnectVM={onConnectVM}
+            onConfigureVM={onConfigureVM}
+          />
+        ),
       },
     ],
     [
