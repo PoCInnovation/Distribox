@@ -1,7 +1,7 @@
 from threading import Thread
 from collections import Counter
 from time import sleep
-from libvirt import VIR_DOMAIN_STATS_CPU_TOTAL, VIR_DOMAIN_STATS_INTERFACE, VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING
+from libvirt import VIR_DOMAIN_STATS_CPU_TOTAL, VIR_DOMAIN_STATS_INTERFACE, VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING, libvirtError
 import psutil
 
 
@@ -33,10 +33,13 @@ class SystemMonitor:
         self._thread = Thread(target=self._update_loop, daemon=True).start()
 
     def _get_running_vms(self):
-        conn = self.get_connection()
-        return conn.getAllDomainStats(
-            stats=VIR_DOMAIN_STATS_CPU_TOTAL | VIR_DOMAIN_STATS_INTERFACE,
-            flags=VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING)
+        try:
+            conn = self.get_connection()
+            return conn.getAllDomainStats(
+                stats=VIR_DOMAIN_STATS_CPU_TOTAL | VIR_DOMAIN_STATS_INTERFACE,
+                flags=VIR_CONNECT_GET_ALL_DOMAINS_STATS_RUNNING)
+        except (libvirtError, Exception):
+            return []
 
     def _get_cpu_counters(self):
         per_cpus_counter = [

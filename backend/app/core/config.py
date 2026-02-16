@@ -1,6 +1,4 @@
 import libvirt
-from app.orm.vm import VmORM
-from app.orm.user import UserORM
 from dotenv import load_dotenv
 from os import getenv
 from sqlmodel import create_engine, SQLModel
@@ -8,15 +6,26 @@ from app.telemetry.monitor import SystemMonitor
 
 load_dotenv()
 
-db_name = getenv("POSTGRES_NAME", "distribox")
-db_user = getenv("POSTGRES_USER", "distribox_user")
-db_pass = getenv("POSTGRES_PASSWORD", "distribox_password")
-db_port = getenv("POSTGRES_PORT", "5432")
 
-database_url = f"postgresql+psycopg2://{db_user}:{
-    db_pass}@localhost:{db_port}/{db_name}"
+def get_env_or_default(key: str, default: str) -> str:
+    """Get environment variable or return default if empty or None."""
+    value = getenv(key)
+    return value if value else default
+
+
+db_name = get_env_or_default("POSTGRES_NAME", "distribox")
+db_user = get_env_or_default("POSTGRES_USER", "distribox_user")
+db_pass = get_env_or_default("POSTGRES_PASSWORD", "distribox_password")
+db_port = get_env_or_default("POSTGRES_PORT", "5432")
+db_host = get_env_or_default("POSTGRES_HOST", "localhost")
+
+database_url = f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 engine = create_engine(database_url, echo=True)
-SQLModel.metadata.create_all(engine)
+
+
+def init_db():
+    """Initialize database tables."""
+    SQLModel.metadata.create_all(engine)
 
 
 class QEMUConfig:

@@ -377,14 +377,14 @@ export function DashboardVMsTable({
       </div>
 
       {filteredVMs.length === 0 ? (
-        <div className="flex items-center justify-center h-[600px] text-muted-foreground space-x-2">
+        <div className="flex items-center justify-center h-[500px] text-muted-foreground space-x-2">
           <SearchX />
           <p>No virtual machines found</p>
         </div>
       ) : (
         <div
           className="w-full ag-theme-quartz"
-          style={{ height: "600px", width: "100%" }}
+          style={{ height: "500px", width: "100%" }}
         >
           <AgGridReact<VM>
             ref={gridRef}

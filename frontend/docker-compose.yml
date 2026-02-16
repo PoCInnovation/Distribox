@@ -1,0 +1,44 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production-stage
+    container_name: distribox-frontend
+    environment:
+      - VITE_API_DOMAIN=${VITE_API_DOMAIN:-http://localhost:8080}
+      - VITE_PORT=${VITE_PORT:-3000}
+    ports:
+      - "${VITE_PORT:-3000}:${VITE_PORT:-3000}"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - distribox-network
+    profiles: ["prod"]
+
+
+  frontend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev-stage
+    container_name: distribox-frontend-dev
+    environment:
+      - VITE_API_DOMAIN=${VITE_API_DOMAIN:-http://localhost:8080}
+      - VITE_PORT=${VITE_PORT:-3000}
+    ports:
+      - "${VITE_PORT:-3000}:${VITE_PORT:-3000}"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      backend-dev:
+        condition: service_started
+    networks:
+      - distribox-network
+    profiles: ["dev"]
+
+networks:
+  distribox-network:
+    name: distribox-network

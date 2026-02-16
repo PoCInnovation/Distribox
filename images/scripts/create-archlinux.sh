@@ -1,11 +1,13 @@
 #!/bin/bash
+
+set -e
+
 CLOUD_IMG_URL=https://fastly.mirror.pkgbuild.com/images/v20250901.414475/Arch-Linux-x86_64-cloudimg.qcow2
 DISTRIBOX_IMG_PATH="/var/lib/distribox/images/"
 CLOUD_IMG_SOURCE="${CLOUD_IMG_URL##*/}"
 
 wget -O "/tmp/${CLOUD_IMG_SOURCE}" $CLOUD_IMG_URL
 
-set -e 
 sudo qemu-img create -f qcow2 /tmp/resized_image.qcow2 9G
 sudo virt-resize --expand /dev/sda3 \
     "/tmp/$CLOUD_IMG_SOURCE" \
@@ -24,6 +26,11 @@ sudo virt-customize -a /tmp/resized_image.qcow2 \
 sudo virt-sysprep -a /tmp/resized_image.qcow2 --operations machine-id,ssh-hostkeys
 
 sudo virt-sparsify --compress /tmp/resized_image.qcow2 \
-    "/var/lib/distribox/images/distribox-archlinux.qcow2"
+    "/var/lib/distribox/images/distribox-archlinux-rolling.qcow2"
+
+SCRIPT_DIR=/usr/local/bin
+sudo cp "${SCRIPT_DIR}/distribox-archlinux-rolling.metadata.yaml" ${DISTRIBOX_IMG_PATH}
+
+chmod 775 "${DISTRIBOX_IMG_PATH}distribox-archlinux-rolling.qcow2"
 
 sudo rm -f /tmp/resized_image.qcow2

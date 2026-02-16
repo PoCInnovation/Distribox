@@ -24,11 +24,11 @@ class Vm:
         self.state: Optional[str] = None
         self.state = 'Stopped'
         vm_dir = VMS_DIR / str(self.id)
-        distribox_image_dir = IMAGES_DIR / f"distribox-{self.os}.qcow2"
+        distribox_image_dir = IMAGES_DIR / self.os
         try:
             vm_dir.mkdir(parents=True, exist_ok=True)
             copy(distribox_image_dir, vm_dir)
-            vm_path = vm_dir / f"distribox-{self.os}.qcow2"
+            vm_path = vm_dir / self.os
             subprocess.run(
                 ["qemu-img", "resize", vm_path, f"+{self.disk_size}G"])
             vm_xml = build_xml(self)

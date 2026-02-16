@@ -5,16 +5,17 @@ from sqlmodel import Session, select
 from app.routes import vm, image, host, auth
 from app.orm.user import UserORM
 from app.utils.auth import hash_password
-from app.core.config import engine
 from app.utils.auth import get_current_user, get_current_admin_user
-import os
+from app.core.config import engine, get_env_or_default, init_db
 
 app = FastAPI()
+
+frontend_url = get_env_or_default("FRONTEND_URL", "http://localhost:3000")
 
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[frontend_url],
     allow_credentials=True,
     allow_methods=["GET", "PUT", "POST", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Content-Type", "Authorization"],
@@ -23,9 +24,11 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Create default admin user if it doesn't exist."""
-    admin_username = os.getenv("ADMIN_USERNAME", "admin")
-    admin_password = os.getenv("ADMIN_PASSWORD", "admin")
+    """Initialize database and create default admin user if it doesn't exist."""
+    init_db()  # This might be temporary
+
+    admin_username = get_env_or_default("ADMIN_USERNAME", "admin")
+    admin_password = get_env_or_default("ADMIN_PASSWORD", "admin")
 
     with Session(engine) as session:
         # Check if admin exists

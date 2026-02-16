@@ -14,12 +14,12 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100">
+    <div className="min-h-screen flex flex-col items-center justify-center">
       <div className="max-w-3xl mx-auto text-center px-4">
-        <h1 className="text-5xl font-bold text-gray-900 mb-4">
-          Welcome to Distribox
+        <h1 className="text-5xl font-bold text-gray-100 mb-4">
+          Welcome to <span className="text-primary">Distribox</span>
         </h1>
-        <p className="text-xl text-gray-600 mb-8">
+        <p className="text-xl text-gray-300 mb-8">
           Meets all your needs to share Virtual Machines.
         </p>
         <div className="flex gap-4 justify-center">

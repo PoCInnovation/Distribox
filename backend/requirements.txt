@@ -9,3 +9,5 @@ bcrypt
 pyjwt
 python-multipart
 psutil
+uvicorn[standard]
+python-dotenv
