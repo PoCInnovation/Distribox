@@ -19,7 +19,7 @@ sudo virt-customize -a /tmp/resized_image.qcow2 \
     --run-command 'pacman-key --populate archlinux' \
     --run-command 'pacman -Syu --noconfirm' \
     --run-command 'pacman -S --noconfirm vim qemu-guest-agent cloud-init grub linux intel-ucode' \
-    --run-command 'fuser -km /dev || true' \ # finds and kills all processes using /dev
+    --run-command 'fuser -km /dev || true' \
     --run-command 'sync'
 
 sudo virt-sysprep -a /tmp/resized_image.qcow2 --operations machine-id,ssh-hostkeys
