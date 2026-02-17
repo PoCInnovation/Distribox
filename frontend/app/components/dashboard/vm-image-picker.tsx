@@ -15,7 +15,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { CloudIcon, FrownIcon, LoaderCircleIcon, XIcon } from "lucide-react";
-import type { Image as ImageType } from "~/lib/api";
+import type { ImageMetadata } from "~/lib/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Image } from "@unpic/react";
 
@@ -90,7 +90,7 @@ function ErrorVMImageSelect({ error }: { error: Error | null }) {
   );
 }
 
-function ImageSelectOptions({ images }: { images: ImageType[] }) {
+function ImageSelectOptions({ images }: { images: ImageMetadata[] }) {
   return (
     <ScrollArea className="rounded-lg border-dashed text-center text-balance h-80 p-2">
       <div className="space-y-2">

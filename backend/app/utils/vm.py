@@ -1,6 +1,7 @@
 from time import sleep
 import subprocess
 import json
+from typing import Optional
 
 
 def wait_for_state(vm, state_code: int, timeout: float, retries: int):
@@ -12,7 +13,7 @@ def wait_for_state(vm, state_code: int, timeout: float, retries: int):
     return code
 
 
-def get_vm_ip(vm_name: str, interface: str = "ens3") -> str | None:
+def get_vm_ip(vm_name: str, interface: str = "ens3") -> Optional[str]:
     try:
         cmd = [
             "virsh",
@@ -37,5 +38,5 @@ def get_vm_ip(vm_name: str, interface: str = "ens3") -> str | None:
                         return addr.get("ip-address")
         return None
 
-    except Exception as e:
+    except Exception:
         return None

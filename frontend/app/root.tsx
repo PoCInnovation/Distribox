@@ -11,6 +11,7 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import { SidebarProvider } from "@/contexts/sidebar-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "sonner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        <Toaster
+          theme="dark"
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: "oklch(0.16 0.015 240)",
+              color: "oklch(0.98 0.01 240)",
+              border: "1px solid oklch(0.24 0.02 240)",
+            },
+            className: "font-sans",
+          }}
+        />
         <ScrollRestoration />
         <Scripts />
       </body>

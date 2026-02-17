@@ -1,3 +1,11 @@
+import type {
+  CreateVMPayload,
+  HostInfo,
+  ImageMetadata,
+  User,
+  VirtualMachineMetadata,
+} from "@/lib/types";
+
 const API_BASE_URL = import.meta.env.VITE_API_DOMAIN || "http://localhost:8080";
 const TOKEN_KEY = "auth_token";
 
@@ -89,12 +97,6 @@ export async function login(username: string, password: string): Promise<void> {
   setAuthToken(data.access_token);
 }
 
-export interface User {
-  id: string;
-  username: string;
-  is_admin: boolean;
-}
-
 export async function getCurrentUser(): Promise<User> {
   return apiRequest<User>("/auth/me");
 }
@@ -112,54 +114,45 @@ export async function changePassword(
   });
 }
 
-export interface HostInfo {
-  disk: {
-    total: number;
-    used: number;
-    available: number;
-    percent_used: number;
-    distribox_used: number;
-  };
-  mem: {
-    total: number;
-    used: number;
-    available: number;
-    percent_used: number;
-  };
-  cpu: {
-    percent_used_total: number;
-    percent_used_per_cpu: number[];
-    percent_used_per_vm: string[];
-    percent_used_total_vms: number;
-    cpu_count: number;
-  };
-}
-
 export async function getHostInfo(): Promise<HostInfo> {
   return apiRequest<HostInfo>("/host/info");
 }
 
-export interface Image {
-  name: string;
-  virtual_size: number;
-  actual_size: number;
+export async function getVMs(): Promise<VirtualMachineMetadata[]> {
+  return apiRequest<VirtualMachineMetadata[]>("/vms");
 }
 
-export async function getImages(): Promise<Image[]> {
-  return apiRequest<Image[]>("/images");
-}
-
-export interface CreateVMPayload {
-  os: string;
-  mem: number;
-  vcpus: number;
-  disk_size: number;
-  activate_at_start: boolean;
+export async function getImages(): Promise<ImageMetadata[]> {
+  return apiRequest<ImageMetadata[]>("/images");
 }
 
 export async function createVM(payload: CreateVMPayload): Promise<void> {
   return apiRequest<void>("/vms", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function startVM(id: string): Promise<void> {
+  return apiRequest<void>(`/vms/${id}/start`, {
+    method: "POST",
+  });
+}
+
+export async function stopVM(id: string): Promise<void> {
+  return apiRequest<void>(`/vms/${id}/stop`, {
+    method: "POST",
+  });
+}
+
+export async function restartVM(id: string): Promise<void> {
+  return apiRequest<void>(`/vms/${id}/restart`, {
+    method: "POST",
+  });
+}
+
+export async function deleteVM(id: string): Promise<void> {
+  return apiRequest<void>(`/vms/${id}`, {
+    method: "DELETE",
   });
 }

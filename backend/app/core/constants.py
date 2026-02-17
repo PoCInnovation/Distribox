@@ -5,6 +5,8 @@ BASE_DIR = Path('/var/lib/distribox/')
 VMS_DIR = BASE_DIR / 'vms'
 IMAGES_DIR = BASE_DIR / 'images'
 
+# If this ever changes, the frontend needs to be updated as well
+# See there `frontend/app/lib/types/vm-state.ts`
 VM_STATE_NAMES = {
     libvirt.VIR_DOMAIN_NOSTATE: "No state",
     libvirt.VIR_DOMAIN_RUNNING: "Running",

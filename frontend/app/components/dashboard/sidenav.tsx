@@ -13,7 +13,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/contexts/sidebar-context";
 import { useState, useEffect } from "react";
-import { getCurrentUser, signOut, type User as UserType } from "@/lib/api";
+import { getCurrentUser, signOut } from "@/lib/api";
+import type { User as UserType } from "@/lib/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -122,12 +123,18 @@ export function DashboardSidenav() {
                 )}
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
+            <DropdownMenuItem
+              className="focus:bg-secondary focus:text-white"
+              onClick={() => setChangePasswordOpen(true)}
+            >
+              <DropdownMenuSeparator />
               <KeyRound className="mr-2 h-4 w-4" />
               <span>Change Password</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={signOut} className="text-red-600">
+            <DropdownMenuItem
+              className="focus:bg-destructive/10 text-destructive focus:text-destructive"
+              onClick={signOut}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               <span>Log Out</span>
             </DropdownMenuItem>

@@ -1,6 +1,9 @@
 FROM python:3.9 as base
 
-RUN apt-get update && apt-get install -y libvirt-dev
+RUN apt-get update && apt-get install -y \
+    qemu-utils \
+    libvirt-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 FROM base as builder
 WORKDIR /code
