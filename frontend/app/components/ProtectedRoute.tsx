@@ -1,6 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { isAuthenticated } from "@/lib/api";
+import {
+  ApiHttpError,
+  getCurrentUser,
+  isAuthenticated,
+  isForbiddenError,
+  rememberForbiddenError,
+} from "@/lib/api";
+import { AuthzProvider } from "@/contexts/authz-context";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -8,23 +16,50 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const navigate = useNavigate();
-  const [isChecking, setIsChecking] = useState(true);
+  const userQuery = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: getCurrentUser,
+    retry: false,
+    enabled: typeof window !== "undefined" && isAuthenticated(),
+  });
 
   useEffect(() => {
-    // Only check auth on client side
-    if (typeof window !== "undefined") {
-      if (!isAuthenticated()) {
-        navigate("/auth/login", { replace: true });
-      } else {
-        setIsChecking(false);
-      }
+    if (typeof window === "undefined") {
+      return;
     }
-  }, [navigate]);
 
-  // Show nothing while checking (prevents flash of content)
-  if (isChecking) {
+    if (!isAuthenticated()) {
+      navigate("/auth/login", { replace: true });
+      return;
+    }
+
+    if (userQuery.error && isForbiddenError(userQuery.error)) {
+      rememberForbiddenError("/auth/me", userQuery.error);
+      navigate("/error?reason=forbidden", { replace: true });
+      return;
+    }
+
+    if (
+      userQuery.error &&
+      userQuery.error instanceof ApiHttpError &&
+      userQuery.error.status === 401
+    ) {
+      navigate("/auth/login", { replace: true });
+      return;
+    }
+  }, [navigate, userQuery.error]);
+
+  if (!isAuthenticated() || userQuery.isLoading) {
     return null;
   }
 
-  return <>{children}</>;
+  if (userQuery.error) {
+    throw userQuery.error;
+  }
+
+  if (!userQuery.data) {
+    return null;
+  }
+
+  return <AuthzProvider user={userQuery.data}>{children}</AuthzProvider>;
 }

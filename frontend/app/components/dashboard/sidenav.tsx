@@ -12,9 +12,9 @@ import { Image } from "@unpic/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/contexts/sidebar-context";
-import { useState, useEffect } from "react";
-import { getCurrentUser, signOut } from "@/lib/api";
-import type { User as UserType } from "@/lib/types";
+import { useState } from "react";
+import { signOut } from "@/lib/api";
+import { Policy } from "@/lib/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,34 +24,32 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
-import { isAdmin } from "~/lib/is-admin";
+import { isAdmin } from "@/lib/is-admin";
+import { useAuthz } from "@/contexts/authz-context";
+import { PolicyNotice } from "@/components/policy/policy-notice";
+import type { PolicyName } from "@/lib/policy-utils";
 
 const navItems = [
   {
     href: "/dashboard",
     label: "Dashboard",
     icon: LayoutIcon,
+    requiredPolicies: [Policy.VMS_GET] as PolicyName[],
   },
   {
     href: "/dashboard/provision",
     label: "Provision VM",
     icon: PlusIcon,
+    requiredPolicies: [Policy.VMS_CREATE] as PolicyName[],
   },
 ];
 
 export function DashboardSidenav() {
   const { collapsed, toggle } = useSidebar();
   const { pathname } = useLocation();
-  const [user, setUser] = useState<UserType | null>(null);
+  const authz = useAuthz();
+  const { user } = authz;
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-
-  useEffect(() => {
-    getCurrentUser()
-      .then(setUser)
-      .catch((err) => {
-        console.error("Failed to fetch user:", err);
-      });
-  }, []);
 
   return (
     <aside
@@ -71,9 +69,20 @@ export function DashboardSidenav() {
 
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {
+          const missingPolicies = authz.missingPolicies(item.requiredPolicies);
           const isActive =
             pathname === item.href || pathname === item.href + "/";
           const Icon = item.icon;
+          if (missingPolicies.length > 0) {
+            return (
+              <PolicyNotice
+                key={item.href}
+                compact
+                title={`${item.label} Hidden`}
+                missingPolicies={missingPolicies}
+              />
+            );
+          }
           return (
             <Link
               key={item.href}
@@ -124,14 +133,21 @@ export function DashboardSidenav() {
                 )}
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuItem
-              className="focus:bg-secondary focus:text-white"
-              onClick={() => setChangePasswordOpen(true)}
-            >
-              <DropdownMenuSeparator />
-              <KeyRound className="mr-2 h-4 w-4" />
-              <span>Change Password</span>
-            </DropdownMenuItem>
+            {authz.hasPolicy(Policy.AUTH_CHANGE_PASSWORD) ? (
+              <DropdownMenuItem
+                className="focus:bg-secondary focus:text-white"
+                onClick={() => setChangePasswordOpen(true)}
+              >
+                <DropdownMenuSeparator />
+                <KeyRound className="mr-2 h-4 w-4" />
+                <span>Change Password</span>
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem disabled className="text-muted-foreground">
+                <KeyRound className="mr-2 h-4 w-4" />
+                <span>Change Password (missing: auth:changePassword)</span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               className="focus:bg-destructive/10 text-destructive focus:text-destructive"
               onClick={signOut}

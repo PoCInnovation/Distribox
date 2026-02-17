@@ -29,10 +29,19 @@ import {
 import { useNavigate } from "react-router";
 import { VMImageSelect } from "~/components/dashboard/vm-image-picker";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Policy } from "@/lib/types";
+import { useAuthz } from "@/contexts/authz-context";
+import { PolicyGate } from "@/components/policy/policy-gate";
+import { PolicyNotice } from "@/components/policy/policy-notice";
 
 export default function ProvisionPage() {
   const navigate = useNavigate();
-  const { data: hostInfo } = useHostInfo();
+  const authz = useAuthz();
+  const hasCreatePolicy = authz.hasPolicy(Policy.VMS_CREATE);
+  const canReadHost = authz.hasPolicy(Policy.HOST_GET);
+  const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
+
+  const { data: hostInfo } = useHostInfo(canReadHost);
   const createVM = useCreateVM();
 
   const [name, setName] = useState("");
@@ -98,6 +107,25 @@ export default function ProvisionPage() {
     }
   };
 
+  if (!hasCreatePolicy) {
+    return (
+      <div className="h-full p-8">
+        <div className="mb-8">
+          <h1 className="mb-2 font-mono text-3xl font-bold tracking-tight text-balance">
+            Provision Virtual Machine
+          </h1>
+          <p className="text-muted-foreground">
+            Configure and deploy a new virtual machine instance
+          </p>
+        </div>
+        <PolicyNotice
+          title="Provisioning Hidden"
+          missingPolicies={authz.missingPolicies([Policy.VMS_CREATE])}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="h-full p-8">
       <div className="mb-8">
@@ -109,18 +137,23 @@ export default function ProvisionPage() {
         </p>
       </div>
 
-      {hostInfo && (
-        <div className="mb-8">
-          <h2 className="mb-4 font-mono text-lg font-bold">
-            Available Resources
-          </h2>
-          <div className="grid gap-4 md:grid-cols-3">
-            <CompactCPUInfo cpu={hostInfo.cpu} />
-            <CompactMemoryInfo mem={hostInfo.mem} />
-            <CompactDiskInfo disk={hostInfo.disk} />
+      <PolicyGate
+        requiredPolicies={[Policy.HOST_GET]}
+        title="Host Resources Hidden"
+      >
+        {hostInfo && (
+          <div className="mb-8">
+            <h2 className="mb-4 font-mono text-lg font-bold">
+              Available Resources
+            </h2>
+            <div className="grid gap-4 md:grid-cols-3">
+              <CompactCPUInfo cpu={hostInfo.cpu} />
+              <CompactMemoryInfo mem={hostInfo.mem} />
+              <CompactDiskInfo disk={hostInfo.disk} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </PolicyGate>
 
       <div className="grid gap-6 lg:grid-cols-3 pb-8">
         <div className="lg:col-span-2 space-y-6">
@@ -162,10 +195,16 @@ export default function ProvisionPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="w-full">
-              <VMImageSelect
-                selectedOS={selectedOS}
-                setSelectedOS={setSelectedOS}
-              />
+              <PolicyGate
+                requiredPolicies={[Policy.IMAGES_GET]}
+                title="Image Registry Hidden"
+              >
+                <VMImageSelect
+                  selectedOS={selectedOS}
+                  setSelectedOS={setSelectedOS}
+                  enabled={canReadImages}
+                />
+              </PolicyGate>
             </CardContent>
           </Card>
 
