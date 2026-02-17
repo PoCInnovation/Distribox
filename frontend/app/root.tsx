@@ -12,6 +12,7 @@ import "./app.css";
 import { SidebarProvider } from "@/contexts/sidebar-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
+import { ErrorDisplay } from "@/components/error/error-display";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,12 +77,14 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  let message = "Oops!";
+  let code = "500";
+  let message = "Unexpected Error";
   let details = "An unexpected error occurred.";
   let stack: string | undefined;
 
   if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "404" : "Error";
+    code = String(error.status);
+    message = error.status === 404 ? "Page Not Found" : "Request Failed";
     details =
       error.status === 404
         ? "The requested page could not be found."
@@ -92,14 +95,13 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
-      {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
-          <code>{stack}</code>
-        </pre>
-      )}
-    </main>
+    <ErrorDisplay
+      code={code}
+      title={message}
+      description={details}
+      showGoBack
+      showRetry={code !== "404"}
+      stack={stack}
+    />
   );
 }
