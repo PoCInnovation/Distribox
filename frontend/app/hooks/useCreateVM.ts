@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createVM, type CreateVMPayload } from "@/lib/api";
+import { createVM } from "@/lib/api";
+import type { CreateVMPayload } from "@/lib/types";
 
 export function useCreateVM() {
   const queryClient = useQueryClient();
