@@ -46,7 +46,10 @@ export const TableActionsColumn = ({
   const missingForStart = authz.missingPolicies([Policy.VMS_START]);
   const missingForStop = authz.missingPolicies([Policy.VMS_STOP]);
   const missingForDelete = authz.missingPolicies([Policy.VMS_DELETE]);
-  const missingForRestart = authz.missingPolicies([Policy.VMS_START, Policy.VMS_STOP]);
+  const missingForRestart = authz.missingPolicies([
+    Policy.VMS_START,
+    Policy.VMS_STOP,
+  ]);
 
   const hiddenActions = [
     ...(missingForStart.length > 0 ? ["Start"] : []),
@@ -92,7 +95,9 @@ export const TableActionsColumn = ({
           {onStartVM && (
             <DropdownMenuItem
               className="focus:bg-primary/10 focus:text-primary"
-              disabled={vm.state === VMState.RUNNING || missingForStart.length > 0}
+              disabled={
+                vm.state === VMState.RUNNING || missingForStart.length > 0
+              }
               onClick={(e) => onStartVM(vm, e)}
             >
               <Play className="mr-2 h-4 w-4 text-inherit" />
@@ -105,7 +110,9 @@ export const TableActionsColumn = ({
           {onStopVM && (
             <DropdownMenuItem
               className="focus:bg-primary/10 focus:text-primary"
-              disabled={vm.state === VMState.STOPPED || missingForStop.length > 0}
+              disabled={
+                vm.state === VMState.STOPPED || missingForStop.length > 0
+              }
               onClick={(e) => onStopVM(vm, e)}
             >
               <Square className="mr-2 h-4 w-4 text-inherit" />
@@ -118,7 +125,9 @@ export const TableActionsColumn = ({
           {onRestartVM && (
             <DropdownMenuItem
               className="focus:bg-primary/10 focus:text-primary"
-              disabled={vm.state === VMState.STOPPED || missingForRestart.length > 0}
+              disabled={
+                vm.state === VMState.STOPPED || missingForRestart.length > 0
+              }
               onClick={(e) => onRestartVM(vm, e)}
             >
               <RotateCw className="mr-2 h-4 w-4 text-inherit" />

@@ -23,11 +23,7 @@ export function PolicyGate({
   return (
     <>
       {fallback ?? (
-        <PolicyNotice
-          title={title}
-          missingPolicies={missingPolicies}
-          compact
-        />
+        <PolicyNotice title={title} missingPolicies={missingPolicies} compact />
       )}
     </>
   );

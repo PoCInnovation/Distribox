@@ -137,7 +137,10 @@ export default function ProvisionPage() {
         </p>
       </div>
 
-      <PolicyGate requiredPolicies={[Policy.HOST_GET]} title="Host Resources Hidden">
+      <PolicyGate
+        requiredPolicies={[Policy.HOST_GET]}
+        title="Host Resources Hidden"
+      >
         {hostInfo && (
           <div className="mb-8">
             <h2 className="mb-4 font-mono text-lg font-bold">
@@ -192,7 +195,10 @@ export default function ProvisionPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="w-full">
-              <PolicyGate requiredPolicies={[Policy.IMAGES_GET]} title="Image Registry Hidden">
+              <PolicyGate
+                requiredPolicies={[Policy.IMAGES_GET]}
+                title="Image Registry Hidden"
+              >
                 <VMImageSelect
                   selectedOS={selectedOS}
                   setSelectedOS={setSelectedOS}

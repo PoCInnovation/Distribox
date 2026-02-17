@@ -11,9 +11,7 @@ import {
 export default function UnexpectedErrorPage() {
   const [searchParams] = useSearchParams();
   const forbiddenError =
-    searchParams.get("reason") === "forbidden"
-      ? getLastForbiddenError()
-      : null;
+    searchParams.get("reason") === "forbidden" ? getLastForbiddenError() : null;
   const validationError =
     searchParams.get("reason") === "validation"
       ? getLastValidationError()

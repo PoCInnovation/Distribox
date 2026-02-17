@@ -193,7 +193,9 @@ function toForbiddenMessage(detail: ForbiddenErrorResponse["detail"]): string {
   return detail.message;
 }
 
-function parseForbiddenDetail(payload: unknown): MissingPoliciesDetail | string {
+function parseForbiddenDetail(
+  payload: unknown,
+): MissingPoliciesDetail | string {
   const parsed = ForbiddenErrorResponseSchema.safeParse(payload);
   if (!parsed.success) {
     return "Forbidden";
@@ -206,7 +208,10 @@ export function isForbiddenError(error: unknown): error is ApiHttpError {
   return error instanceof ApiHttpError && error.status === 403;
 }
 
-export function rememberForbiddenError(endpoint: string, error: ApiHttpError): void {
+export function rememberForbiddenError(
+  endpoint: string,
+  error: ApiHttpError,
+): void {
   saveLastForbiddenError(endpoint, error.missingPolicies, error.message);
 }
 

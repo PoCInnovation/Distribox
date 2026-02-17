@@ -30,12 +30,16 @@ export function AuthzProvider({
       user,
       policyNames: extractPolicyNames(user),
       hasPolicy: (policy) => hasPolicy(user, policy),
-      hasAllPolicies: (requiredPolicies) => hasAllPolicies(user, requiredPolicies),
-      missingPolicies: (requiredPolicies) => missingPolicies(user, requiredPolicies),
+      hasAllPolicies: (requiredPolicies) =>
+        hasAllPolicies(user, requiredPolicies),
+      missingPolicies: (requiredPolicies) =>
+        missingPolicies(user, requiredPolicies),
     };
   }, [user]);
 
-  return <AuthzContext.Provider value={value}>{children}</AuthzContext.Provider>;
+  return (
+    <AuthzContext.Provider value={value}>{children}</AuthzContext.Provider>
+  );
 }
 
 export function useAuthz(): AuthzContextValue {

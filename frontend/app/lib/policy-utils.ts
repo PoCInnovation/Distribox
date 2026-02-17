@@ -10,7 +10,10 @@ export function extractPolicyNames(user?: User | null): string[] {
   return user.policies.map((entry) => entry.policy);
 }
 
-export function hasPolicy(user: User | null | undefined, policy: PolicyName): boolean {
+export function hasPolicy(
+  user: User | null | undefined,
+  policy: PolicyName,
+): boolean {
   const policyNames = extractPolicyNames(user);
   if (policyNames.includes(Policy.ADMIN)) {
     return true;

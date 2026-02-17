@@ -116,7 +116,9 @@ export function DashboardVMsTableContainer() {
             ) : isError ? (
               <PolicyNotice
                 title="Virtual Machines Unavailable"
-                description={error instanceof Error ? error.message : "Unknown error"}
+                description={
+                  error instanceof Error ? error.message : "Unknown error"
+                }
                 missingPolicies={[]}
               />
             ) : vms !== undefined ? (

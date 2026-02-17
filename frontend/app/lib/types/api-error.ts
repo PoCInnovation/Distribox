@@ -10,4 +10,6 @@ export const ForbiddenErrorResponseSchema = z.object({
 });
 
 export type MissingPoliciesDetail = z.infer<typeof MissingPoliciesDetailSchema>;
-export type ForbiddenErrorResponse = z.infer<typeof ForbiddenErrorResponseSchema>;
+export type ForbiddenErrorResponse = z.infer<
+  typeof ForbiddenErrorResponseSchema
+>;
