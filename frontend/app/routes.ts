@@ -7,4 +7,5 @@ export default [
     index("routes/dashboard._index.tsx"),
     route("provision", "routes/dashboard.provision.tsx"),
   ]),
+  route("*", "routes/404.tsx"),
 ] satisfies RouteConfig;
