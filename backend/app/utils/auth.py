@@ -1,12 +1,13 @@
 import bcrypt
 import jwt
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Callable, Optional
 from os import getenv
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlmodel import Session, select
+from sqlmodel import Session
 from app.core.config import engine
+from app.core.policies import DISTRIBOX_ADMIN_POLICY
 from app.orm.user import UserORM
 
 SECRET_KEY = getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
@@ -85,7 +86,34 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found"
             )
+        user.last_activity = datetime.utcnow()
+        session.add(user)
+        session.commit()
+        session.refresh(user)
         return user
+
+
+def user_has_policy(user: UserORM, policy: str) -> bool:
+    if user.is_admin:
+        return True
+    if DISTRIBOX_ADMIN_POLICY in user.policies:
+        return True
+    return policy in user.policies
+
+
+def require_policy(policy: str) -> Callable:
+    async def checker(current_user: UserORM = Depends(get_current_user)) -> UserORM:
+        if not user_has_policy(current_user, policy):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "message": "Missing required policies",
+                    "missing_policies": [policy],
+                }
+            )
+        return current_user
+
+    return checker
 
 
 async def get_current_admin_user(
