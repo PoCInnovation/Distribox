@@ -8,7 +8,16 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Users as UsersIcon, Plus, Search, Copy, Eye, EyeOff, ChevronDown, InfoIcon } from "lucide-react";
+import {
+  Users as UsersIcon,
+  Plus,
+  Search,
+  Copy,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  InfoIcon,
+} from "lucide-react";
 import { useUsers } from "@/hooks/useUsers";
 import { Policy, POLICY_DESCRIPTIONS } from "@/lib/types/policies";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -162,11 +171,15 @@ interface DraggablePolicyBadgeProps {
   description: string;
 }
 
-function DraggablePolicyBadge({ policy, description }: DraggablePolicyBadgeProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `policy-${policy}`,
-    data: { policy, description },
-  });
+function DraggablePolicyBadge({
+  policy,
+  description,
+}: DraggablePolicyBadgeProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `policy-${policy}`,
+      data: { policy, description },
+    });
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -209,7 +222,11 @@ interface PolicyBadgeProps {
   removable?: boolean;
 }
 
-function PolicyBadge({ policy, onRemove, removable = false }: PolicyBadgeProps) {
+function PolicyBadge({
+  policy,
+  onRemove,
+  removable = false,
+}: PolicyBadgeProps) {
   const colors = getPolicyColor(policy);
 
   return (
@@ -246,14 +263,20 @@ interface UserCardProps {
   availablePolicies: { policy: string; description: string }[];
 }
 
-function UserCard({ user, onRemovePolicy, onAddPolicy, onShowPassword, availablePolicies }: UserCardProps) {
+function UserCard({
+  user,
+  onRemovePolicy,
+  onAddPolicy,
+  onShowPassword,
+  availablePolicies,
+}: UserCardProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `user-${user.id}`,
     data: { userId: user.id, username: user.user },
   });
 
   const unassignedPolicies = availablePolicies.filter(
-    (p) => !user.policies.some((up) => up.policy === p.policy)
+    (p) => !user.policies.some((up) => up.policy === p.policy),
   );
 
   return (
@@ -282,7 +305,10 @@ function UserCard({ user, onRemovePolicy, onAddPolicy, onShowPassword, available
                     <ChevronDown className="h-3 w-3 ml-1" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 max-h-64 overflow-y-auto">
+                <DropdownMenuContent
+                  align="end"
+                  className="w-56 max-h-64 overflow-y-auto"
+                >
                   {unassignedPolicies.length === 0 ? (
                     <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">
                       All policies assigned
@@ -305,10 +331,7 @@ function UserCard({ user, onRemovePolicy, onAddPolicy, onShowPassword, available
               </DropdownMenu>
             </PolicyGate>
             <PolicyGate requiredPolicies={Policy.USERS_GET_PASSWORD}>
-              <Button
-                size="sm"
-                onClick={() => onShowPassword(user.id)}
-              >
+              <Button size="sm" onClick={() => onShowPassword(user.id)}>
                 <Eye className="h-4 w-4" />
               </Button>
             </PolicyGate>
@@ -319,7 +342,9 @@ function UserCard({ user, onRemovePolicy, onAddPolicy, onShowPassword, available
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">Policies:</p>
           {user.policies.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">No policies assigned</p>
+            <p className="text-xs text-muted-foreground italic">
+              No policies assigned
+            </p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {user.policies.map((policyObj) => (
@@ -404,7 +429,8 @@ function CreateUserModal({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Make sure to save this password. You won't be able to see it again.
+                Make sure to save this password. You won't be able to see it
+                again.
               </p>
             </div>
             <DialogFooter>
@@ -500,9 +526,10 @@ export default function UsersPoliciesPage() {
 
   const filteredPolicies = useMemo(() => {
     if (!policySearchQuery.trim()) return allPolicies;
-    return allPolicies.filter((p) =>
-      p.policy.toLowerCase().includes(policySearchQuery.toLowerCase()) ||
-      p.description.toLowerCase().includes(policySearchQuery.toLowerCase())
+    return allPolicies.filter(
+      (p) =>
+        p.policy.toLowerCase().includes(policySearchQuery.toLowerCase()) ||
+        p.description.toLowerCase().includes(policySearchQuery.toLowerCase()),
     );
   }, [allPolicies, policySearchQuery]);
 
@@ -531,13 +558,18 @@ export default function UsersPoliciesPage() {
       const user = users?.find((u) => u.id === userData.userId);
       if (!user) return;
 
-      const hasPolicy = user.policies.some((p) => p.policy === policyData.policy);
+      const hasPolicy = user.policies.some(
+        (p) => p.policy === policyData.policy,
+      );
       if (hasPolicy) {
         toast.info(`User already has policy: ${policyData.policy}`);
         return;
       }
 
-      const newPolicies = [...user.policies.map((p) => p.policy), policyData.policy];
+      const newPolicies = [
+        ...user.policies.map((p) => p.policy),
+        policyData.policy,
+      ];
       try {
         await updateUserPolicies(userData.userId, newPolicies);
         toast.success(
@@ -591,7 +623,9 @@ export default function UsersPoliciesPage() {
         { duration: 10000 },
       );
     } catch (error) {
-      toast.error(`Failed to retrieve password: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error(
+        `Failed to retrieve password: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   };
 
@@ -665,7 +699,8 @@ export default function UsersPoliciesPage() {
               <p className="flex flex-row space-x-2 text-xs text-muted-foreground mt-1 mb-4">
                 <InfoIcon className="text-accent h-4 w-4" />
                 <span>
-                  <span className="text-accent font-bold">Drag and Drop</span> policies to user cards
+                  <span className="text-accent font-bold">Drag and Drop</span>{" "}
+                  policies to user cards
                 </span>
               </p>
               <div className="relative">
@@ -678,10 +713,12 @@ export default function UsersPoliciesPage() {
                 />
               </div>
             </div>
-            <div className={cn(
-              "flex-1 overflow-y-auto overflow-x-hidden",
-              activeDragId && "overflow-hidden"
-            )}>
+            <div
+              className={cn(
+                "flex-1 overflow-y-auto overflow-x-hidden",
+                activeDragId && "overflow-hidden",
+              )}
+            >
               <div className="p-4 space-y-2">
                 {filteredPolicies.map(({ policy, description }) => (
                   <DraggablePolicyBadge
@@ -764,20 +801,23 @@ export default function UsersPoliciesPage() {
         </div>
 
         <DragOverlay>
-          {activeDragId && (() => {
-            const policyName = activeDragId.replace("policy-", "");
-            const colors = getPolicyColor(policyName);
-            return (
-              <div className={cn(
-                "px-4 py-2.5 text-sm font-medium border-2 rounded-sm shadow-lg opacity-90",
-                colors.bg,
-                colors.border,
-                colors.text,
-              )}>
-                {policyName}
-              </div>
-            );
-          })()}
+          {activeDragId &&
+            (() => {
+              const policyName = activeDragId.replace("policy-", "");
+              const colors = getPolicyColor(policyName);
+              return (
+                <div
+                  className={cn(
+                    "px-4 py-2.5 text-sm font-medium border-2 rounded-sm shadow-lg opacity-90",
+                    colors.bg,
+                    colors.border,
+                    colors.text,
+                  )}
+                >
+                  {policyName}
+                </div>
+              );
+            })()}
         </DragOverlay>
 
         <CreateUserModal
