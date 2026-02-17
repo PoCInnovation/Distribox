@@ -12,8 +12,8 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 FROM builder as dev-stage
 COPY ./app /code/app
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${BACKEND_PORT} --reload
 
 FROM builder as production-stage
 COPY ./app /code/app
-CMD ["fastapi", "run", "app/main.py", "--port", "8080"]
+CMD fastapi run app/main.py --port ${BACKEND_PORT}
