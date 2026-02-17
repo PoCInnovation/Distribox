@@ -11,6 +11,7 @@ class UserORM(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     username: str = Field(unique=True, index=True)
     hashed_password: str
+    password: Optional[str] = Field(default=None)
     is_admin: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: Optional[str] = Field(default=None)

@@ -115,6 +115,7 @@ async def change_password(
             )
 
         user.hashed_password = hash_password(password_data.new_password)
+        user.password = password_data.new_password
         user.last_activity = datetime.utcnow()
         session.add(user)
         session.commit()

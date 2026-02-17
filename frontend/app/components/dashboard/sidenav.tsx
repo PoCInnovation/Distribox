@@ -7,6 +7,7 @@ import {
   User,
   LogOut,
   KeyRound,
+  Users,
 } from "lucide-react";
 import { Image } from "@unpic/react";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,12 @@ const navItems = [
     label: "Provision VM",
     icon: PlusIcon,
     requiredPolicies: [Policy.VMS_CREATE] as PolicyName[],
+  },
+  {
+    href: "/dashboard/users-policies",
+    label: "Users & Policies",
+    icon: Users,
+    requiredPolicies: [Policy.USERS_GET] as PolicyName[],
   },
 ];
 

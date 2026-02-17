@@ -422,3 +422,57 @@ export async function deleteVM(id: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+const CreateUserResponseSchema = UserSchema.extend({
+  generated_password: z.string().optional(),
+});
+
+export type CreateUserResponse = z.infer<typeof CreateUserResponseSchema>;
+
+export async function getUsers(): Promise<User[]> {
+  return apiRequest("/users", {}, UserSchema.array());
+}
+
+export async function createUser(
+  username: string,
+  password?: string,
+  policies: string[] = [],
+): Promise<CreateUserResponse> {
+  return apiRequest(
+    "/users",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        user: username,
+        ...(password && { password }),
+        policies,
+      }),
+    },
+    CreateUserResponseSchema,
+  );
+}
+
+export async function updateUserPolicies(
+  userId: string,
+  policies: string[],
+): Promise<User> {
+  return apiRequest(
+    `/users/${userId}/policies`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        policies,
+      }),
+    },
+    UserSchema,
+  );
+}
+
+export async function getUserPassword(userId: string): Promise<string> {
+  const response = await apiRequest<{ password: string }>(
+    `/users/${userId}/password`,
+    {},
+    z.object({ id: z.string(), user: z.string(), password: z.string() }),
+  );
+  return response.password;
+}

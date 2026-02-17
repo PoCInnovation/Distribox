@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 
+# When this changes, please update the frontend as well here frontend/app/lib/types/policies.ts
 DISTRIBOX_ADMIN_POLICY = "distribox:admin"
 
 POLICIES: list[dict[str, str]] = [
@@ -38,6 +39,10 @@ POLICIES: list[dict[str, str]] = [
     {
         "policy": "users:updatePolicies",
         "description": "Allows the user to update user policies.",
+    },
+    {
+        "policy": "users:getPassword",
+        "description": "Allows the user to fetch user passwords.",
     },
     {
         "policy": "vms:get",

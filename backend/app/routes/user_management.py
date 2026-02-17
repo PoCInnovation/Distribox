@@ -18,6 +18,7 @@ from app.models.user_management import (
     MissingPoliciesResponse,
     PolicyResponse,
     UpdateUserPoliciesRequest,
+    UserPasswordResponse,
     UserResponse,
 )
 from app.orm.user import UserORM
@@ -61,6 +62,34 @@ def list_users():
         return [to_user_response(user) for user in users]
 
 
+@router.get(
+    "/users/{user_id}/password",
+    response_model=UserPasswordResponse,
+    dependencies=[Depends(require_policy("users:getPassword"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def get_user_password(user_id: uuid.UUID):
+    with Session(engine) as session:
+        user = session.get(UserORM, user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        if not user.password:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Password is not available for this user",
+            )
+
+        return UserPasswordResponse(
+            id=str(user.id),
+            user=user.username,
+            password=user.password,
+        )
+
+
 @router.post(
     "/users",
     response_model=CreateUserResponse,
@@ -99,6 +128,7 @@ def create_user(
         new_user = UserORM(
             username=payload.user,
             hashed_password=hash_password(password),
+            password=password,
             is_admin=DISTRIBOX_ADMIN_POLICY in requested_policies,
             created_by=current_user.username,
             policies=requested_policies,
@@ -154,14 +184,6 @@ def update_user_policies(
                 detail="Request user does not match target user",
             )
 
-        generated_password: Optional[str] = None
-        if "password" in payload.model_fields_set:
-            password = payload.password
-            if password is None:
-                generated_password = str(uuid.uuid4())
-                password = generated_password
-            target_user.hashed_password = hash_password(password)
-
         target_user.policies = requested_policies
         target_user.is_admin = DISTRIBOX_ADMIN_POLICY in requested_policies
         session.add(target_user)
@@ -170,5 +192,4 @@ def update_user_policies(
 
         return CreateUserResponse(
             **to_user_response(target_user).model_dump(),
-            generated_password=generated_password,
         )

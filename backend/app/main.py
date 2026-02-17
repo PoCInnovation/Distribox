@@ -40,6 +40,7 @@ async def startup_event():
             admin = UserORM(
                 username=admin_username,
                 hashed_password=hash_password(admin_password),
+                password=admin_password,
                 is_admin=True,
                 created_by=admin_username,
                 policies=[DISTRIBOX_ADMIN_POLICY],
@@ -48,9 +49,15 @@ async def startup_event():
             session.commit()
             print(f"✓ Created default admin user: {admin_username}")
         else:
+            should_save_admin = False
             if DISTRIBOX_ADMIN_POLICY not in admin.policies:
                 admin.policies = [*admin.policies, DISTRIBOX_ADMIN_POLICY]
                 admin.is_admin = True
+                should_save_admin = True
+            if not admin.password:
+                admin.password = admin_password
+                should_save_admin = True
+            if should_save_admin:
                 session.add(admin)
                 session.commit()
             print(f"✓ Admin user already exists: {admin_username}")

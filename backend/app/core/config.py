@@ -40,6 +40,8 @@ def init_db():
         if "last_activity" not in columns:
             conn.execute(
                 text("ALTER TABLE users ADD COLUMN last_activity TIMESTAMP"))
+        if "password" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN password VARCHAR"))
         if "policies" not in columns:
             conn.execute(
                 text(

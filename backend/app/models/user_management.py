@@ -38,5 +38,10 @@ class CreateUserResponse(UserResponse):
 
 class UpdateUserPoliciesRequest(BaseModel):
     user: Optional[str] = None
-    password: Optional[str] = None
     policies: list[str]
+
+
+class UserPasswordResponse(BaseModel):
+    id: str
+    user: str
+    password: str
