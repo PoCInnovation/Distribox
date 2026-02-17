@@ -24,19 +24,27 @@ orange() {
 
 blue "Installing libvirt dependencies..."
 
-if [ -f "/etc/pacman.conf" ]; then
+arch() {
     blue "\nArch system detected"
     init
     set -x
     sudo pacman -Sy libvirt qemu-desktop
     set +x
-else if dpkg -l | grep -q git; then
+}
+
+ubuntu() {
     orange "\nUbuntu detected"
     init
     set -x
     sudo apt update
     sudo apt install -y qemu-kvm libvirt-daemon-system genisoimage libvirt-clients bridge-utils virtinst pkg-config libvirt-dev python3-dev libguestfs-tools
     set +x
+}
+
+if [ -f "/etc/pacman.conf" ]; then
+    arch
+else if dpkg -l | grep -q git; then
+    ubuntu
 fi
 fi
 
