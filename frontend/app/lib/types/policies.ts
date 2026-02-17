@@ -45,4 +45,4 @@ export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
     "Allows the user to remove virtual machine passwords.",
 };
 
-export const PolicySchema = z.nativeEnum(Policy);
+export const PolicySchema = z.string().min(1);

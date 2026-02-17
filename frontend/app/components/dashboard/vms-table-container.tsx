@@ -14,6 +14,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardVMsTable } from "@/components/dashboard/vms-table";
 import { useVMs } from "~/hooks/useVMs";
+import { isForbiddenError } from "@/lib/api";
+import { PolicyNotice } from "@/components/policy/policy-notice";
 import { VMState, type VirtualMachineMetadata } from "@/lib/types";
 
 export function DashboardVMsTableContainer() {
@@ -26,6 +28,8 @@ export function DashboardVMsTableContainer() {
   );
   const {
     vms,
+    isError,
+    error,
     startVM,
     stopVM,
     restartVM,
@@ -104,7 +108,18 @@ export function DashboardVMsTableContainer() {
       <div className="pb-10">
         <Card className="border-border bg-card py-0">
           <div className="p-4">
-            {vms !== undefined && (
+            {isError && isForbiddenError(error) ? (
+              <PolicyNotice
+                title="Virtual Machines Hidden"
+                missingPolicies={error.missingPolicies}
+              />
+            ) : isError ? (
+              <PolicyNotice
+                title="Virtual Machines Unavailable"
+                description={error instanceof Error ? error.message : "Unknown error"}
+                missingPolicies={[]}
+              />
+            ) : vms !== undefined ? (
               <DashboardVMsTable
                 vms={vms}
                 operatingVMs={operatingVMs}
@@ -116,7 +131,7 @@ export function DashboardVMsTableContainer() {
                 onConnectVM={handleConnectVM}
                 onConfigureVM={handleConfigureVM}
               />
-            )}
+            ) : null}
           </div>
         </Card>
       </div>

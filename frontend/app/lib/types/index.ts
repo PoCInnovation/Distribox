@@ -5,3 +5,4 @@ export * from "./image-metadata";
 export * from "./create-vm";
 export * from "./vm-state";
 export * from "./policies";
+export * from "./api-error";
