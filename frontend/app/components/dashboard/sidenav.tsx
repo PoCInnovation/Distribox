@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
+import { isAdmin } from "~/lib/is-admin";
 
 const navItems = [
   {
@@ -106,7 +107,7 @@ export function DashboardSidenav() {
             >
               <User className="h-4 w-4" />
               {!collapsed && user && (
-                <span className="ml-2 truncate">{user.username}</span>
+                <span className="ml-2 truncate">{user.user}</span>
               )}
             </Button>
           </DropdownMenuTrigger>
@@ -114,9 +115,9 @@ export function DashboardSidenav() {
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">
-                  {user?.username || "Loading..."}
+                  {user?.user || "Loading..."}
                 </p>
-                {user?.is_admin && (
+                {isAdmin(user) && (
                   <p className="text-xs leading-none text-muted-foreground">
                     Administrator
                   </p>

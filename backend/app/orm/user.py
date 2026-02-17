@@ -1,6 +1,8 @@
-from sqlmodel import SQLModel, Field
-import uuid
 from datetime import datetime
+import uuid
+from typing import Optional
+from sqlalchemy import JSON, Column
+from sqlmodel import Field, SQLModel
 
 
 class UserORM(SQLModel, table=True):
@@ -11,3 +13,9 @@ class UserORM(SQLModel, table=True):
     hashed_password: str
     is_admin: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: Optional[str] = Field(default=None)
+    last_activity: Optional[datetime] = Field(default=None)
+    policies: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False),
+    )
