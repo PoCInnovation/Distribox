@@ -10,7 +10,7 @@ import {
   Server,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { HostInfo } from "@/lib/types";
+import { VMState, type HostInfo } from "@/lib/types";
 import { formatGB } from "@/lib/utils";
 import { useHostInfo } from "@/hooks/useHostInfo";
 import { useVMs } from "~/hooks/useVMs";
@@ -220,7 +220,8 @@ export function HostInfoHeader({ hostInfo }: { hostInfo?: HostInfo }) {
   const { vms } = useVMs();
 
   const totalVMs = vms?.length || 0;
-  const activeVMs = vms?.filter((vm) => vm.state === "running").length || 0;
+  const activeVMs =
+    vms?.filter((vm) => vm.state === VMState.RUNNING).length || 0;
 
   return (
     <div className="mb-6 grid gap-4 md:grid-cols-2">

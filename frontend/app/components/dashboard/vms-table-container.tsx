@@ -14,7 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardVMsTable } from "@/components/dashboard/vms-table";
 import { useVMs } from "~/hooks/useVMs";
-import type { VirtualMachineMetadata } from "@/lib/types/virtual-machine";
+import { VMState, type VirtualMachineMetadata } from "@/lib/types";
 
 export function DashboardVMsTableContainer() {
   const [selectedVM, setSelectedVM] = useState<VirtualMachineMetadata | null>(
@@ -153,12 +153,12 @@ export function DashboardVMsTableContainer() {
                       </span>
                       <Badge
                         variant={
-                          selectedVM.state === "running"
+                          selectedVM.state === VMState.RUNNING
                             ? "default"
                             : "secondary"
                         }
                         className={
-                          selectedVM.state === "running"
+                          selectedVM.state === VMState.RUNNING
                             ? "border-chart-3 bg-chart-3/10 text-chart-3"
                             : "border-muted bg-muted/10 text-muted-foreground"
                         }
