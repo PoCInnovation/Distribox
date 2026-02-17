@@ -1,8 +1,8 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
-CLOUD_IMG_URL=https://fastly.mirror.pkgbuild.com/images/v20250901.414475/Arch-Linux-x86_64-cloudimg.qcow2
+CLOUD_IMG_URL=https://mirror.pkgbuild.com/images/v20251201.460866/Arch-Linux-x86_64-cloudimg.qcow2
 DISTRIBOX_IMG_PATH="/var/lib/distribox/images/"
 CLOUD_IMG_SOURCE="${CLOUD_IMG_URL##*/}"
 
@@ -19,9 +19,8 @@ sudo virt-customize -a /tmp/resized_image.qcow2 \
     --run-command 'pacman-key --populate archlinux' \
     --run-command 'pacman -Syu --noconfirm' \
     --run-command 'pacman -S --noconfirm vim qemu-guest-agent cloud-init grub linux intel-ucode' \
-    # --run-command 'mkinitcpio -P' \
-    # --run-command 'grub-mkconfig -o /boot/grub/grub.cfg' \
-    # --run-command 'grub-install --target=i386-pc /dev/sda'
+    --run-command 'fuser -km /dev || true' \ # finds and kills all processes using /dev
+    --run-command 'sync'
 
 sudo virt-sysprep -a /tmp/resized_image.qcow2 --operations machine-id,ssh-hostkeys
 

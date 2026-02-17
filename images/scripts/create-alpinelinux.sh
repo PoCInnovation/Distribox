@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 CLOUD_IMG_URL=https://dl-cdn.alpinelinux.org/alpine/v3.21/releases/cloud/generic_alpine-3.21.5-x86_64-uefi-cloudinit-r0.qcow2
 DISTRIBOX_IMG_PATH="/var/lib/distribox/images/"
