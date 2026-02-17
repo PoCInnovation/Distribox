@@ -83,6 +83,15 @@ docker compose up -d
 
 Once the application started, you will find your application portal at `localhost:3000`. For further use and deployment we recommend applying a reverse proxy for convenience of your users.
 
+## Permissions
+
+Distribox uses a simple permission system to control what each user can see and do.
+
+- Every account has one or more policies.
+- Policies grant access to specific areas or actions (for example viewing hosts, listing VMs, or managing users).
+- If a policy is missing, the related feature is hidden or access is refused.
+- The default admin account has full access.
+
 ## Get involved
 
 You're invited to join this project ! Check out the [contributing guide](./CONTRIBUTING.md).
