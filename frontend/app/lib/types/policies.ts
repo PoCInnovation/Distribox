@@ -23,7 +23,8 @@ export enum Policy {
 export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
   [Policy.ADMIN]:
     "This policy gives full access to the Distribox dashboard application.",
-  [Policy.AUTH_ME_GET]: "Allows a user to fetch their own authenticated profile.",
+  [Policy.AUTH_ME_GET]:
+    "Allows a user to fetch their own authenticated profile.",
   [Policy.AUTH_CHANGE_PASSWORD]: "Allows a user to change their own password.",
   [Policy.HOST_GET]: "Allows the user to fetch the host resources.",
   [Policy.IMAGES_GET]:

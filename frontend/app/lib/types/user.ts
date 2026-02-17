@@ -4,7 +4,7 @@ import { PolicySchema } from "./policies";
 export const PolicyResponseSchema = z.object({
   policy: PolicySchema,
   description: z.string(),
-})
+});
 
 export const UserSchema = z.object({
   id: z.string(),
