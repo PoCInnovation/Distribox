@@ -40,7 +40,6 @@ function CompactCard({
       className={`border-border bg-card overflow-hidden w-full ${!isExpanded ? "h-fit" : ""}`}
     >
       <Button
-        variant="ghost"
         className="w-full p-4 h-auto flex items-center justify-between hover:bg-secondary/50 rounded-none"
         onClick={onToggle}
       >

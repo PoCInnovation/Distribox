@@ -112,7 +112,6 @@ export function CreateUserModal({
                   />
                   <Button
                     type="button"
-                    variant="ghost"
                     size="sm"
                     className="absolute right-1 top-1/2 -translate-y-1/2"
                     onClick={() => setShowPassword(!showPassword)}
