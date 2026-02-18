@@ -35,7 +35,7 @@ const navItems = [
     href: "/dashboard",
     label: "Dashboard",
     icon: LayoutIcon,
-    requiredPolicies: [Policy.VMS_GET] as PolicyName[],
+    requiredPolicies: [] as PolicyName[],
   },
   {
     href: "/dashboard/provision",

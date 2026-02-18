@@ -31,7 +31,7 @@ export function DraggablePolicyBadge({
       style={style}
       {...listeners}
       {...attributes}
-      className="group relative cursor-grab active:cursor-grabbing"
+      className="group relative cursor-grab active:cursor-grabbing truncate"
     >
       <div
         className={cn(
