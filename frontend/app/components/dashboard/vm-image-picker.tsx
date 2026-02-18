@@ -22,6 +22,7 @@ import { Image } from "@unpic/react";
 interface VMImageSelectProps {
   selectedOS: string;
   setSelectedOS: (value: string) => void;
+  enabled?: boolean;
 }
 
 function EmptyVMImageSelect() {
@@ -152,8 +153,9 @@ function ImageSelectOptions({ images }: { images: ImageMetadata[] }) {
 export function VMImageSelect({
   selectedOS,
   setSelectedOS,
+  enabled = true,
 }: VMImageSelectProps) {
-  const { data: images, isLoading: imagesLoading, error } = useImages();
+  const { data: images, isLoading: imagesLoading, error } = useImages(enabled);
 
   return (
     <div className="space-y-2 w-full">

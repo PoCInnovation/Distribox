@@ -1,12 +1,15 @@
 import { z, ZodError, type ZodType } from "zod";
 import type {
+  ForbiddenErrorResponse,
   CreateVMPayload,
   HostInfo,
   ImageMetadata,
+  MissingPoliciesDetail,
   User,
   VirtualMachineMetadata,
 } from "@/lib/types";
 import {
+  ForbiddenErrorResponseSchema,
   CreateVMPayloadSchema,
   HostInfoSchema,
   ImageMetadataSchema,
@@ -17,6 +20,7 @@ import {
 const API_BASE_URL = import.meta.env.VITE_API_DOMAIN || "http://localhost:8080";
 const TOKEN_KEY = "auth_token";
 const LAST_VALIDATION_ERROR_KEY = "last_validation_error";
+const LAST_FORBIDDEN_ERROR_KEY = "last_forbidden_error";
 const LoginResponseSchema = z.object({
   access_token: z.string().min(1),
 });
@@ -24,6 +28,13 @@ const LoginResponseSchema = z.object({
 export interface LastValidationError {
   endpoint: string;
   issues: string[];
+  at: string;
+}
+
+export interface LastForbiddenError {
+  endpoint: string;
+  missingPolicies: string[];
+  message: string;
   at: string;
 }
 
@@ -35,6 +46,18 @@ export class ApiValidationError extends Error {
   ) {
     super(message);
     this.name = "ApiValidationError";
+  }
+}
+
+export class ApiHttpError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly endpoint: string,
+    public readonly missingPolicies: string[] = [],
+  ) {
+    super(message);
+    this.name = "ApiHttpError";
   }
 }
 
@@ -97,6 +120,99 @@ export function clearLastValidationError(): void {
   }
 
   sessionStorage.removeItem(LAST_VALIDATION_ERROR_KEY);
+}
+
+function saveLastForbiddenError(
+  endpoint: string,
+  missingPolicies: string[],
+  message: string,
+): void {
+  if (!isClient()) {
+    return;
+  }
+
+  sessionStorage.setItem(
+    LAST_FORBIDDEN_ERROR_KEY,
+    JSON.stringify({
+      endpoint,
+      missingPolicies,
+      message,
+      at: new Date().toISOString(),
+    }),
+  );
+}
+
+export function getLastForbiddenError(): LastForbiddenError | null {
+  if (!isClient()) {
+    return null;
+  }
+
+  const value = sessionStorage.getItem(LAST_FORBIDDEN_ERROR_KEY);
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as LastForbiddenError;
+    if (
+      typeof parsed.endpoint === "string" &&
+      Array.isArray(parsed.missingPolicies) &&
+      typeof parsed.message === "string" &&
+      typeof parsed.at === "string"
+    ) {
+      return parsed;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+export function clearLastForbiddenError(): void {
+  if (!isClient()) {
+    return;
+  }
+
+  sessionStorage.removeItem(LAST_FORBIDDEN_ERROR_KEY);
+}
+
+function toMissingPolicies(detail: ForbiddenErrorResponse["detail"]): string[] {
+  if (typeof detail === "string") {
+    return [];
+  }
+
+  return detail.missing_policies;
+}
+
+function toForbiddenMessage(detail: ForbiddenErrorResponse["detail"]): string {
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  return detail.message;
+}
+
+function parseForbiddenDetail(
+  payload: unknown,
+): MissingPoliciesDetail | string {
+  const parsed = ForbiddenErrorResponseSchema.safeParse(payload);
+  if (!parsed.success) {
+    return "Forbidden";
+  }
+
+  return parsed.data.detail;
+}
+
+export function isForbiddenError(error: unknown): error is ApiHttpError {
+  return error instanceof ApiHttpError && error.status === 403;
+}
+
+export function rememberForbiddenError(
+  endpoint: string,
+  error: ApiHttpError,
+): void {
+  saveLastForbiddenError(endpoint, error.missingPolicies, error.message);
 }
 
 function handleValidationError(endpoint: string, error: ZodError): never {
@@ -177,9 +293,17 @@ export async function apiRequest<T = unknown>(
       window.location.href = "/auth/login";
     }
 
-    const errorPayload = await parseResponseBody(response).catch(() => ({
-      detail: "Request failed",
-    }));
+    const errorPayload = await parseResponseBody(response).catch(() => null);
+    if (response.status === 403) {
+      const detail = parseForbiddenDetail(errorPayload);
+      throw new ApiHttpError(
+        toForbiddenMessage(detail),
+        403,
+        endpoint,
+        toMissingPolicies(detail),
+      );
+    }
+
     const detail =
       typeof errorPayload === "object" &&
       errorPayload !== null &&
@@ -187,7 +311,7 @@ export async function apiRequest<T = unknown>(
       typeof (errorPayload as { detail?: unknown }).detail === "string"
         ? (errorPayload as { detail: string }).detail
         : `HTTP ${response.status}`;
-    throw new Error(detail);
+    throw new ApiHttpError(detail, response.status, endpoint);
   }
 
   const payload = await parseResponseBody(response);
@@ -297,4 +421,58 @@ export async function deleteVM(id: string): Promise<void> {
   return apiRequest<void>(`/vms/${id}`, {
     method: "DELETE",
   });
+}
+
+const CreateUserResponseSchema = UserSchema.extend({
+  generated_password: z.string().optional(),
+});
+
+export type CreateUserResponse = z.infer<typeof CreateUserResponseSchema>;
+
+export async function getUsers(): Promise<User[]> {
+  return apiRequest("/users", {}, UserSchema.array());
+}
+
+export async function createUser(
+  username: string,
+  password?: string,
+  policies: string[] = [],
+): Promise<CreateUserResponse> {
+  return apiRequest(
+    "/users",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        user: username,
+        ...(password && { password }),
+        policies,
+      }),
+    },
+    CreateUserResponseSchema,
+  );
+}
+
+export async function updateUserPolicies(
+  userId: string,
+  policies: string[],
+): Promise<User> {
+  return apiRequest(
+    `/users/${userId}/policies`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        policies,
+      }),
+    },
+    UserSchema,
+  );
+}
+
+export async function getUserPassword(userId: string): Promise<string> {
+  const response = await apiRequest<{ password: string }>(
+    `/users/${userId}/password`,
+    {},
+    z.object({ id: z.string(), user: z.string(), password: z.string() }),
+  );
+  return response.password;
 }

@@ -1,6 +1,7 @@
 import libvirt
 from dotenv import load_dotenv
 from os import getenv
+from sqlalchemy import inspect, text
 from sqlmodel import create_engine, SQLModel
 from app.telemetry.monitor import SystemMonitor
 
@@ -26,6 +27,28 @@ engine = create_engine(database_url, echo=True)
 def init_db():
     """Initialize database tables."""
     SQLModel.metadata.create_all(engine)
+
+    with engine.begin() as conn:
+        inspector = inspect(conn)
+        if "users" not in inspector.get_table_names():
+            return
+
+        columns = {column["name"] for column in inspector.get_columns("users")}
+        if "created_by" not in columns:
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN created_by VARCHAR"))
+        if "last_activity" not in columns:
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN last_activity TIMESTAMP"))
+        if "password" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN password VARCHAR"))
+        if "policies" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE users "
+                    "ADD COLUMN policies JSON NOT NULL DEFAULT '[]'::json"
+                )
+            )
 
 
 class QEMUConfig:
