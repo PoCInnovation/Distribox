@@ -1,5 +1,5 @@
 import { useDroppable } from "@dnd-kit/core";
-import { Plus, Eye, ChevronDown } from "lucide-react";
+import { Plus, KeyIcon, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Policy, type User } from "@/lib/types";
@@ -76,7 +76,7 @@ export function UserCard({
                       <DropdownMenuItem
                         key={policy}
                         onClick={() => onAddPolicy(user.id, policy)}
-                        className="flex flex-col items-start gap-1 cursor-pointer"
+                        className="flex flex-col items-start gap-1 cursor-pointer focus:bg-secondary focus:text-white"
                       >
                         <span className="text-xs font-medium">{policy}</span>
                         <span className="text-[10px] text-muted-foreground line-clamp-2">
@@ -90,7 +90,7 @@ export function UserCard({
             </PolicyGate>
             <PolicyGate requiredPolicies={Policy.USERS_GET_PASSWORD}>
               <Button size="sm" onClick={() => onShowPassword(user.id)}>
-                <Eye className="h-4 w-4" />
+                <KeyIcon className="h-4 w-4" />
               </Button>
             </PolicyGate>
           </div>
@@ -108,6 +108,7 @@ export function UserCard({
               {user.policies.map((policyObj) => (
                 <PolicyBadge
                   key={policyObj.policy}
+                  description={policyObj.description}
                   policy={policyObj.policy}
                   removable
                   onRemove={() => onRemovePolicy(user.id, policyObj.policy)}

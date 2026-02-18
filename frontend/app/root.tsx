@@ -13,6 +13,7 @@ import { SidebarProvider } from "@/contexts/sidebar-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { ErrorDisplay } from "@/components/error/error-display";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,7 +71,9 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SidebarProvider defaultCollapsed={false}>
-        <Outlet />
+        <TooltipProvider delayDuration={2000}>
+          <Outlet />
+        </TooltipProvider>
       </SidebarProvider>
     </QueryClientProvider>
   );
