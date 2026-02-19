@@ -104,7 +104,11 @@ export function UserCard({
               </DropdownMenu>
             </PolicyGate>
             <PolicyGate requiredPolicies={Policy.USERS_GET_PASSWORD}>
-              <Button size="sm" onClick={() => onShowPassword(user.id)}>
+              <Button
+                className="cursor-pointer"
+                size="sm"
+                onClick={() => onShowPassword(user.id)}
+              >
                 <KeyIcon className="h-4 w-4" />
               </Button>
             </PolicyGate>
@@ -114,6 +118,7 @@ export function UserCard({
                 variant="destructive"
                 onClick={() => setDeleteDialogOpen(true)}
                 disabled={isDeletingUser}
+                className="cursor-pointer"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
