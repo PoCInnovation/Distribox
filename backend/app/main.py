@@ -5,8 +5,10 @@ from sqlmodel import Session, select
 from app.core.policies import DISTRIBOX_ADMIN_POLICY
 from app.routes import vm, image, host, auth, user_management
 from app.orm.user import UserORM
+from app.orm.vm_credential import VmCredentialORM  # noqa: F401
 from app.utils.auth import hash_password
 from app.core.config import engine, get_env_or_default, init_db
+from app.utils.crypto import encrypt_secret, is_encrypted_secret
 
 app = FastAPI()
 
@@ -40,7 +42,7 @@ async def startup_event():
             admin = UserORM(
                 username=admin_username,
                 hashed_password=hash_password(admin_password),
-                password=admin_password,
+                password=encrypt_secret(admin_password),
                 is_admin=True,
                 created_by=admin_username,
                 policies=[DISTRIBOX_ADMIN_POLICY],
@@ -55,12 +57,31 @@ async def startup_event():
                 admin.is_admin = True
                 should_save_admin = True
             if not admin.password:
-                admin.password = admin_password
+                admin.password = encrypt_secret(admin_password)
+                should_save_admin = True
+            elif not is_encrypted_secret(admin.password):
+                admin.password = encrypt_secret(admin.password)
                 should_save_admin = True
             if should_save_admin:
                 session.add(admin)
                 session.commit()
             print(f"✓ Admin user already exists: {admin_username}")
+
+        users = session.exec(
+            select(UserORM).where(UserORM.password.is_not(None))
+        ).all()
+        migrated_usernames: list[str] = []
+        for user in users:
+            if user.password and not is_encrypted_secret(user.password):
+                user.password = encrypt_secret(user.password)
+                session.add(user)
+                migrated_usernames.append(user.username)
+        if migrated_usernames:
+            session.commit()
+            print(
+                "✓ Encrypted plaintext passwords for users: " +
+                ", ".join(migrated_usernames)
+            )
 
 
 @app.exception_handler(HTTPException)

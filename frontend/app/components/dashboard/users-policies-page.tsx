@@ -33,7 +33,7 @@ export default function UsersPoliciesPage() {
     handleDragEnd,
     handleAddPolicy,
     handleRemovePolicy,
-    handleShowPassword,
+    handleCopyPassword,
     handleDeleteUser,
     handleCreateUser,
     handleCloseCreateModal,
@@ -135,7 +135,7 @@ export default function UsersPoliciesPage() {
                     user={user}
                     onRemovePolicy={handleRemovePolicy}
                     onAddPolicy={handleAddPolicy}
-                    onShowPassword={handleShowPassword}
+                    onCopyPassword={handleCopyPassword}
                     onDeleteUser={handleDeleteUser}
                     isDeletingUser={isDeletingUser}
                     availablePolicies={allPolicies}

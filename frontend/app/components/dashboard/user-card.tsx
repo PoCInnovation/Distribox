@@ -26,7 +26,7 @@ interface UserCardProps {
   user: User;
   onRemovePolicy: (userId: string, policy: string) => void;
   onAddPolicy: (userId: string, policy: string) => void;
-  onShowPassword: (userId: string) => void;
+  onCopyPassword: (userId: string) => void;
   onDeleteUser: (userId: string) => Promise<void>;
   isDeletingUser: boolean;
   availablePolicies: { policy: string; description: string }[];
@@ -36,7 +36,7 @@ export function UserCard({
   user,
   onRemovePolicy,
   onAddPolicy,
-  onShowPassword,
+  onCopyPassword,
   onDeleteUser,
   isDeletingUser,
   availablePolicies,
@@ -107,7 +107,7 @@ export function UserCard({
               <Button
                 className="cursor-pointer"
                 size="sm"
-                onClick={() => onShowPassword(user.id)}
+                onClick={() => onCopyPassword(user.id)}
               >
                 <KeyIcon className="h-4 w-4" />
               </Button>

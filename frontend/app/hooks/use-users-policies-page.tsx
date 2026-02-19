@@ -121,17 +121,16 @@ export function useUsersPoliciesPage() {
     }
   };
 
-  const handleShowPassword = async (userId: string) => {
+  const handleCopyPassword = async (userId: string) => {
     try {
       const password = await getUserPassword(userId);
       const user = users?.find((u) => u.id === userId);
-      toast.success(
-        <div>
-          <p className="font-medium">Password for {user?.user}:</p>
-          <code className="text-xs">{password}</code>
-        </div>,
-        { duration: 10000 },
-      );
+
+      await navigator.clipboard.writeText(password);
+
+      toast.success(`Password for "${user?.user}" copied to clipboard`, {
+        duration: 3000,
+      });
     } catch (error) {
       toast.error(
         `Failed to retrieve password: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -223,7 +222,7 @@ export function useUsersPoliciesPage() {
     handleDragEnd,
     handleAddPolicy,
     handleRemovePolicy,
-    handleShowPassword,
+    handleCopyPassword,
     handleDeleteUser,
     handleCreateUser,
     handleCloseCreateModal,

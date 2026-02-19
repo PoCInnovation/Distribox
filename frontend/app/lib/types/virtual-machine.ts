@@ -10,6 +10,7 @@ export const VirtualMachineMetadataSchema = z.object({
   disk_size: z.number().nonnegative(),
   os: z.string(),
   ipv4: z.string().nullable(),
+  credentials_count: z.number().int().nonnegative(),
 });
 
 export type VirtualMachineMetadata = z.infer<

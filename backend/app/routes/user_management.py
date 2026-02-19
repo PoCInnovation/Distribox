@@ -24,6 +24,7 @@ from app.models.user_management import (
 )
 from app.orm.user import UserORM
 from app.utils.auth import get_current_user, hash_password, require_policy
+from app.utils.crypto import decrypt_secret, encrypt_secret
 
 router = APIRouter()
 
@@ -87,7 +88,7 @@ def get_user_password(user_id: uuid.UUID):
         return UserPasswordResponse(
             id=str(user.id),
             user=user.username,
-            password=user.password,
+            password=decrypt_secret(user.password),
         )
 
 
@@ -129,7 +130,7 @@ def create_user(
         new_user = UserORM(
             username=payload.user,
             hashed_password=hash_password(password),
-            password=password,
+            password=encrypt_secret(password),
             is_admin=DISTRIBOX_ADMIN_POLICY in requested_policies,
             created_by=current_user.username,
             policies=requested_policies,

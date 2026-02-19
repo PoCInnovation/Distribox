@@ -17,9 +17,11 @@ export enum Policy {
   VMS_CREATE = "vms:create",
   VMS_START = "vms:start",
   VMS_STOP = "vms:stop",
-  VMS_UPDATE_PASSWORD = "vms:updatePassword",
+  VMS_CREDENTIALS_CREATE = "vms:credentials:create",
   VMS_DELETE = "vms:delete",
-  VMS_DELETE_PASSWORD = "vms:deletePassword",
+  VMS_CREDENTIALS_REVOKE = "vms:credentials:revoke",
+  VMS_CREDENTIALS_LIST = "vms:credentials:list",
+  VMS_CREDENTIALS_GET_BY_ID = "vms:credentials:getById",
 }
 
 export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
@@ -42,11 +44,15 @@ export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
   [Policy.VMS_CREATE]: "Allows the user to create virtual machines.",
   [Policy.VMS_START]: "Allows the user to start virtual machines.",
   [Policy.VMS_STOP]: "Allows the user to stop virtual machines.",
-  [Policy.VMS_UPDATE_PASSWORD]:
-    "Allows the user to set virtual machine passwords.",
+  [Policy.VMS_CREDENTIALS_CREATE]:
+    "Allows the user to create virtual machine credentials.",
   [Policy.VMS_DELETE]: "Allows the user to remove virtual machines.",
-  [Policy.VMS_DELETE_PASSWORD]:
-    "Allows the user to remove virtual machine passwords.",
+  [Policy.VMS_CREDENTIALS_REVOKE]:
+    "Allows the user to revoke virtual machine credentials.",
+  [Policy.VMS_CREDENTIALS_LIST]:
+    "Allows the user to list virtual machine credentials.",
+  [Policy.VMS_CREDENTIALS_GET_BY_ID]:
+    "Allows the user to fetch a virtual machine credential by id.",
 };
 
 export const PolicySchema = z.string().min(1);
@@ -149,7 +155,7 @@ export const POLICY_COLORS = {
     hover: "hover:bg-orange-500/30",
     text: "text-orange-600 dark:text-orange-400",
   },
-  [Policy.VMS_UPDATE_PASSWORD]: {
+  [Policy.VMS_CREDENTIALS_CREATE]: {
     bg: "bg-pink-500/20",
     border: "border-pink-500",
     hover: "hover:bg-pink-500/30",
@@ -161,11 +167,23 @@ export const POLICY_COLORS = {
     hover: "hover:bg-red-500/30",
     text: "text-red-600 dark:text-red-400",
   },
-  [Policy.VMS_DELETE_PASSWORD]: {
+  [Policy.VMS_CREDENTIALS_REVOKE]: {
     bg: "bg-fuchsia-500/20",
     border: "border-fuchsia-500",
     hover: "hover:bg-fuchsia-500/30",
     text: "text-fuchsia-600 dark:text-fuchsia-400",
+  },
+  [Policy.VMS_CREDENTIALS_LIST]: {
+    bg: "bg-cyan-600/20",
+    border: "border-cyan-600",
+    hover: "hover:bg-cyan-600/30",
+    text: "text-cyan-700 dark:text-cyan-400",
+  },
+  [Policy.VMS_CREDENTIALS_GET_BY_ID]: {
+    bg: "bg-sky-700/20",
+    border: "border-sky-700",
+    hover: "hover:bg-sky-700/30",
+    text: "text-sky-700 dark:text-sky-400",
   },
   default: {
     bg: "bg-gray-500/20",
