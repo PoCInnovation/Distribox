@@ -11,7 +11,9 @@ export function useUsersPoliciesPage() {
     createUser,
     updateUserPolicies,
     getUserPassword,
+    deleteUser,
     isCreatingUser,
+    isDeletingUser,
     createUserData,
     resetCreateUser,
   } = useUsers();
@@ -137,6 +139,14 @@ export function useUsersPoliciesPage() {
     }
   };
 
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      await deleteUser(userId);
+    } catch {
+      // Error is handled by the hook
+    }
+  };
+
   const handleCreateUser = (username: string, password?: string) => {
     createUser(username, password);
     if (!password) {
@@ -192,6 +202,7 @@ export function useUsersPoliciesPage() {
     // State
     isLoading,
     isCreatingUser,
+    isDeletingUser,
     createUserData,
     userSearchQuery,
     setUserSearchQuery,
@@ -213,6 +224,7 @@ export function useUsersPoliciesPage() {
     handleAddPolicy,
     handleRemovePolicy,
     handleShowPassword,
+    handleDeleteUser,
     handleCreateUser,
     handleCloseCreateModal,
     handleResizeStart,

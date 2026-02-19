@@ -2,6 +2,7 @@ import { z, ZodError, type ZodType } from "zod";
 import type {
   ForbiddenErrorResponse,
   CreateVMPayload,
+  DeleteUserResponse,
   HostInfo,
   ImageMetadata,
   MissingPoliciesDetail,
@@ -11,8 +12,10 @@ import type {
 import {
   ForbiddenErrorResponseSchema,
   CreateVMPayloadSchema,
+  DeleteUserResponseSchema,
   HostInfoSchema,
   ImageMetadataSchema,
+  UserIdSchema,
   UserSchema,
   VirtualMachineMetadataSchema,
 } from "@/lib/types";
@@ -456,8 +459,9 @@ export async function updateUserPolicies(
   userId: string,
   policies: string[],
 ): Promise<User> {
+  const validatedUserId = validateWithSchema(UserIdSchema, userId, "/users/:id");
   return apiRequest(
-    `/users/${userId}/policies`,
+    `/users/${validatedUserId}/policies`,
     {
       method: "POST",
       body: JSON.stringify({
@@ -469,10 +473,22 @@ export async function updateUserPolicies(
 }
 
 export async function getUserPassword(userId: string): Promise<string> {
+  const validatedUserId = validateWithSchema(UserIdSchema, userId, "/users/:id");
   const response = await apiRequest<{ password: string }>(
-    `/users/${userId}/password`,
+    `/users/${validatedUserId}/password`,
     {},
     z.object({ id: z.string(), user: z.string(), password: z.string() }),
   );
   return response.password;
+}
+
+export async function deleteUser(userId: string): Promise<DeleteUserResponse> {
+  const validatedUserId = validateWithSchema(UserIdSchema, userId, "/user/:id");
+  return apiRequest(
+    `/user/${validatedUserId}`,
+    {
+      method: "DELETE",
+    },
+    DeleteUserResponseSchema,
+  );
 }

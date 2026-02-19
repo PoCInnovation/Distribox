@@ -10,6 +10,7 @@ export enum Policy {
   USERS_GET = "users:get",
   USERS_CREATE = "users:create",
   USERS_UPDATE_POLICIES = "users:updatePolicies",
+  USERS_DELETE = "users:delete",
   USERS_GET_PASSWORD = "users:getPassword",
   VMS_GET = "vms:get",
   VMS_GET_BY_ID = "vms:getById",
@@ -34,6 +35,7 @@ export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
   [Policy.USERS_GET]: "Allows the user to fetch users.",
   [Policy.USERS_CREATE]: "Allows the user to create users.",
   [Policy.USERS_UPDATE_POLICIES]: "Allows the user to update user policies.",
+  [Policy.USERS_DELETE]: "Allows the user to delete users.",
   [Policy.USERS_GET_PASSWORD]: "Allows the user to fetch user passwords.",
   [Policy.VMS_GET]: "Allows the user to list virtual machines.",
   [Policy.VMS_GET_BY_ID]: "Allows the user to fetch a virtual machine by id.",
@@ -104,6 +106,12 @@ export const POLICY_COLORS = {
     border: "border-yellow-500",
     hover: "hover:bg-yellow-500/30",
     text: "text-yellow-600 dark:text-yellow-500",
+  },
+  [Policy.USERS_DELETE]: {
+    bg: "bg-red-500/20",
+    border: "border-red-500",
+    hover: "hover:bg-red-500/30",
+    text: "text-red-600 dark:text-red-400",
   },
   [Policy.USERS_GET_PASSWORD]: {
     bg: "bg-rose-500/20",

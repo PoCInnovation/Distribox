@@ -41,6 +41,10 @@ POLICIES: list[dict[str, str]] = [
         "description": "Allows the user to update user policies.",
     },
     {
+        "policy": "users:delete",
+        "description": "Allows the user to delete users.",
+    },
+    {
         "policy": "users:getPassword",
         "description": "Allows the user to fetch user passwords.",
     },
