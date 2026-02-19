@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useContext, useMemo, type Context } from "react";
 import type { User } from "@/lib/types";
 import {
   extractPolicyNames,
@@ -16,7 +16,22 @@ interface AuthzContextValue {
   missingPolicies: (requiredPolicies: PolicyName | PolicyName[]) => string[];
 }
 
-const AuthzContext = createContext<AuthzContextValue | null>(null);
+function getAuthzContext(): Context<AuthzContextValue | null> {
+  if (!import.meta.hot) {
+    return createContext<AuthzContextValue | null>(null);
+  }
+
+  type HotData = { authzContext?: Context<AuthzContextValue | null> };
+  const hotData = import.meta.hot.data as HotData;
+  if (!hotData.authzContext) {
+    // Keep context identity stable across HMR to avoid transient provider/consumer mismatches.
+    hotData.authzContext = createContext<AuthzContextValue | null>(null);
+  }
+
+  return hotData.authzContext;
+}
+
+const AuthzContext = getAuthzContext();
 
 export function AuthzProvider({
   user,
