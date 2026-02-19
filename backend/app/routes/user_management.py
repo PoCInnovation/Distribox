@@ -15,6 +15,7 @@ from app.core.policies import (
 from app.models.user_management import (
     CreateUserRequest,
     CreateUserResponse,
+    DeleteUserResponse,
     MissingPoliciesResponse,
     PolicyResponse,
     UpdateUserPoliciesRequest,
@@ -192,4 +193,36 @@ def update_user_policies(
 
         return CreateUserResponse(
             **to_user_response(target_user).model_dump(),
+        )
+
+
+@router.delete(
+    "/user/{id}",
+    response_model=DeleteUserResponse,
+    dependencies=[Depends(require_policy("users:delete"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def delete_user(id: uuid.UUID):
+    admin_username = getenv("ADMIN_USERNAME", "admin")
+
+    with Session(engine) as session:
+        target_user = session.get(UserORM, id)
+        if not target_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        if target_user.username == admin_username:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Default admin user cannot be deleted",
+            )
+
+        deleted_username = target_user.username
+        session.delete(target_user)
+        session.commit()
+
+        return DeleteUserResponse(
+            message=f'User "{deleted_username}" deleted successfully',
         )

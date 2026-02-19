@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Plus, KeyIcon, ChevronDown } from "lucide-react";
+import { Plus, KeyIcon, ChevronDown, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Policy, type User } from "@/lib/types";
@@ -12,12 +13,22 @@ import {
 import { PolicyGate } from "../policy/policy-gate";
 import { Button } from "@/components/ui/button";
 import { PolicyBadge } from "./policy-badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface UserCardProps {
   user: User;
   onRemovePolicy: (userId: string, policy: string) => void;
   onAddPolicy: (userId: string, policy: string) => void;
   onShowPassword: (userId: string) => void;
+  onDeleteUser: (userId: string) => Promise<void>;
+  isDeletingUser: boolean;
   availablePolicies: { policy: string; description: string }[];
 }
 
@@ -26,8 +37,12 @@ export function UserCard({
   onRemovePolicy,
   onAddPolicy,
   onShowPassword,
+  onDeleteUser,
+  isDeletingUser,
   availablePolicies,
 }: UserCardProps) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
   const { setNodeRef, isOver } = useDroppable({
     id: `user-${user.id}`,
     data: { userId: user.id, username: user.user },
@@ -89,8 +104,23 @@ export function UserCard({
               </DropdownMenu>
             </PolicyGate>
             <PolicyGate requiredPolicies={Policy.USERS_GET_PASSWORD}>
-              <Button size="sm" onClick={() => onShowPassword(user.id)}>
+              <Button
+                className="cursor-pointer"
+                size="sm"
+                onClick={() => onShowPassword(user.id)}
+              >
                 <KeyIcon className="h-4 w-4" />
+              </Button>
+            </PolicyGate>
+            <PolicyGate requiredPolicies={Policy.USERS_DELETE}>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setDeleteDialogOpen(true)}
+                disabled={isDeletingUser}
+                className="cursor-pointer"
+              >
+                <Trash2 className="h-4 w-4" />
               </Button>
             </PolicyGate>
           </div>
@@ -118,6 +148,39 @@ export function UserCard({
           )}
         </div>
       </CardContent>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{" "}
+              <span className="font-mono font-medium">{user.user}</span>? This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={isDeletingUser}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={isDeletingUser}
+              onClick={async () => {
+                await onDeleteUser(user.id);
+                setDeleteDialogOpen(false);
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

@@ -45,3 +45,7 @@ class UserPasswordResponse(BaseModel):
     id: str
     user: str
     password: str
+
+
+class DeleteUserResponse(BaseModel):
+    message: str

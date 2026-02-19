@@ -16,6 +16,7 @@ export default function UsersPoliciesPage() {
   const {
     isLoading,
     isCreatingUser,
+    isDeletingUser,
     createUserData,
     userSearchQuery,
     setUserSearchQuery,
@@ -33,6 +34,7 @@ export default function UsersPoliciesPage() {
     handleAddPolicy,
     handleRemovePolicy,
     handleShowPassword,
+    handleDeleteUser,
     handleCreateUser,
     handleCloseCreateModal,
     handleResizeStart,
@@ -134,6 +136,8 @@ export default function UsersPoliciesPage() {
                     onRemovePolicy={handleRemovePolicy}
                     onAddPolicy={handleAddPolicy}
                     onShowPassword={handleShowPassword}
+                    onDeleteUser={handleDeleteUser}
+                    isDeletingUser={isDeletingUser}
                     availablePolicies={allPolicies}
                   />
                 ))}

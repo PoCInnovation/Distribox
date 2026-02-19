@@ -4,7 +4,9 @@ import {
   createUser,
   updateUserPolicies,
   getUserPassword,
+  deleteUser,
   type CreateUserResponse,
+  type DeleteUserResponse,
   isForbiddenError,
   rememberForbiddenError,
 } from "@/lib/api";
@@ -76,6 +78,28 @@ export function useUsers() {
     },
   });
 
+  const deleteUserMutation = useMutation<
+    DeleteUserResponse,
+    Error,
+    { userId: string }
+  >({
+    mutationFn: async ({ userId }) => {
+      return deleteUser(userId);
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success(data.message);
+    },
+    onError: (error, variables) => {
+      if (isForbiddenError(error)) {
+        rememberForbiddenError(`/user/${variables.userId}`, error);
+        toast.error(error.message);
+      } else {
+        toast.error(`Failed to delete user: ${error.message}`);
+      }
+    },
+  });
+
   const handleCreateUser = (
     username: string,
     password?: string,
@@ -88,6 +112,9 @@ export function useUsers() {
   const handleGetPassword = (userId: string) =>
     getPasswordMutation.mutateAsync({ userId });
 
+  const handleDeleteUser = (userId: string) =>
+    deleteUserMutation.mutateAsync({ userId });
+
   return {
     users,
     isLoading,
@@ -96,8 +123,10 @@ export function useUsers() {
     createUser: handleCreateUser,
     updateUserPolicies: handleUpdatePolicies,
     getUserPassword: handleGetPassword,
+    deleteUser: handleDeleteUser,
     isCreatingUser: createUserMutation.isPending,
     isUpdatingPolicies: updatePoliciesMutation.isPending,
+    isDeletingUser: deleteUserMutation.isPending,
     createUserData: createUserMutation.data,
     createUserError: createUserMutation.error,
     resetCreateUser: createUserMutation.reset,
