@@ -269,7 +269,8 @@ class VmService:
     def get_vm_credential(vm_id: str, credential_id: str):
         with Session(engine) as session:
             vm_record = VmService._get_vm_or_404(session, vm_id)
-            parsed_credential_id = VmService._parse_credential_id(credential_id)
+            parsed_credential_id = VmService._parse_credential_id(
+                credential_id)
             statement = select(VmCredentialORM).where(
                 VmCredentialORM.id == parsed_credential_id,
                 VmCredentialORM.vm_id == vm_record.id,
@@ -293,7 +294,8 @@ class VmService:
     def revoke_vm_credential(vm_id: str, credential_id: str):
         with Session(engine) as session:
             vm_record = VmService._get_vm_or_404(session, vm_id)
-            parsed_credential_id = VmService._parse_credential_id(credential_id)
+            parsed_credential_id = VmService._parse_credential_id(
+                credential_id)
             statement = select(VmCredentialORM).where(
                 VmCredentialORM.id == parsed_credential_id,
                 VmCredentialORM.vm_id == vm_record.id,

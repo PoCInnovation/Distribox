@@ -36,4 +36,5 @@ def decrypt_secret(value: str) -> str:
     try:
         return _get_fernet().decrypt(token.encode("utf-8")).decode("utf-8")
     except InvalidToken as exc:
-        raise ValueError("Failed to decrypt secret with DISTRIBOX_SECRET") from exc
+        raise ValueError(
+            "Failed to decrypt secret with DISTRIBOX_SECRET") from exc
