@@ -79,8 +79,8 @@ async def startup_event():
         if migrated_usernames:
             session.commit()
             print(
-                "✓ Encrypted plaintext passwords for users: "
-                + ", ".join(migrated_usernames)
+                "✓ Encrypted plaintext passwords for users: " +
+                ", ".join(migrated_usernames)
             )
 
 
