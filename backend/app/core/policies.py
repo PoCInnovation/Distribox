@@ -69,16 +69,24 @@ POLICIES: list[dict[str, str]] = [
         "description": "Allows the user to stop virtual machines.",
     },
     {
-        "policy": "vms:updatePassword",
-        "description": "Allows the user to set virtual machine passwords.",
+        "policy": "vms:credentials:create",
+        "description": "Allows the user to create virtual machine credentials.",
     },
     {
         "policy": "vms:delete",
         "description": "Allows the user to remove virtual machines.",
     },
     {
-        "policy": "vms:deletePassword",
-        "description": "Allows the user to remove virtual machine passwords.",
+        "policy": "vms:credentials:revoke",
+        "description": "Allows the user to revoke virtual machine credentials.",
+    },
+    {
+        "policy": "vms:credentials:list",
+        "description": "Allows the user to list virtual machine credentials.",
+    },
+    {
+        "policy": "vms:credentials:getById",
+        "description": "Allows the user to fetch a virtual machine credential by id.",
     },
 ]
 

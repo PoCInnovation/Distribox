@@ -13,6 +13,7 @@ from app.utils.auth import (
     get_current_user,
     require_policy,
 )
+from app.utils.crypto import encrypt_secret
 
 router = APIRouter()
 
@@ -115,7 +116,7 @@ async def change_password(
             )
 
         user.hashed_password = hash_password(password_data.new_password)
-        user.password = password_data.new_password
+        user.password = encrypt_secret(password_data.new_password)
         user.last_activity = datetime.utcnow()
         session.add(user)
         session.commit()

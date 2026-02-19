@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, status
 from app.models.user_management import MissingPoliciesResponse
-from app.models.vm import VmCreate, VmRead, PasswordCreated
+from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, VmCredentialRead
 from app.services.vm_service import VmService
 from app.utils.auth import require_policy
 
@@ -63,13 +63,15 @@ def create_vm(vm: VmCreate):
     return created_vm
 
 
-@router.put("/{vm_id}/password",
-            status_code=status.HTTP_200_OK,
-            response_model=PasswordCreated,
-            dependencies=[Depends(require_policy("vms:updatePassword"))],
-            responses={403: {"model": MissingPoliciesResponse}})
-def set_vm_password(vm_id):
-    return VmService.set_vm_password(vm_id)
+@router.post(
+    "/{vm_id}/credentials/create",
+    status_code=status.HTTP_201_CREATED,
+    response_model=VmCredentialRead,
+    dependencies=[Depends(require_policy("vms:credentials:create"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def create_vm_credential(vm_id: str, payload: VmCredentialCreateRequest):
+    return VmService.create_vm_credential(vm_id, payload)
 
 
 @router.delete(
@@ -83,10 +85,32 @@ def remove_vm(vm_id: str):
 
 
 @router.delete(
-    "/{vm_id}/password",
+    "/{vm_id}/credentials/revoke/{credential_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_policy("vms:deletePassword"))],
+    dependencies=[Depends(require_policy("vms:credentials:revoke"))],
     responses={403: {"model": MissingPoliciesResponse}},
 )
-def remove_vm_password(vm_id: str):
-    VmService.remove_vm_password(vm_id)
+def revoke_vm_credential(vm_id: str, credential_id: str):
+    VmService.revoke_vm_credential(vm_id, credential_id)
+
+
+@router.get(
+    "/{vm_id}/credentials",
+    status_code=status.HTTP_200_OK,
+    response_model=list[VmCredentialRead],
+    dependencies=[Depends(require_policy("vms:credentials:list"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def list_vm_credentials(vm_id: str):
+    return VmService.list_vm_credentials(vm_id)
+
+
+@router.get(
+    "/{vm_id}/credentials/{credential_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=VmCredentialRead,
+    dependencies=[Depends(require_policy("vms:credentials:getById"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def get_vm_credential(vm_id: str, credential_id: str):
+    return VmService.get_vm_credential(vm_id, credential_id)

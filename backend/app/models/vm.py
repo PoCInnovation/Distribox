@@ -1,6 +1,7 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from uuid import UUID
+from datetime import datetime
 
 
 class VmBase(BaseModel):
@@ -15,6 +16,7 @@ class VmRead(VmBase):
     id: UUID
     state: str
     ipv4: Optional[str]
+    credentials_count: int = 0
 
 
 class VmCreate(VmBase):
@@ -22,5 +24,14 @@ class VmCreate(VmBase):
     pass
 
 
-class PasswordCreated(BaseModel):
+class VmCredentialCreateRequest(BaseModel):
+    name: str = Field(min_length=1)
+    password: str = Field(min_length=1)
+
+
+class VmCredentialRead(BaseModel):
+    id: UUID
+    vm_id: UUID
+    name: str
     password: str
+    created_at: datetime
