@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 CLOUD_IMG_URL=https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-GenericCloud-10-20241118.0.x86_64.qcow2
 DISTRIBOX_IMG_PATH="/var/lib/distribox/images/"
