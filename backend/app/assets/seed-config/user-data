@@ -1,0 +1,19 @@
+#cloud-config
+
+hostname: distribox
+fqdn: distribox.local
+
+users:
+  - name: user
+    groups: sudo
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+
+chpasswd:
+  list: |
+    user:password
+  expire: false
+ssh_pwauth: true
+
+package_update: true
+package_upgrade: true
