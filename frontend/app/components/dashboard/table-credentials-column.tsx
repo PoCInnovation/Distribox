@@ -1,5 +1,5 @@
 import { KeyRound } from "lucide-react";
-import type { VirtualMachineMetadata } from "~/lib/types";
+import type { VirtualMachineMetadata } from "@/lib/types";
 
 export const TableCredentialsColumn = ({
   data: vm,
