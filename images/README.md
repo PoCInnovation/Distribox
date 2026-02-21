@@ -146,3 +146,39 @@ Once you have created the creation script and the metadata file, you can build t
 ```
 
 The script will build the image and output it to the `dist/` directory.
+
+## Start VM manually and connect
+
+After creating a VM on the frontend, you can start it manually by using the following ``virsh`` command
+
+```bash
+virsh -c qemu:///system start <image-id>
+```
+
+> Note: you can find the image id by looking at the /var/lib/distribox/vms directory
+
+Here is the command to connect to the VM
+
+```bash
+virt-viewer --connect qemu:///system 916e26d0-358e-43c1-9af6-c95c2c71aec4
+```
+
+To stop the VM, you can use the following command
+
+```bash
+virsh -c qemu:///system shutdown 01fd7cb3-d4f4-45c2-bd0f-3da1722fc6ac
+```
+
+To force the VM to stop if it is not responding, you can use the following command
+
+```bash
+virsh -c qemu:///system destroy 01fd7cb3-d4f4-45c2-bd0f-3da1722fc6ac
+```
+
+You can see the VM's state manually by running the following command
+
+```bash
+virsh -c qemu:///system domstate 01fd7cb3-d4f4-45c2-bd0f-3da1722fc6ac
+```
+
+You will need to install the `virt-viewer` package to connect to the VM on your host system, this should be done by the `libvrit-install.sh` script but you will have to turn to your package manager for more information if it is not supported.
