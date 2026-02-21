@@ -10,7 +10,11 @@ export async function createVMCredential(
   vmId: string,
   payload: CreateVMCredentialPayload,
 ): Promise<VMCredential> {
-  const validatedVmId = validateWithSchema(VMCredentialIdSchema, vmId, "/vms/:vm_id/credentials/create");
+  const validatedVmId = validateWithSchema(
+    VMCredentialIdSchema,
+    vmId,
+    "/vms/:vm_id/credentials/create",
+  );
   const validatedPayload = validateWithSchema(
     CreateVMCredentialPayloadSchema,
     payload,
@@ -31,7 +35,11 @@ export async function revokeVMCredential(
   vmId: string,
   credentialId: string,
 ): Promise<void> {
-  const validatedVmId = validateWithSchema(VMCredentialIdSchema, vmId, "/vms/:vm_id/credentials/revoke/:credential_id");
+  const validatedVmId = validateWithSchema(
+    VMCredentialIdSchema,
+    vmId,
+    "/vms/:vm_id/credentials/revoke/:credential_id",
+  );
   const validatedCredentialId = validateWithSchema(
     VMCredentialIdSchema,
     credentialId,
@@ -47,7 +55,11 @@ export async function revokeVMCredential(
 }
 
 export async function getVMCredentials(vmId: string): Promise<VMCredential[]> {
-  const validatedVmId = validateWithSchema(VMCredentialIdSchema, vmId, "/vms/:vm_id/credentials");
+  const validatedVmId = validateWithSchema(
+    VMCredentialIdSchema,
+    vmId,
+    "/vms/:vm_id/credentials",
+  );
   return apiRequest(
     `/vms/${validatedVmId}/credentials`,
     {},
@@ -59,7 +71,11 @@ export async function getVMCredential(
   vmId: string,
   credentialId: string,
 ): Promise<VMCredential> {
-  const validatedVmId = validateWithSchema(VMCredentialIdSchema, vmId, "/vms/:vm_id/credentials/:credential_id");
+  const validatedVmId = validateWithSchema(
+    VMCredentialIdSchema,
+    vmId,
+    "/vms/:vm_id/credentials/:credential_id",
+  );
   const validatedCredentialId = validateWithSchema(
     VMCredentialIdSchema,
     credentialId,

@@ -1,5 +1,8 @@
 import { type ZodError, type ZodType } from "zod";
-import type { ForbiddenErrorResponse, MissingPoliciesDetail } from "@/lib/types";
+import type {
+  ForbiddenErrorResponse,
+  MissingPoliciesDetail,
+} from "@/lib/types";
 import { ForbiddenErrorResponseSchema } from "@/lib/types";
 
 export const API_BASE_URL =
@@ -176,7 +179,9 @@ function toForbiddenMessage(detail: ForbiddenErrorResponse["detail"]): string {
   return detail.message;
 }
 
-function parseForbiddenDetail(payload: unknown): MissingPoliciesDetail | string {
+function parseForbiddenDetail(
+  payload: unknown,
+): MissingPoliciesDetail | string {
   const parsed = ForbiddenErrorResponseSchema.safeParse(payload);
   if (!parsed.success) {
     return "Forbidden";

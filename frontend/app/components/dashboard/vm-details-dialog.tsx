@@ -308,9 +308,7 @@ export function VMDetailsDialog({
                           revokeCredentialMutation.mutate(credential.id)
                         }
                       >
-                        <span>
-                        Revoke
-                        </span>
+                        <span>Revoke</span>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>

@@ -1,5 +1,8 @@
 import type { CreateVMPayload, VirtualMachineMetadata } from "@/lib/types";
-import { CreateVMPayloadSchema, VirtualMachineMetadataSchema } from "@/lib/types";
+import {
+  CreateVMPayloadSchema,
+  VirtualMachineMetadataSchema,
+} from "@/lib/types";
 import { apiRequest, validateWithSchema } from "./core";
 
 export async function getVMs(): Promise<VirtualMachineMetadata[]> {

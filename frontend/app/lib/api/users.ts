@@ -1,6 +1,10 @@
 import { z } from "zod";
 import type { DeleteUserResponse, User } from "@/lib/types";
-import { DeleteUserResponseSchema, UserIdSchema, UserSchema } from "@/lib/types";
+import {
+  DeleteUserResponseSchema,
+  UserIdSchema,
+  UserSchema,
+} from "@/lib/types";
 import { apiRequest, validateWithSchema } from "./core";
 
 const CreateUserResponseSchema = UserSchema.extend({
@@ -37,7 +41,11 @@ export async function updateUserPolicies(
   userId: string,
   policies: string[],
 ): Promise<User> {
-  const validatedUserId = validateWithSchema(UserIdSchema, userId, "/users/:id");
+  const validatedUserId = validateWithSchema(
+    UserIdSchema,
+    userId,
+    "/users/:id",
+  );
 
   return apiRequest(
     `/users/${validatedUserId}/policies`,
@@ -52,7 +60,11 @@ export async function updateUserPolicies(
 }
 
 export async function getUserPassword(userId: string): Promise<string> {
-  const validatedUserId = validateWithSchema(UserIdSchema, userId, "/users/:id");
+  const validatedUserId = validateWithSchema(
+    UserIdSchema,
+    userId,
+    "/users/:id",
+  );
   const response = await apiRequest<{ password: string }>(
     `/users/${validatedUserId}/password`,
     {},
