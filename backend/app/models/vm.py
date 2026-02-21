@@ -26,7 +26,7 @@ class VmCreate(VmBase):
 
 class VmCredentialCreateRequest(BaseModel):
     name: str = Field(min_length=1)
-    password: str = Field(min_length=1)
+    password: Optional[str] = None
 
 
 class VmCredentialRead(BaseModel):

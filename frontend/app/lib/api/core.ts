@@ -1,0 +1,307 @@
+import { type ZodError, type ZodType } from "zod";
+import type { ForbiddenErrorResponse, MissingPoliciesDetail } from "@/lib/types";
+import { ForbiddenErrorResponseSchema } from "@/lib/types";
+
+export const API_BASE_URL =
+  import.meta.env.VITE_API_DOMAIN || "http://localhost:8080";
+const TOKEN_KEY = "auth_token";
+const LAST_VALIDATION_ERROR_KEY = "last_validation_error";
+const LAST_FORBIDDEN_ERROR_KEY = "last_forbidden_error";
+
+export interface LastValidationError {
+  endpoint: string;
+  issues: string[];
+  at: string;
+}
+
+export interface LastForbiddenError {
+  endpoint: string;
+  missingPolicies: string[];
+  message: string;
+  at: string;
+}
+
+export class ApiValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly endpoint: string,
+    public readonly issues: string[],
+  ) {
+    super(message);
+    this.name = "ApiValidationError";
+  }
+}
+
+export class ApiHttpError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly endpoint: string,
+    public readonly missingPolicies: string[] = [],
+  ) {
+    super(message);
+    this.name = "ApiHttpError";
+  }
+}
+
+function isClient(): boolean {
+  return typeof window !== "undefined";
+}
+
+function formatZodIssues(error: ZodError): string[] {
+  return error.issues.map((issue) => {
+    const path = issue.path.length > 0 ? issue.path.join(".") : "root";
+    return `${path}: ${issue.message}`;
+  });
+}
+
+function redirectToErrorPage(endpoint: string, issues: string[]): void {
+  if (!isClient()) {
+    return;
+  }
+
+  sessionStorage.setItem(
+    LAST_VALIDATION_ERROR_KEY,
+    JSON.stringify({
+      endpoint,
+      issues,
+      at: new Date().toISOString(),
+    }),
+  );
+  window.location.assign("/error?reason=validation");
+}
+
+export function getLastValidationError(): LastValidationError | null {
+  if (!isClient()) {
+    return null;
+  }
+
+  const value = sessionStorage.getItem(LAST_VALIDATION_ERROR_KEY);
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as LastValidationError;
+    if (
+      typeof parsed.endpoint === "string" &&
+      Array.isArray(parsed.issues) &&
+      typeof parsed.at === "string"
+    ) {
+      return parsed;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+export function clearLastValidationError(): void {
+  if (!isClient()) {
+    return;
+  }
+
+  sessionStorage.removeItem(LAST_VALIDATION_ERROR_KEY);
+}
+
+function saveLastForbiddenError(
+  endpoint: string,
+  missingPolicies: string[],
+  message: string,
+): void {
+  if (!isClient()) {
+    return;
+  }
+
+  sessionStorage.setItem(
+    LAST_FORBIDDEN_ERROR_KEY,
+    JSON.stringify({
+      endpoint,
+      missingPolicies,
+      message,
+      at: new Date().toISOString(),
+    }),
+  );
+}
+
+export function getLastForbiddenError(): LastForbiddenError | null {
+  if (!isClient()) {
+    return null;
+  }
+
+  const value = sessionStorage.getItem(LAST_FORBIDDEN_ERROR_KEY);
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as LastForbiddenError;
+    if (
+      typeof parsed.endpoint === "string" &&
+      Array.isArray(parsed.missingPolicies) &&
+      typeof parsed.message === "string" &&
+      typeof parsed.at === "string"
+    ) {
+      return parsed;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+export function clearLastForbiddenError(): void {
+  if (!isClient()) {
+    return;
+  }
+
+  sessionStorage.removeItem(LAST_FORBIDDEN_ERROR_KEY);
+}
+
+function toMissingPolicies(detail: ForbiddenErrorResponse["detail"]): string[] {
+  if (typeof detail === "string") {
+    return [];
+  }
+
+  return detail.missing_policies;
+}
+
+function toForbiddenMessage(detail: ForbiddenErrorResponse["detail"]): string {
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  return detail.message;
+}
+
+function parseForbiddenDetail(payload: unknown): MissingPoliciesDetail | string {
+  const parsed = ForbiddenErrorResponseSchema.safeParse(payload);
+  if (!parsed.success) {
+    return "Forbidden";
+  }
+
+  return parsed.data.detail;
+}
+
+export function isForbiddenError(error: unknown): error is ApiHttpError {
+  return error instanceof ApiHttpError && error.status === 403;
+}
+
+export function rememberForbiddenError(
+  endpoint: string,
+  error: ApiHttpError,
+): void {
+  saveLastForbiddenError(endpoint, error.missingPolicies, error.message);
+}
+
+function handleValidationError(endpoint: string, error: ZodError): never {
+  const issues = formatZodIssues(error);
+  redirectToErrorPage(endpoint, issues);
+  throw new ApiValidationError("Invalid API payload", endpoint, issues);
+}
+
+export function validateWithSchema<T>(
+  schema: ZodType<T>,
+  value: unknown,
+  endpoint: string,
+): T {
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    return handleValidationError(endpoint, result.error);
+  }
+  return result.data;
+}
+
+async function parseResponseBody(response: Response): Promise<unknown> {
+  if (response.status === 204) {
+    return undefined;
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  return response.text();
+}
+
+export function setAuthToken(token: string): void {
+  if (isClient()) {
+    localStorage.setItem(TOKEN_KEY, token);
+  }
+}
+
+export function getAuthToken(): string | null {
+  if (!isClient()) {
+    return null;
+  }
+
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function clearAuthToken(): void {
+  if (isClient()) {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+}
+
+export async function apiRequest<T = unknown>(
+  endpoint: string,
+  options: RequestInit = {},
+  schema?: ZodType<T>,
+): Promise<T> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const token = getAuthToken();
+
+  const headers = new Headers(options.headers);
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      clearAuthToken();
+      window.location.href = "/auth/login";
+    }
+
+    const errorPayload = await parseResponseBody(response).catch(() => null);
+    if (response.status === 403) {
+      const detail = parseForbiddenDetail(errorPayload);
+      throw new ApiHttpError(
+        toForbiddenMessage(detail),
+        403,
+        endpoint,
+        toMissingPolicies(detail),
+      );
+    }
+
+    const detail =
+      typeof errorPayload === "object" &&
+      errorPayload !== null &&
+      "detail" in errorPayload &&
+      typeof (errorPayload as { detail?: unknown }).detail === "string"
+        ? (errorPayload as { detail: string }).detail
+        : `HTTP ${response.status}`;
+
+    throw new ApiHttpError(detail, response.status, endpoint);
+  }
+
+  const payload = await parseResponseBody(response);
+
+  if (!schema) {
+    return payload as T;
+  }
+
+  return validateWithSchema(schema, payload, endpoint);
+}
