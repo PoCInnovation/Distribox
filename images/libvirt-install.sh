@@ -28,7 +28,7 @@ arch() {
     blue "\nArch system detected"
     init
     set -x
-    sudo pacman -Sy libvirt qemu-desktop
+    sudo pacman -Sy libvirt qemu-desktop virt-manager virt-viewer
     set +x
 }
 

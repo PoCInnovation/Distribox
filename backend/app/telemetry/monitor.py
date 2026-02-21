@@ -87,6 +87,7 @@ class SystemMonitor:
                         2))
 
             self.cpu["percent_used_per_vm"] = []
+            total_vms_cpu_usage = 0.0
             for vm_counter_t1 in cpu_usage_t1["per_vm_counter"]:
                 vm_counter_t2 = next(
                     (vm for vm in cpu_usage_t2["per_vm_counter"]
@@ -94,16 +95,15 @@ class SystemMonitor:
                     None)
                 if vm_counter_t2 is None:
                     continue
+                vm_cpu_percentage = round(
+                    self._get_cpu_usage_percent(
+                        vm_counter_t2["cpu_time"],
+                        vm_counter_t1["cpu_time"],
+                        cpu_usage_t2["cpu_total_counter"].total_time,
+                        cpu_usage_t1["cpu_total_counter"].total_time),
+                    2)
+                total_vms_cpu_usage += vm_cpu_percentage
                 self.cpu["percent_used_per_vm"].append(
-                    {
-                        "id": vm_counter_t1["id"],
-                        "cpu_percentage": round(
-                            self._get_cpu_usage_percent(
-                                vm_counter_t2["cpu_time"],
-                                vm_counter_t1["cpu_time"],
-                                cpu_usage_t2["cpu_total_counter"].total_time,
-                                cpu_usage_t1["cpu_total_counter"].total_time),
-                            2)})
+                    f"{vm_counter_t1['id']}: {vm_cpu_percentage}%")
 
-            self.cpu["percent_used_total_vms"] = sum(
-                (vm["cpu_percentage"] for vm in self.cpu["percent_used_per_vm"]))
+            self.cpu["percent_used_total_vms"] = round(total_vms_cpu_usage, 2)

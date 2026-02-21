@@ -8,7 +8,9 @@ def build_xml(vm_read: VmRead):
     domain = etree.Element("domain", type="kvm")
 
     etree.SubElement(domain, "name").text = str(vm_read.id)
-    etree.SubElement(domain, "memory", unit="MiB").text = str(vm_read.mem)
+    # Frontend sends memory in GiB; libvirt XML expects MiB here.
+    memory_mib = vm_read.mem * 1024
+    etree.SubElement(domain, "memory", unit="MiB").text = str(memory_mib)
     etree.SubElement(domain, "vcpu", placement="static").text = str(
         vm_read.vcpus)
 
