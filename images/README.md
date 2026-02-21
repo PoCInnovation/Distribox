@@ -147,51 +147,38 @@ Once you have created the creation script and the metadata file, you can build t
 
 The script will build the image and output it to the `dist/` directory.
 
-## 4. Install Remmina client
+## Start VM manually and connect
 
-install Remmina in order to connect via VNC to the created VM.
-
-```bash
-sudo apt-add-repository ppa:remmina-ppa-team/remmina-next
-sudo apt update
-sudo apt install remmina remmina-plugin-rdp remmina-plugin-secret
-```
-
-## 5. Start VM manually and connect
-
-You now have a ready-to-use image. You can start it by using the ``virsh`` command
+After creating a VM on the frontend, you can start it manually by using the following ``virsh`` command
 
 ```bash
-virsh start <my-image-name>
+virsh -c qemu:///system start <image-id>
 ```
 
-One it's started, you need its ip address and port in order to connect by VNC
+> Note: you can find the image id by looking at the /var/lib/distribox/vms directory
+
+Here is the command to connect to the VM
 
 ```bash
-virsh vncdisplay <my-image-name>
+virt-viewer --connect qemu:///system 916e26d0-358e-43c1-9af6-c95c2c71aec4
 ```
 
-It will output something like
+To stop the VM, you can use the following command
 
 ```bash
-127.0.0.1:0
-
-
-# port is 5900 (5900 + 0)
-#
-# example with 127.0.0.1:1:
-# port is 5901 (5900 + 1)
-
+virsh -c qemu:///system shutdown 01fd7cb3-d4f4-45c2-bd0f-3da1722fc6ac
 ```
-Now, add 5900 to the port, that's the vm's port. Everytime a vm is started, it reserves and listens to a port, starting at 5900, if its already taken, it will pick the next one (5901, 5902, etc...)
 
-Open Remmina using
+To force the VM to stop if it is not responding, you can use the following command
 
 ```bash
-remmina
+virsh -c qemu:///system destroy 01fd7cb3-d4f4-45c2-bd0f-3da1722fc6ac
 ```
 
-Then click on the top left "+" icon, and choose `Remmina VNC Plugin`. Then enter the server's address that you got using vncdisplay.
-You can connect right after that.
+You can see the VM's state manually by running the following command
 
-<img src="./README-imgs/image.png" width="1000">
+```bash
+virsh -c qemu:///system domstate 01fd7cb3-d4f4-45c2-bd0f-3da1722fc6ac
+```
+
+You will need to install the `virt-viewer` package to connect to the VM on your host system, this should be done by the `libvrit-install.sh` script but you will have to turn to your package manager for more information if it is not supported.
