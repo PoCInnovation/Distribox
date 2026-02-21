@@ -1,32 +1,15 @@
-import { z, ZodError, type ZodType } from "zod";
+import { type ZodError, type ZodType } from "zod";
 import type {
   ForbiddenErrorResponse,
-  CreateVMPayload,
-  DeleteUserResponse,
-  HostInfo,
-  ImageMetadata,
   MissingPoliciesDetail,
-  User,
-  VirtualMachineMetadata,
 } from "@/lib/types";
-import {
-  ForbiddenErrorResponseSchema,
-  CreateVMPayloadSchema,
-  DeleteUserResponseSchema,
-  HostInfoSchema,
-  ImageMetadataSchema,
-  UserIdSchema,
-  UserSchema,
-  VirtualMachineMetadataSchema,
-} from "@/lib/types";
+import { ForbiddenErrorResponseSchema } from "@/lib/types";
 
-const API_BASE_URL = import.meta.env.VITE_API_DOMAIN || "http://localhost:8080";
+export const API_BASE_URL =
+  import.meta.env.VITE_API_DOMAIN || "http://localhost:8080";
 const TOKEN_KEY = "auth_token";
 const LAST_VALIDATION_ERROR_KEY = "last_validation_error";
 const LAST_FORBIDDEN_ERROR_KEY = "last_forbidden_error";
-const LoginResponseSchema = z.object({
-  access_token: z.string().min(1),
-});
 
 export interface LastValidationError {
   endpoint: string;
@@ -224,7 +207,7 @@ function handleValidationError(endpoint: string, error: ZodError): never {
   throw new ApiValidationError("Invalid API payload", endpoint, issues);
 }
 
-function validateWithSchema<T>(
+export function validateWithSchema<T>(
   schema: ZodType<T>,
   value: unknown,
   endpoint: string,
@@ -259,6 +242,7 @@ export function getAuthToken(): string | null {
   if (!isClient()) {
     return null;
   }
+
   return localStorage.getItem(TOKEN_KEY);
 }
 
@@ -314,6 +298,7 @@ export async function apiRequest<T = unknown>(
       typeof (errorPayload as { detail?: unknown }).detail === "string"
         ? (errorPayload as { detail: string }).detail
         : `HTTP ${response.status}`;
+
     throw new ApiHttpError(detail, response.status, endpoint);
   }
 
@@ -324,179 +309,4 @@ export async function apiRequest<T = unknown>(
   }
 
   return validateWithSchema(schema, payload, endpoint);
-}
-
-export function isAuthenticated(): boolean {
-  return getAuthToken() !== null;
-}
-
-export function signOut(): void {
-  clearAuthToken();
-  window.location.href = "/auth/login";
-}
-
-export async function login(username: string, password: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ username, password }),
-  });
-
-  if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ detail: "Login failed" }));
-    throw new Error(error.detail || "Login failed");
-  }
-
-  const data = await response.json();
-  const authPayload = validateWithSchema(
-    LoginResponseSchema,
-    data,
-    "/auth/login",
-  );
-  setAuthToken(authPayload.access_token);
-}
-
-export async function getCurrentUser(): Promise<User> {
-  return apiRequest("/auth/me", {}, UserSchema);
-}
-
-export async function changePassword(
-  currentPassword: string,
-  newPassword: string,
-): Promise<void> {
-  await apiRequest("/auth/change-password", {
-    method: "POST",
-    body: JSON.stringify({
-      current_password: currentPassword,
-      new_password: newPassword,
-    }),
-  });
-}
-
-export async function getHostInfo(): Promise<HostInfo> {
-  return apiRequest("/host/info", {}, HostInfoSchema);
-}
-
-export async function getVMs(): Promise<VirtualMachineMetadata[]> {
-  return apiRequest("/vms", {}, VirtualMachineMetadataSchema.array());
-}
-
-export async function getImages(): Promise<ImageMetadata[]> {
-  return apiRequest("/images", {}, ImageMetadataSchema.array());
-}
-
-export async function createVM(payload: CreateVMPayload): Promise<void> {
-  const validatedPayload = validateWithSchema(
-    CreateVMPayloadSchema,
-    payload,
-    "/vms",
-  );
-
-  await apiRequest("/vms", {
-    method: "POST",
-    body: JSON.stringify(validatedPayload),
-  });
-}
-
-export async function startVM(id: string): Promise<void> {
-  return apiRequest<void>(`/vms/${id}/start`, {
-    method: "POST",
-  });
-}
-
-export async function stopVM(id: string): Promise<void> {
-  return apiRequest<void>(`/vms/${id}/stop`, {
-    method: "POST",
-  });
-}
-
-export async function restartVM(id: string): Promise<void> {
-  return apiRequest<void>(`/vms/${id}/restart`, {
-    method: "POST",
-  });
-}
-
-export async function deleteVM(id: string): Promise<void> {
-  return apiRequest<void>(`/vms/${id}`, {
-    method: "DELETE",
-  });
-}
-
-const CreateUserResponseSchema = UserSchema.extend({
-  generated_password: z.string().optional(),
-});
-
-export type CreateUserResponse = z.infer<typeof CreateUserResponseSchema>;
-
-export async function getUsers(): Promise<User[]> {
-  return apiRequest("/users", {}, UserSchema.array());
-}
-
-export async function createUser(
-  username: string,
-  password?: string,
-  policies: string[] = [],
-): Promise<CreateUserResponse> {
-  return apiRequest(
-    "/users",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        user: username,
-        ...(password && { password }),
-        policies,
-      }),
-    },
-    CreateUserResponseSchema,
-  );
-}
-
-export async function updateUserPolicies(
-  userId: string,
-  policies: string[],
-): Promise<User> {
-  const validatedUserId = validateWithSchema(
-    UserIdSchema,
-    userId,
-    "/users/:id",
-  );
-  return apiRequest(
-    `/users/${validatedUserId}/policies`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        policies,
-      }),
-    },
-    UserSchema,
-  );
-}
-
-export async function getUserPassword(userId: string): Promise<string> {
-  const validatedUserId = validateWithSchema(
-    UserIdSchema,
-    userId,
-    "/users/:id",
-  );
-  const response = await apiRequest<{ password: string }>(
-    `/users/${validatedUserId}/password`,
-    {},
-    z.object({ id: z.string(), user: z.string(), password: z.string() }),
-  );
-  return response.password;
-}
-
-export async function deleteUser(userId: string): Promise<DeleteUserResponse> {
-  const validatedUserId = validateWithSchema(UserIdSchema, userId, "/user/:id");
-  return apiRequest(
-    `/user/${validatedUserId}`,
-    {
-      method: "DELETE",
-    },
-    DeleteUserResponseSchema,
-  );
 }

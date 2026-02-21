@@ -228,10 +228,12 @@ class VmService:
     def create_vm_credential(vm_id: str, payload: VmCredentialCreateRequest):
         with Session(engine) as session:
             vm_record = VmService._get_vm_or_404(session, vm_id)
+            provided_password = payload.password.strip() if payload.password else ""
+            credential_password = provided_password or str(uuid.uuid4())
             credential = VmCredentialORM(
                 vm_id=vm_record.id,
                 name=payload.name,
-                password=encrypt_secret(payload.password),
+                password=encrypt_secret(credential_password),
             )
             session.add(credential)
             session.commit()
@@ -240,7 +242,7 @@ class VmService:
                 "id": credential.id,
                 "vm_id": credential.vm_id,
                 "name": credential.name,
-                "password": payload.password,
+                "password": credential_password,
                 "created_at": credential.created_at,
             }
 

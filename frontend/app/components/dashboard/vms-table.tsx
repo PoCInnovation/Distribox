@@ -12,6 +12,7 @@ import { TableVMColumn } from "./table-vm-column";
 import { TableResourcesColumn } from "./table-resources-column";
 import { TableIPColumn } from "./table-ip-column";
 import { TableActionsColumn } from "./table-actions-column";
+import { TableCredentialsColumn } from "./table-credentials-column";
 
 interface ColumnProps {
   data?: VirtualMachineMetadata;
@@ -98,6 +99,15 @@ export function DashboardVMsTable({
         flex: 1.5,
         cellStyle: { display: "flex", alignItems: "center" },
         cellRenderer: ({ data }: ColumnProps) => <TableIPColumn data={data} />,
+      },
+      {
+        field: "credentials_count",
+        headerName: "Credentials",
+        flex: 1,
+        cellStyle: { display: "flex", alignItems: "center" },
+        cellRenderer: ({ data }: ColumnProps) => (
+          <TableCredentialsColumn data={data} />
+        ),
       },
       {
         headerName: "Actions",
