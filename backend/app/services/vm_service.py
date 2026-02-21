@@ -51,7 +51,8 @@ class Vm:
         distribox_image_dir = IMAGES_DIR / self.os
         try:
             image_info = subprocess.run(
-                ["qemu-img", "info", "--output=json", str(distribox_image_dir)],
+                ["qemu-img", "info", "--output=json",
+                    str(distribox_image_dir)],
                 capture_output=True,
                 text=True,
                 check=True,
