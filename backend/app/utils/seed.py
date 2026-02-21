@@ -7,20 +7,31 @@ from fastapi import HTTPException, status
 from app.core.constants import IMAGES_DIR
 
 
+def _resolve_seed_config_dir() -> Path:
+    candidate_dirs = [
+        Path("/code/seed-config"),
+        Path(__file__).resolve().parents[3] / "images" / "scripts" / "seed-config",
+    ]
+    for candidate in candidate_dirs:
+        user_data = candidate / "user-data"
+        meta_data = candidate / "meta-data"
+        if user_data.exists() and meta_data.exists():
+            return candidate
+
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Missing seed-config templates (expected images/scripts/seed-config)",
+    )
+
+
 def ensure_seed_iso() -> Path:
     seed_iso_path = IMAGES_DIR / "seed.iso"
     if seed_iso_path.exists():
         return seed_iso_path
 
-    assets_dir = Path(__file__).resolve().parents[1] / "assets" / "seed-config"
-    user_data_path = assets_dir / "user-data"
-    meta_data_path = assets_dir / "meta-data"
-
-    if not user_data_path.exists() or not meta_data_path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Missing bundled seed-config templates for cloud-init",
-        )
+    seed_config_dir = _resolve_seed_config_dir()
+    user_data_path = seed_config_dir / "user-data"
+    meta_data_path = seed_config_dir / "meta-data"
 
     seed_iso_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp_dir:
