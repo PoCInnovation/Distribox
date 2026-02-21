@@ -10,7 +10,8 @@ from app.core.constants import IMAGES_DIR
 def _resolve_seed_config_dir() -> Path:
     candidate_dirs = [
         Path("/code/seed-config"),
-        Path(__file__).resolve().parents[3] / "images" / "scripts" / "seed-config",
+        Path(__file__).resolve().parents[3] /
+        "images" / "scripts" / "seed-config",
     ]
     for candidate in candidate_dirs:
         user_data = candidate / "user-data"
