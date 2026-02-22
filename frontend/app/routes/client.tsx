@@ -5,7 +5,10 @@ export default function ClientRoute() {
   const [searchParams] = useSearchParams();
   const credential = searchParams.get("credential") ?? "";
 
-  const hasCredential = useMemo(() => credential.trim().length > 0, [credential]);
+  const hasCredential = useMemo(
+    () => credential.trim().length > 0,
+    [credential],
+  );
 
   return (
     <main className="min-h-screen flex items-center justify-center px-4">
