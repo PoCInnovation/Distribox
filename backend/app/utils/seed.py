@@ -8,7 +8,8 @@ from app.core.constants import IMAGES_DIR
 
 
 def _resolve_seed_config_dir() -> Path:
-    seed_config_dir = Path(__file__).resolve().parents[1] / "assets" / "seed-config"
+    seed_config_dir = Path(__file__).resolve(
+    ).parents[1] / "assets" / "seed-config"
     user_data = seed_config_dir / "user-data"
     meta_data = seed_config_dir / "meta-data"
     if user_data.exists() and meta_data.exists():
