@@ -21,7 +21,6 @@ services:
     volumes:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock
       - /var/lib/distribox:/var/lib/distribox
-      - ../images/scripts/seed-config:/code/seed-config:ro
     depends_on:
       database:
         condition: service_healthy
@@ -53,7 +52,6 @@ services:
       - ./.env:/code/.env
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock
       - /var/lib/distribox:/var/lib/distribox
-      - ../images/scripts/seed-config:/code/seed-config:ro
     depends_on:
       database:
         condition: service_healthy

@@ -8,20 +8,15 @@ from app.core.constants import IMAGES_DIR
 
 
 def _resolve_seed_config_dir() -> Path:
-    candidate_dirs = [
-        Path("/code/seed-config"),
-        Path(__file__).resolve().parents[3] /
-        "images" / "scripts" / "seed-config",
-    ]
-    for candidate in candidate_dirs:
-        user_data = candidate / "user-data"
-        meta_data = candidate / "meta-data"
-        if user_data.exists() and meta_data.exists():
-            return candidate
+    seed_config_dir = Path(__file__).resolve().parents[1] / "assets" / "seed-config"
+    user_data = seed_config_dir / "user-data"
+    meta_data = seed_config_dir / "meta-data"
+    if user_data.exists() and meta_data.exists():
+        return seed_config_dir
 
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Missing seed-config templates (expected images/scripts/seed-config)",
+        detail="Missing seed-config templates (expected app/assets/seed-config)",
     )
 
 
