@@ -8,8 +8,12 @@ users:
     groups: sudo
     shell: /bin/bash
     sudo: ["ALL=(ALL) NOPASSWD:ALL"]
-    lock_passwd: true
-ssh_pwauth: false
+
+chpasswd:
+  list: |
+    user:password
+  expire: false
+ssh_pwauth: true
 
 package_update: true
 package_upgrade: true
