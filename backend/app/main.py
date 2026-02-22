@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 from app.core.policies import DISTRIBOX_ADMIN_POLICY
-from app.routes import vm, image, host, auth, user_management
+from app.routes import vm, image, host, auth, user_management, tunnel
 from app.orm.user import UserORM
 from app.orm.vm_credential import VmCredentialORM  # noqa: F401
 from app.utils.auth import hash_password
@@ -104,3 +104,4 @@ app.include_router(user_management.router, tags=["users"])
 app.include_router(vm.router, prefix="/vms", tags=["vms"])
 app.include_router(image.router, prefix="/images", tags=["images"])
 app.include_router(host.router, prefix="/host", tags=["host"])
+app.include_router(tunnel.router, tags=["tunnel"])

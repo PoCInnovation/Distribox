@@ -147,6 +147,58 @@ Once you have created the creation script and the metadata file, you can build t
 
 The script will build the image and output it to the `dist/` directory.
 
+## Guacamole Setup
+
+Distribox uses [Apache Guacamole](https://guacamole.apache.org/) to stream VM desktops directly to the browser. The `libvirt-install.sh` script installs and enables `guacd` automatically.
+
+### How it works
+
+```
+Browser (guacamole-common-js)
+  │  WebSocket  ws://backend/tunnel?credential=X
+  │
+FastAPI backend (Docker)
+  │  TCP 4822
+  │
+guacd (native on host — translates VNC ↔ Guacamole protocol)
+  │  VNC  127.0.0.1:590x
+  │
+QEMU/KVM VM
+```
+
+- `guacd` must run **natively on the host** (not inside Docker) because VNC is bound to `127.0.0.1`.
+- The backend container reaches `guacd` via `host.docker.internal` (Docker `host-gateway` alias).
+
+### Port requirements
+
+| Service | Port | Bound to |
+|---------|------|----------|
+| guacd   | 4822 | `0.0.0.0` (restrict with firewall) |
+| VNC     | 5900+ | `127.0.0.1` (host-only) |
+
+> **Security note**: guacd listens on all interfaces by default. Restrict it to localhost with your firewall:
+> ```bash
+> sudo ufw deny 4822   # Ubuntu
+> # or
+> sudo iptables -A INPUT -p tcp --dport 4822 ! -s 127.0.0.1 -j DROP
+> ```
+
+### Verify guacd is running
+
+```bash
+systemctl status guacd
+nc -zv 127.0.0.1 4822
+```
+
+### VM OS login credentials
+
+Cloud-init sets the default OS user inside each VM:
+
+- **Username**: `user`
+- **Password**: `password`
+
+These are shown as a dismissible hint on the web client when connected.
+
 ## Start VM manually and connect
 
 After creating a VM on the frontend, you can start it manually by using the following ``virsh`` command
@@ -157,7 +209,14 @@ virsh -c qemu:///system start <image-id>
 
 > Note: you can find the image id by looking at the /var/lib/distribox/vms directory
 
-Here is the command to connect to the VM
+### Connect via the web client (recommended)
+
+1. Start the VM from the dashboard or via `virsh start <id>`
+2. Create a credential in the VM details dialog
+3. Go to the Distribox home page, paste the credential password, and click **Connect**
+4. The browser opens `/client?credential=X` and streams the desktop via Guacamole
+
+### Connect via virt-viewer (local debug)
 
 ```bash
 virt-viewer --connect qemu:///system 916e26d0-358e-43c1-9af6-c95c2c71aec4
