@@ -10,14 +10,18 @@ class ImageService():
         image_list = []
         images_folder = Path("/var/lib/distribox/images")
         for file in images_folder.iterdir():
+            if file.suffix != ".qcow2":
+                continue
             image_info = subprocess.run(["qemu-img",
                                          "info",
                                          "--output=json",
-                                         file],
+                                         str(file)],
                                         capture_output=True,
                                         text=True,
                                         check=True)
             image_info_json = json.loads(image_info.stdout)
+            if image_info_json.get("format") != "qcow2":
+                continue
             image_list.append(ImageRead(
                 name=image_info_json["filename"].split("/")[-1],
                 virtual_size=round(

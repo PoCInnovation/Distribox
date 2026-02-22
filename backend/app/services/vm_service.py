@@ -1,5 +1,6 @@
 import uuid
 import subprocess
+import json
 from shutil import copy, rmtree
 import libvirt
 from app.utils.vm import wait_for_state
@@ -15,13 +16,30 @@ from app.orm.vm_credential import VmCredentialORM
 from fastapi import status, HTTPException
 from app.utils.vm import get_vm_ip
 from app.utils.crypto import decrypt_secret, encrypt_secret
+from app.utils.seed import ensure_seed_iso
 
 
 class Vm:
+    @staticmethod
+    def _resolve_image_name(os_value: str) -> str:
+        requested_path = IMAGES_DIR / os_value
+        if not requested_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Image not found: {requested_path}",
+            )
+
+        if not os_value.endswith(".qcow2"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid image '{os_value}': expected .qcow2 image",
+            )
+        return os_value
+
     def __init__(self, vm_create: VmCreate):
         self.id = uuid.uuid4()
         self.name = vm_create.name
-        self.os = vm_create.os
+        self.os = self._resolve_image_name(vm_create.os)
         self.mem = vm_create.mem
         self.vcpus = vm_create.vcpus
         self.disk_size = vm_create.disk_size
@@ -32,11 +50,26 @@ class Vm:
         vm_dir = VMS_DIR / str(self.id)
         distribox_image_dir = IMAGES_DIR / self.os
         try:
+            image_info = subprocess.run(
+                ["qemu-img", "info", "--output=json",
+                    str(distribox_image_dir)],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            image_info_json = json.loads(image_info.stdout)
+            if image_info_json.get("format") != "qcow2":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Image '{self.os}' is not qcow2",
+                )
             vm_dir.mkdir(parents=True, exist_ok=True)
             copy(distribox_image_dir, vm_dir)
             vm_path = vm_dir / self.os
             subprocess.run(
-                ["qemu-img", "resize", vm_path, f"+{self.disk_size}G"])
+                ["qemu-img", "resize", vm_path, f"+{self.disk_size}G"],
+                check=True,
+            )
             vm_xml = build_xml(self)
             conn = QEMUConfig.get_connection()
             conn.defineXML(vm_xml)
@@ -102,6 +135,7 @@ class Vm:
             raise
 
     def start(self):
+        ensure_seed_iso()
         try:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
@@ -110,11 +144,21 @@ class Vm:
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
-                                    f'Vm {vm.id} not found')
+                                    f'Vm {self.id} not found')
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Failed to start VM {self.id}: {str(e)}",
+            ) from e
         except Exception:
             raise
         state_code = wait_for_state(vm, libvirt.VIR_DOMAIN_RUNNING, 0.5, 10)
         self.state = VM_STATE_NAMES.get(state_code, 'None')
+        if state_code != libvirt.VIR_DOMAIN_RUNNING:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Failed to start VM {self.id}. Current state: {self.state}",
+            )
+        self.ipv4 = get_vm_ip(str(self.id))
         return self
 
     def stop(self):
@@ -126,7 +170,7 @@ class Vm:
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
-                                    f'Vm {vm.id} not found')
+                                    f'Vm {self.id} not found')
         except Exception:
             raise
         state_code = wait_for_state(vm, libvirt.VIR_DOMAIN_SHUTOFF, 5, 10)

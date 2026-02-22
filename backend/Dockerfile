@@ -3,6 +3,7 @@ FROM python:3.13 as base
 RUN apt-get update && apt-get install -y \
     qemu-utils \
     libvirt-dev \
+    genisoimage \
     && rm -rf /var/lib/apt/lists/*
 
 FROM base as builder
