@@ -3,8 +3,11 @@ from pydantic import BaseModel
 
 class ImageBase(BaseModel):
     name: str
-    virtual_size: float
-    actual_size: float
+    image: str
+    version: str
+    distribution: str
+    family: str
+    revision: int
 
 
 class ImageRead(ImageBase):
