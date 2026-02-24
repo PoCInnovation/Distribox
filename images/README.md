@@ -149,7 +149,7 @@ The script will build the image and output it to the `dist/` directory.
 
 ## Guacamole Setup
 
-Distribox uses [Apache Guacamole](https://guacamole.apache.org/) to stream VM desktops directly to the browser. The `libvirt-install.sh` script installs and enables `guacd` automatically.
+Distribox uses [Apache Guacamole](https://guacamole.apache.org/) to stream VM desktops directly to the browser. `guacd` runs as a Docker container alongside the backend — no host installation required.
 
 ### How it works
 
@@ -157,38 +157,18 @@ Distribox uses [Apache Guacamole](https://guacamole.apache.org/) to stream VM de
 Browser (guacamole-common-js)
   │  WebSocket  ws://backend/tunnel?credential=X
   │
-FastAPI backend (Docker)
-  │  TCP 4822
+FastAPI backend (Docker, distribox-network)
+  │  TCP guacd:4822
   │
-guacd (native on host — translates VNC ↔ Guacamole protocol)
-  │  VNC  127.0.0.1:590x
+guacd (Docker, distribox-network — guacamole/guacd:1.5.5)
+  │  VNC  host.docker.internal:590x
   │
-QEMU/KVM VM
+QEMU/KVM VM (host)
 ```
 
-- `guacd` must run **natively on the host** (not inside Docker) because VNC is bound to `127.0.0.1`.
-- The backend container reaches `guacd` via `host.docker.internal` (Docker `host-gateway` alias).
-
-### Port requirements
-
-| Service | Port | Bound to |
-|---------|------|----------|
-| guacd   | 4822 | `0.0.0.0` (restrict with firewall) |
-| VNC     | 5900+ | `127.0.0.1` (host-only) |
-
-> **Security note**: guacd listens on all interfaces by default. Restrict it to localhost with your firewall:
-> ```bash
-> sudo ufw deny 4822   # Ubuntu
-> # or
-> sudo iptables -A INPUT -p tcp --dport 4822 ! -s 127.0.0.1 -j DROP
-> ```
-
-### Verify guacd is running
-
-```bash
-systemctl status guacd
-nc -zv 127.0.0.1 4822
-```
+- `guacd` is started automatically by Docker Compose as part of the `prod` and `dev` profiles.
+- `guacd` reaches VNC on the host via `host.docker.internal` (Docker `host-gateway` alias).
+- VNC ports are never exposed outside the host.
 
 ### VM OS login credentials
 

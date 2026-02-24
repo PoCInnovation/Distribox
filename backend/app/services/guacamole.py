@@ -31,8 +31,15 @@ async def guacd_handshake(
     writer: asyncio.StreamWriter,
     vnc_host: str,
     vnc_port: int,
-) -> str:
-    """Perform the Guacamole VNC handshake with guacd. Returns the connection UUID."""
+) -> None:
+    """Perform the Guacamole VNC handshake with guacd up to and including
+    the `connect` instruction.
+
+    The `ready` response is intentionally left in the TCP stream so that the
+    relay can forward it to the browser. The browser's Guacamole.Client
+    transitions to CONNECTED state only upon receiving `ready` — consuming
+    it here would leave the client permanently stuck in the WAITING state.
+    """
     writer.write(build_instruction("select", "vnc").encode())
     await writer.drain()
 
@@ -54,8 +61,4 @@ async def guacd_handshake(
     connect_values = ["connect"] + [param_map.get(k, "") for k in required]
     writer.write(build_instruction(*connect_values).encode())
     await writer.drain()
-
-    ready = await read_instruction(reader)  # ["ready", "CONNECTION_UUID"]
-    if ready[0] != "ready":
-        raise ValueError(f"Expected ready instruction, got: {ready}")
-    return ready[1]
+    # `ready` is left in the stream — the relay forwards it to the browser.
