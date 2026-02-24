@@ -1,6 +1,5 @@
 import uuid
 import subprocess
-import json
 from shutil import copy, rmtree
 import libvirt
 from app.utils.vm import wait_for_state
@@ -17,18 +16,13 @@ from fastapi import status, HTTPException
 from app.utils.vm import get_vm_ip
 from app.utils.crypto import decrypt_secret, encrypt_secret
 from app.utils.seed import ensure_seed_iso
+from app.core.config import s3, distribox_bucket_registry
+from os import path
 
 
 class Vm:
     @staticmethod
     def _resolve_image_name(os_value: str) -> str:
-        requested_path = IMAGES_DIR / os_value
-        if not requested_path.exists():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Image not found: {requested_path}",
-            )
-
         if not os_value.endswith(".qcow2"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -47,22 +41,16 @@ class Vm:
         self.state = 'Stopped'
         self.ipv4: Optional[str] = None
         self.credentials_count: int = 0
+
         vm_dir = VMS_DIR / str(self.id)
         distribox_image_dir = IMAGES_DIR / self.os
+
         try:
-            image_info = subprocess.run(
-                ["qemu-img", "info", "--output=json",
-                    str(distribox_image_dir)],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            image_info_json = json.loads(image_info.stdout)
-            if image_info_json.get("format") != "qcow2":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Image '{self.os}' is not qcow2",
-                )
+            if (path.exists(distribox_image_dir) is False):
+                s3.download_file(
+                    distribox_bucket_registry,
+                    self.os,
+                    distribox_image_dir)
             vm_dir.mkdir(parents=True, exist_ok=True)
             copy(distribox_image_dir, vm_dir)
             vm_path = vm_dir / self.os
@@ -88,7 +76,6 @@ class Vm:
                 self.start()
         except Exception:
             raise
-    # def create(self):
 
     @classmethod
     def get(cls, vm_id: str):
@@ -156,7 +143,9 @@ class Vm:
         if state_code != libvirt.VIR_DOMAIN_RUNNING:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Failed to start VM {self.id}. Current state: {self.state}",
+                detail=f"Failed to start VM {
+                    self.id}. Current state: {
+                    self.state}",
             )
         self.ipv4 = get_vm_ip(str(self.id))
         return self
