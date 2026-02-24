@@ -158,16 +158,17 @@ Browser (guacamole-common-js)
   │  WebSocket  ws://backend/tunnel?credential=X
   │
 FastAPI backend (Docker, distribox-network)
-  │  TCP guacd:4822
+  │  TCP host.docker.internal:4822
   │
-guacd (Docker, distribox-network — guacamole/guacd:1.5.5)
-  │  VNC  host.docker.internal:590x
+guacd (Docker, network_mode: host — guacamole/guacd:1.5.5)
+  │  VNC  127.0.0.1:590x
   │
 QEMU/KVM VM (host)
 ```
 
 - `guacd` is started automatically by Docker Compose as part of the `prod` and `dev` profiles.
-- `guacd` reaches VNC on the host via `host.docker.internal` (Docker `host-gateway` alias).
+- `guacd` runs with `network_mode: host` so it can reach VNC bound to `127.0.0.1` on the host.
+- The backend reaches `guacd` via `host.docker.internal:4822` (Docker bridge gateway).
 - VNC ports are never exposed outside the host.
 
 ### VM OS login credentials

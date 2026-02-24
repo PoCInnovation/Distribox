@@ -3,6 +3,7 @@ declare module "guacamole-common-js" {
     class WebSocketTunnel {
       constructor(url: string);
       onerror: ((error: { message?: string }) => void) | null;
+      sendMessage(...elements: string[]): void;
     }
 
     class Display {
@@ -19,6 +20,7 @@ declare module "guacamole-common-js" {
       sendMouseState(mouseState: Mouse.State): void;
       onstatechange: ((state: number) => void) | null;
       onerror: ((error: { message?: string }) => void) | null;
+      onrequired: ((required: string[]) => void) | null;
     }
 
     class Keyboard {

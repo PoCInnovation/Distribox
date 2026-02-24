@@ -65,6 +65,16 @@ export function useGuacamoleClient({
       const scale = Math.min(w / 1024, h / 768);
       client.getDisplay().scale(scale);
 
+      // guacd 1.5.x sends a "required" instruction after ready, asking the
+      // client to identify its protocol version. Respond with our version so
+      // guacd doesn't close the connection with "Client has not defined its
+      // protocol version."
+      client.onrequired = (requiredParams: string[]) => {
+        if (requiredParams.includes("VERSION")) {
+          tunnel.sendMessage("client", "1.5.0");
+        }
+      };
+
       client.onstatechange = (newState: number) => {
         // guacamole-common-js state: 3 = CONNECTED, 5 = DISCONNECTED
         if (newState === 3) {

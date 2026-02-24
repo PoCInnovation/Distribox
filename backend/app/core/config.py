@@ -67,6 +67,6 @@ class QEMUConfig:
 system_monitor = SystemMonitor(interval=3,
                                get_connection=QEMUConfig.get_connection)
 
-GUACD_HOST = get_env_or_default("GUACD_HOST", "guacd")
+GUACD_HOST = get_env_or_default("GUACD_HOST", "host.docker.internal")
 GUACD_PORT = int(get_env_or_default("GUACD_PORT", "4822"))
-VNC_HOST = get_env_or_default("VNC_HOST", "host.docker.internal")
+VNC_HOST = get_env_or_default("VNC_HOST", "127.0.0.1")

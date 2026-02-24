@@ -1,9 +1,12 @@
 import asyncio
+import logging
 
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket
+
+logger = logging.getLogger(__name__)
 from sqlmodel import Session, select
 
-from app.core.config import engine, GUACD_HOST, GUACD_PORT
+from app.core.config import engine, GUACD_HOST, GUACD_PORT, VNC_HOST
 from app.orm.vm_credential import VmCredentialORM
 from app.services.guacamole import guacd_handshake
 from app.utils.crypto import decrypt_secret
@@ -46,6 +49,11 @@ async def vm_tunnel(
         await websocket.close(code=4002, reason=detail)
         return
 
+    logger.warning(
+        "Tunnel: vm_id=%s vnc=%s:%s guacd=%s:%s",
+        vm_id, VNC_HOST, vnc_port, GUACD_HOST, GUACD_PORT,
+    )
+
     # 3. Accept WebSocket with guacamole subprotocol
     await websocket.accept(subprotocol="guacamole")
 
@@ -59,7 +67,7 @@ async def vm_tunnel(
     # 5. Handshake
     try:
         await guacd_handshake(
-            reader, writer, vnc_host="127.0.0.1", vnc_port=vnc_port
+            reader, writer, vnc_host=VNC_HOST, vnc_port=vnc_port
         )
     except Exception as e:
         writer.close()
@@ -70,9 +78,22 @@ async def vm_tunnel(
     async def browser_to_guacd():
         try:
             async for msg in websocket.iter_text():
+                # guacamole-common-js sends internal keepalive/ping messages
+                # using INTERNAL_DATA_OPCODE (empty string opcode, encoded as
+                # "0.,4.ping,TIMESTAMP;"). guacd cannot handle empty-opcode
+                # instructions and closes the connection. Echo them back to
+                # the browser so its receive timer stays alive, but don't
+                # forward to guacd.
+                try:
+                    first_dot = msg.index(".")
+                    if int(msg[:first_dot]) == 0:
+                        await websocket.send_text(msg)
+                        continue
+                except (ValueError, IndexError):
+                    pass
                 writer.write(msg.encode())
                 await writer.drain()
-        except WebSocketDisconnect:
+        except Exception:
             pass
         finally:
             writer.close()
@@ -84,7 +105,10 @@ async def vm_tunnel(
         except Exception:
             pass
         finally:
-            await websocket.close()
+            try:
+                await websocket.close()
+            except Exception:
+                pass
 
     await asyncio.gather(
         browser_to_guacd(), guacd_to_browser(), return_exceptions=True
