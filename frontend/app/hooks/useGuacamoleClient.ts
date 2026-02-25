@@ -27,6 +27,8 @@ export function useGuacamoleClient({
 
   useEffect(() => {
     if (!credential) return;
+    setState("connecting");
+    setError(undefined);
 
     let cancelled = false;
     let client: Guacamole.Client | undefined;
@@ -65,15 +67,9 @@ export function useGuacamoleClient({
       const scale = Math.min(w / 1024, h / 768);
       client.getDisplay().scale(scale);
 
-      // guacd 1.5.x sends a "required" instruction after ready, asking the
-      // client to identify its protocol version. Respond with our version so
-      // guacd doesn't close the connection with "Client has not defined its
-      // protocol version."
-      client.onrequired = (requiredParams: string[]) => {
-        if (requiredParams.includes("VERSION")) {
-          tunnel.sendMessage("client", "1.5.0");
-        }
-      };
+      // Keep hook for potential future required-parameter UI handling.
+      // This client should not emit low-level protocol opcodes directly.
+      client.onrequired = () => {};
 
       client.onstatechange = (newState: number) => {
         // guacamole-common-js state: 3 = CONNECTED, 5 = DISCONNECTED
@@ -92,6 +88,14 @@ export function useGuacamoleClient({
       tunnel.onerror = (err: { message?: string }) => {
         setState("error");
         setError(err?.message ?? "Tunnel error");
+      };
+      tunnel.onstatechange = (newState: number) => {
+        // guacamole-common-js tunnel states: 0=CONNECTING, 1=OPEN, 2=CLOSED, 3=UNSTABLE
+        if (newState === 0 || newState === 1 || newState === 3) return;
+        if (newState === 2) {
+          setState((prev) => (prev === "connected" ? "disconnected" : "error"));
+          setError((prev) => prev ?? "Tunnel closed");
+        }
       };
 
       // Keyboard

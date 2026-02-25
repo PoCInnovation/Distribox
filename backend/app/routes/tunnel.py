@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from uuid import UUID
 
 from fastapi import APIRouter, Query, WebSocket
 
@@ -15,16 +16,40 @@ from app.utils.vnc import get_vnc_port
 router = APIRouter()
 
 
-def _find_vm_for_credential(password: str) -> str | None:
-    """Scan credentials table and return vm_id if the password matches."""
+def _find_vm_for_credential(token: str) -> str | None:
+    """
+    Resolve a public tunnel credential to its VM id.
+
+    Supported token formats:
+    - credential password (legacy/current behaviour)
+    - credential record UUID (fallback for clients using credential id)
+    """
+    normalized = token.strip()
+    if not normalized:
+        return None
+
     with Session(engine) as session:
-        credentials = session.exec(select(VmCredentialORM)).all()
+        credentials = session.exec(
+            select(VmCredentialORM.id, VmCredentialORM.vm_id, VmCredentialORM.password)
+        ).all()
+
+        # First, preserve existing semantics: direct password lookup.
         for cred in credentials:
             try:
-                if decrypt_secret(cred.password) == password:
+                if decrypt_secret(cred.password) == normalized:
                     return str(cred.vm_id)
             except Exception:
                 continue
+
+        # Fallback: allow UUID credential-id tokens as well.
+        try:
+            parsed_id = UUID(normalized)
+        except ValueError:
+            return None
+
+        credential = session.get(VmCredentialORM, parsed_id)
+        if credential:
+            return str(credential.vm_id)
     return None
 
 
@@ -38,6 +63,7 @@ async def vm_tunnel(
     # 1. Credential lookup (sync → thread pool)
     vm_id = await asyncio.to_thread(_find_vm_for_credential, credential)
     if not vm_id:
+        logger.warning("Tunnel rejected: unknown credential token")
         await websocket.close(code=4001, reason="Invalid credential")
         return
 

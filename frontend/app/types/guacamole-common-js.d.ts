@@ -3,6 +3,7 @@ declare module "guacamole-common-js" {
     class WebSocketTunnel {
       constructor(url: string);
       onerror: ((error: { message?: string }) => void) | null;
+      onstatechange: ((state: number) => void) | null;
       sendMessage(...elements: string[]): void;
     }
 

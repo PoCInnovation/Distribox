@@ -1,4 +1,8 @@
 import asyncio
+import logging
+
+GUACAMOLE_PROTOCOL_VERSION = "1.5.5"
+logger = logging.getLogger(__name__)
 
 
 def build_instruction(*args: str) -> str:
@@ -43,8 +47,30 @@ async def guacd_handshake(
     writer.write(build_instruction("select", "vnc").encode())
     await writer.drain()
 
-    args_inst = await read_instruction(reader)  # ["args", "hostname", "port", ...]
-    required = args_inst[1:]
+    # guacd 1.5.x may request protocol version negotiation via:
+    # required,VERSION;
+    # We must answer with:
+    # client,1.5.0;
+    # before proceeding, otherwise guacd closes the connection.
+    while True:
+        inst = await read_instruction(reader)
+        opcode = inst[0] if inst else ""
+
+        if opcode == "required":
+            required_params = [param.upper() for param in inst[1:]]
+            if "VERSION" in required_params:
+                writer.write(
+                    build_instruction("client", GUACAMOLE_PROTOCOL_VERSION).encode()
+                )
+                await writer.drain()
+            continue
+
+        if opcode != "args":
+            raise RuntimeError(f"Unexpected guacd instruction before args: {inst!r}")
+
+        required = inst[1:]
+        logger.info("guacd args required=%s", required)
+        break
 
     param_map = {
         "hostname": vnc_host,
@@ -57,8 +83,30 @@ async def guacd_handshake(
         "color-depth": "",
         "autoretry": "",
         "username": "",
+        # Some guacd versions/plugins require protocol version as a connect arg.
+        "version": GUACAMOLE_PROTOCOL_VERSION,
+        "protocol-version": GUACAMOLE_PROTOCOL_VERSION,
     }
-    connect_values = ["connect"] + [param_map.get(k, "") for k in required]
+
+    def value_for_param(param_name: str) -> str:
+        normalized = param_name.strip().lower()
+        if normalized in param_map:
+            return param_map[normalized]
+
+        # guacd/plugin variants may use different version key spellings.
+        if "version" in normalized:
+            return GUACAMOLE_PROTOCOL_VERSION
+
+        return ""
+
+    connect_values = [
+        "connect",
+        *[value_for_param(k) for k in required],
+    ]
+    logger.info(
+        "guacd connect version_arg_present=%s",
+        "version" in {k.lower() for k in required},
+    )
     writer.write(build_instruction(*connect_values).encode())
     await writer.drain()
     # `ready` is left in the stream — the relay forwards it to the browser.
