@@ -35,7 +35,7 @@ async def guacd_handshake(
     writer: asyncio.StreamWriter,
     vnc_host: str,
     vnc_port: int,
-) -> None:
+) -> str:
     """Perform the Guacamole VNC handshake with guacd up to and including
     the `connect` instruction.
 
@@ -69,12 +69,20 @@ async def guacd_handshake(
             raise RuntimeError(f"Unexpected guacd instruction before args: {inst!r}")
 
         required = inst[1:]
-        logger.info("guacd args required=%s", required)
+        protocol_marker = required[0] if required and required[0].upper().startswith("VERSION_") else None
+        logger.warning(
+            "guacd args protocol_marker=%s required=%s",
+            protocol_marker,
+            required,
+        )
         break
 
     param_map = {
         "hostname": vnc_host,
+        "host": vnc_host,
         "port": str(vnc_port),
+        "dest-host": "",
+        "dest-port": "",
         "password": "",
         "swap-red-blue": "false",
         "read-only": "false",
@@ -90,6 +98,11 @@ async def guacd_handshake(
 
     def value_for_param(param_name: str) -> str:
         normalized = param_name.strip().lower()
+        if param_name.strip().upper().startswith("VERSION_"):
+            # For VERSION_1_5_0-style markers, guacd expects a dotted semantic
+            # version string as the connect value (for example, "1.5.0").
+            marker = param_name.strip().upper()[len("VERSION_"):]
+            return marker.replace("_", ".")
         if normalized in param_map:
             return param_map[normalized]
 
@@ -99,14 +112,29 @@ async def guacd_handshake(
 
         return ""
 
+    param_pairs = [(k, value_for_param(k)) for k in required]
     connect_values = [
         "connect",
-        *[value_for_param(k) for k in required],
+        *[value for _, value in param_pairs],
     ]
-    logger.info(
-        "guacd connect version_arg_present=%s",
-        "version" in {k.lower() for k in required},
+    logger.warning(
+        "guacd connect params=%s version_arg_present=%s",
+        param_pairs,
+        any(k.strip().upper().startswith("VERSION_") or k.lower() == "version" for k in required),
     )
     writer.write(build_instruction(*connect_values).encode())
     await writer.drain()
-    # `ready` is left in the stream — the relay forwards it to the browser.
+
+    # Read the first post-connect instruction to validate the connection.
+    first = await read_instruction(reader)
+    if not first:
+        raise RuntimeError("Empty response from guacd after connect")
+
+    opcode = first[0]
+    if opcode == "error":
+        detail = first[1] if len(first) > 1 else "guacd connection error"
+        raise RuntimeError(detail)
+
+    # Return the first instruction (typically "ready") so callers can forward
+    # it to the browser before continuing stream relay.
+    return build_instruction(*first)
