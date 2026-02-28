@@ -147,6 +147,39 @@ Once you have created the creation script and the metadata file, you can build t
 
 The script will build the image and output it to the `dist/` directory.
 
+## Guacamole Setup
+
+Distribox uses [Apache Guacamole](https://guacamole.apache.org/) to stream VM desktops directly to the browser. `guacd` runs as a Docker container alongside the backend — no host installation required.
+
+### How it works
+
+```
+Browser (guacamole-common-js)
+  │  WebSocket  ws://backend/tunnel?credential=X
+  │
+FastAPI backend (Docker, distribox-network)
+  │  TCP host.docker.internal:4822
+  │
+guacd (Docker, network_mode: host — guacamole/guacd:1.5.5)
+  │  VNC  127.0.0.1:590x
+  │
+QEMU/KVM VM (host)
+```
+
+- `guacd` is started automatically by Docker Compose as part of the `prod` and `dev` profiles.
+- `guacd` runs with `network_mode: host` so it can reach VNC bound to `127.0.0.1` on the host.
+- The backend reaches `guacd` via `host.docker.internal:4822` (Docker bridge gateway).
+- VNC ports are never exposed outside the host.
+
+### VM OS login credentials
+
+Cloud-init sets the default OS user inside each VM:
+
+- **Username**: `user`
+- **Password**: `password`
+
+These are shown as a dismissible hint on the web client when connected.
+
 ## Start VM manually and connect
 
 After creating a VM on the frontend, you can start it manually by using the following ``virsh`` command
@@ -157,7 +190,14 @@ virsh -c qemu:///system start <image-id>
 
 > Note: you can find the image id by looking at the /var/lib/distribox/vms directory
 
-Here is the command to connect to the VM
+### Connect via the web client (recommended)
+
+1. Start the VM from the dashboard or via `virsh start <id>`
+2. Create a credential in the VM details dialog
+3. Go to the Distribox home page, paste the credential password, and click **Connect**
+4. The browser opens `/client?credential=X` and streams the desktop via Guacamole
+
+### Connect via virt-viewer (local debug)
 
 ```bash
 virt-viewer --connect qemu:///system 916e26d0-358e-43c1-9af6-c95c2c71aec4
