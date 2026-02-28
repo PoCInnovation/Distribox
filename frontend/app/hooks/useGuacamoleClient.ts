@@ -106,7 +106,9 @@ export function useGuacamoleClient({
       // Mouse
       const mouse: Guacamole.Mouse = new Guacamole.Mouse(displayEl);
       const sendMouse = (mouseState: Guacamole.Mouse.State) =>
-        client!.sendMouseState(mouseState);
+        // Coordinates from the display element must be normalized by current
+        // display scale before being sent to guacd.
+        client!.sendMouseState(mouseState, true);
       mouse.onmousedown = sendMouse;
       mouse.onmouseup = sendMouse;
       mouse.onmousemove = sendMouse;

@@ -146,12 +146,14 @@ async def vm_tunnel(
 
     # 6. Bidirectional relay
     ws_send_lock = asyncio.Lock()
+    browser_opcode_logs_remaining = 40
 
     async def send_ws_text(message: str) -> None:
         async with ws_send_lock:
             await websocket.send_text(message)
 
     async def browser_to_guacd():
+        nonlocal browser_opcode_logs_remaining
         try:
             async for msg in websocket.iter_text():
                 if _is_internal_instruction(msg):
@@ -160,6 +162,13 @@ async def vm_tunnel(
                     await send_ws_text(msg)
                     continue
                 opcode = _extract_opcode(msg)
+                if browser_opcode_logs_remaining > 0:
+                    logger.warning(
+                        "Tunnel browser->guacd opcode=%s size=%s",
+                        opcode,
+                        len(msg),
+                    )
+                    browser_opcode_logs_remaining -= 1
                 if opcode in {"disconnect", "error"}:
                     logger.warning("Tunnel browser->guacd opcode=%s", opcode)
                 writer.write(msg.encode())
