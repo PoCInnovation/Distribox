@@ -301,7 +301,7 @@ export default function ProvisionPage() {
           </Card>
         </div>
 
-        <div className="space-y-6 sticky top-8">
+        <div className="space-y-6 sticky top-8 self-start">
           <Card className="border-border bg-card">
             <CardHeader>
               <CardTitle>Configuration Summary</CardTitle>
