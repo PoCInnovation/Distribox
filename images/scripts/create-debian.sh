@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 CLOUD_IMG_URL=https://cdimage.debian.org/images/cloud/bookworm/20251112-2294/debian-12-generic-amd64-20251112-2294.qcow2
 DISTRIBOX_IMG_PATH="/var/lib/distribox/images/"
