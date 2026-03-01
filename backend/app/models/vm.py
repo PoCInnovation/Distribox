@@ -2,6 +2,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from uuid import UUID
 from datetime import datetime
+from app.models.image import ImageRead
 
 
 class VmBase(BaseModel):
@@ -35,3 +36,7 @@ class VmCredentialRead(BaseModel):
     name: str
     password: str
     created_at: datetime
+
+
+class RecoverableVm(ImageRead):
+    vm_id: str

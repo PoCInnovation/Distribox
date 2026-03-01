@@ -7,6 +7,22 @@ from app.core.config import s3, distribox_bucket_registry
 
 
 class ImageService():
+
+    @staticmethod
+    def get_distribox_image(image_name):
+        try:
+            response = s3.get_object(
+                Bucket=distribox_bucket_registry, Key=image_name)
+            content = response["Body"].read().decode("utf-8")
+            data = yaml.safe_load(content)
+            return ImageRead(**data)
+        except s3.exceptions.NoSuchKey:
+            print(f"No image found")
+            return None
+        except Exception as e:
+            print(f"Error")
+            return None
+
     @staticmethod
     def get_distribox_image_list():
         images = []

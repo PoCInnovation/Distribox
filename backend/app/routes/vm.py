@@ -1,10 +1,21 @@
 from fastapi import APIRouter, Depends, status
 from app.models.user_management import MissingPoliciesResponse
-from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, VmCredentialRead
+from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, VmCredentialRead, RecoverableVm
 from app.services.vm_service import VmService
 from app.utils.auth import require_policy
 
 router = APIRouter()
+
+
+@router.get(
+    "/recoverable",
+    status_code=status.HTTP_200_OK,
+    response_model=list[RecoverableVm],
+    dependencies=[Depends(require_policy("vms:getById"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def get_recoverable_vms():
+    return VmService.get_recoverable_vms()
 
 
 @router.get(
