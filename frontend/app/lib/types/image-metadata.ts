@@ -1,5 +1,9 @@
-export interface ImageMetadata {
-  name: string;
-  virtual_size: number;
-  actual_size: number;
-}
+import { z } from "zod";
+
+export const ImageMetadataSchema = z.object({
+  name: z.string(),
+  virtual_size: z.number(),
+  actual_size: z.number(),
+});
+
+export type ImageMetadata = z.infer<typeof ImageMetadataSchema>;

@@ -11,3 +11,5 @@ python-multipart
 psutil
 uvicorn[standard]
 python-dotenv
+cryptography
+boto3

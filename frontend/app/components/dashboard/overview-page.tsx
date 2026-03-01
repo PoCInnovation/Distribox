@@ -1,5 +1,7 @@
 import { HostInfoPanel } from "./host-info";
 import { DashboardVMsTableContainer } from "./vms-table-container";
+import { Policy } from "@/lib/types";
+import { PolicyGate } from "@/components/policy/policy-gate";
 
 export default function OverviewPage() {
   return (
@@ -13,9 +15,19 @@ export default function OverviewPage() {
         </p>
       </div>
 
-      <HostInfoPanel />
+      <PolicyGate
+        requiredPolicies={[Policy.HOST_GET]}
+        title="Host Resources Hidden"
+      >
+        <HostInfoPanel />
+      </PolicyGate>
 
-      <DashboardVMsTableContainer />
+      <PolicyGate
+        requiredPolicies={[Policy.VMS_GET]}
+        title="Virtual Machines Hidden"
+      >
+        <DashboardVMsTableContainer />
+      </PolicyGate>
     </div>
   );
 }

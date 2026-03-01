@@ -1,5 +1,25 @@
-export interface User {
-  id: string;
-  username: string;
-  is_admin: boolean;
-}
+import { z } from "zod";
+import { PolicySchema } from "./policies";
+
+export const UserIdSchema = z.string().min(1);
+
+export const PolicyResponseSchema = z.object({
+  policy: PolicySchema,
+  description: z.string(),
+});
+
+export const UserSchema = z.object({
+  id: z.string(),
+  user: z.string(),
+  created_at: z.string(),
+  created_by: z.string().nullable(),
+  last_activity: z.string().nullish(),
+  policies: PolicyResponseSchema.array(),
+});
+
+export const DeleteUserResponseSchema = z.object({
+  message: z.string().min(1),
+});
+
+export type User = z.infer<typeof UserSchema>;
+export type DeleteUserResponse = z.infer<typeof DeleteUserResponseSchema>;

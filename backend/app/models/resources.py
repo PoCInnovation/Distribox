@@ -19,6 +19,6 @@ class MemoryInfoBase(ResourceStatsBase):
 class CPUInfoBase(BaseModel):
     percent_used_total: float
     percent_used_per_cpu: list[float]
-    percent_used_per_vm: list
+    percent_used_per_vm: list[str]
     percent_used_total_vms: float
     cpu_count: int

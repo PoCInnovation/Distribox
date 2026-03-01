@@ -13,6 +13,7 @@ export function useVMs() {
   } = useQuery<VirtualMachineMetadata[]>({
     queryKey: ["vms"],
     queryFn: getVMs,
+    retry: false,
   });
 
   const startVMMutation = useMutation<

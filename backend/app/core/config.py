@@ -1,9 +1,12 @@
 import libvirt
+import boto3
+from botocore import UNSIGNED
+from botocore.config import Config
 from dotenv import load_dotenv
 from os import getenv
+from sqlalchemy import inspect, text
 from sqlmodel import create_engine, SQLModel
 from app.telemetry.monitor import SystemMonitor
-
 load_dotenv()
 
 
@@ -12,6 +15,10 @@ def get_env_or_default(key: str, default: str) -> str:
     value = getenv(key)
     return value if value else default
 
+
+distribox_bucket_registry = get_env_or_default(
+    "DISTRIBOX_BUCKET_REGISTRY", "distribox-images")
+aws_region = get_env_or_default("AWS_REGION", "eu-west-3")
 
 db_name = get_env_or_default("POSTGRES_NAME", "distribox")
 db_user = get_env_or_default("POSTGRES_USER", "distribox_user")
@@ -22,10 +29,38 @@ db_host = get_env_or_default("POSTGRES_HOST", "localhost")
 database_url = f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 engine = create_engine(database_url, echo=True)
 
+s3 = boto3.client(
+    "s3",
+    config=Config(signature_version=UNSIGNED),
+    region_name=aws_region
+)
+
 
 def init_db():
     """Initialize database tables."""
     SQLModel.metadata.create_all(engine)
+
+    with engine.begin() as conn:
+        inspector = inspect(conn)
+        if "users" not in inspector.get_table_names():
+            return
+
+        columns = {column["name"] for column in inspector.get_columns("users")}
+        if "created_by" not in columns:
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN created_by VARCHAR"))
+        if "last_activity" not in columns:
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN last_activity TIMESTAMP"))
+        if "password" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN password VARCHAR"))
+        if "policies" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE users "
+                    "ADD COLUMN policies JSON NOT NULL DEFAULT '[]'::json"
+                )
+            )
 
 
 class QEMUConfig:

@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import type { HostInfo } from "@/lib/types";
 import { formatGB } from "@/lib/utils";
 import { useHostInfo } from "@/hooks/useHostInfo";
-import { useVMs } from "~/hooks/useVMs";
+import { isForbiddenError } from "@/lib/api";
+import { PolicyNotice } from "@/components/policy/policy-notice";
 
 function CompactCard({
   title,
@@ -217,26 +218,19 @@ export function CompactDiskInfo({ disk }: { disk: HostInfo["disk"] }) {
 }
 
 export function HostInfoHeader({ hostInfo }: { hostInfo?: HostInfo }) {
-  const { vms } = useVMs();
-
-  const totalVMs = vms?.length || 0;
-  const activeVMs = vms?.filter((vm) => vm.state === "running").length || 0;
-
   return (
     <div className="mb-6 grid gap-4 md:grid-cols-2">
       <Card className="border-border bg-card p-6">
         <div className="flex items-start justify-between">
           <div>
             <p className="text-sm font-medium text-muted-foreground">
-              Virtual Machines
+              CPU Capacity
             </p>
             <p className="mt-2 font-mono text-3xl font-bold">
-              <span className="text-accent">{activeVMs}</span>
-              <span className="text-muted-foreground">/</span>
-              {totalVMs}
+              {hostInfo ? hostInfo.cpu.cpu_count : "..."}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {activeVMs} active, {totalVMs - activeVMs} stopped
+              {hostInfo ? "Logical cores available on host" : "Loading..."}
             </p>
           </div>
           <div className="flex h-12 w-12 items-center justify-center border border-border bg-secondary text-primary">
@@ -270,7 +264,26 @@ export function HostInfoHeader({ hostInfo }: { hostInfo?: HostInfo }) {
 }
 
 export function HostInfoPanel() {
-  const { data: hostInfo } = useHostInfo();
+  const { data: hostInfo, isError, error } = useHostInfo();
+
+  if (isError && isForbiddenError(error)) {
+    return (
+      <PolicyNotice
+        title="Host Resources Hidden"
+        missingPolicies={error.missingPolicies}
+      />
+    );
+  }
+
+  if (isError) {
+    return (
+      <PolicyNotice
+        title="Host Resources Unavailable"
+        description={error instanceof Error ? error.message : "Unknown error"}
+        missingPolicies={[]}
+      />
+    );
+  }
 
   return (
     <>

@@ -1,17 +1,14 @@
 #cloud-config
 
-# Nom d'hôte (peut aussi être mis dans meta-data, mais fonctionne ici)
 hostname: distribox
 fqdn: distribox.local
 
-# Configuration des utilisateurs
 users:
   - name: user
     groups: sudo
     shell: /bin/bash
     sudo: ["ALL=(ALL) NOPASSWD:ALL"]
 
-# Définition des mots de passe
 chpasswd:
   list: |
     user:password
@@ -20,8 +17,3 @@ ssh_pwauth: true
 
 package_update: true
 package_upgrade: true
-# packages:
-#   - qemu-guest-agent
-#   - xubuntu-desktop
-#   - vim
-# package_reboot_if_required: false

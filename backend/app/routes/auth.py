@@ -1,16 +1,19 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
 from app.core.config import engine
+from app.core.policies import expand_policies
+from app.models.user_management import MissingPoliciesResponse, UserResponse
 from app.orm.user import UserORM
 from app.utils.auth import (
     hash_password,
     verify_password,
     create_access_token,
     get_current_user,
-    get_current_admin_user
+    require_policy,
 )
-import uuid
+from app.utils.crypto import encrypt_secret
 
 router = APIRouter()
 
@@ -18,12 +21,6 @@ router = APIRouter()
 class LoginRequest(BaseModel):
     username: str
     password: str
-
-
-class CreateUserRequest(BaseModel):
-    username: str
-    password: str
-    is_admin: bool = False
 
 
 class ChangePasswordRequest(BaseModel):
@@ -36,10 +33,15 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
-class UserResponse(BaseModel):
-    id: str
-    username: str
-    is_admin: bool
+def to_user_response(user: UserORM) -> UserResponse:
+    return UserResponse(
+        id=str(user.id),
+        user=user.username,
+        created_at=user.created_at,
+        created_by=user.created_by,
+        last_activity=user.last_activity,
+        policies=expand_policies(user.policies),
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -64,76 +66,29 @@ async def login(login_data: LoginRequest):
 
         access_token = create_access_token(
             data={"sub": str(user.id), "username": user.username,
-                  "is_admin": user.is_admin}
+                  "is_admin": user.is_admin, "policies": user.policies}
         )
 
         return TokenResponse(access_token=access_token)
 
 
-@router.post("/users", response_model=UserResponse)
-async def create_user(
-    user_data: CreateUserRequest,
-    _: UserORM = Depends(get_current_admin_user)
-):
-    """Create a new user. Only admins can create users."""
-    with Session(engine) as session:
-        statement = select(UserORM).where(
-            UserORM.username == user_data.username)
-        existing_user = session.exec(statement).first()
-
-        if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already exists"
-            )
-
-        hashed_password = hash_password(user_data.password)
-        new_user = UserORM(
-            username=user_data.username,
-            hashed_password=hashed_password,
-            is_admin=user_data.is_admin
-        )
-
-        session.add(new_user)
-        session.commit()
-        session.refresh(new_user)
-
-        return UserResponse(
-            id=str(new_user.id),
-            username=new_user.username,
-            is_admin=new_user.is_admin
-        )
-
-
-@router.get("/users", response_model=list[UserResponse])
-async def list_users(current_admin: UserORM = Depends(get_current_admin_user)):
-    """List all users. Only admins can view users."""
-    with Session(engine) as session:
-        statement = select(UserORM)
-        users = session.exec(statement).all()
-
-        return [
-            UserResponse(
-                id=str(user.id),
-                username=user.username,
-                is_admin=user.is_admin
-            )
-            for user in users
-        ]
-
-
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    dependencies=[Depends(require_policy("auth:me:get"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
 async def get_current_user_info(
         current_user: UserORM = Depends(get_current_user)):
     """Get information about the currently logged-in user."""
-    return UserResponse(
-        id=str(current_user.id),
-        username=current_user.username,
-        is_admin=current_user.is_admin
-    )
+    return to_user_response(current_user)
 
 
-@router.post("/change-password")
+@router.post(
+    "/change-password",
+    dependencies=[Depends(require_policy("auth:changePassword"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
 async def change_password(
     password_data: ChangePasswordRequest,
     current_user: UserORM = Depends(get_current_user)
@@ -161,6 +116,8 @@ async def change_password(
             )
 
         user.hashed_password = hash_password(password_data.new_password)
+        user.password = encrypt_secret(password_data.new_password)
+        user.last_activity = datetime.utcnow()
         session.add(user)
         session.commit()
 

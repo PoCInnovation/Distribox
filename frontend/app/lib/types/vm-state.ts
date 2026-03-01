@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export enum VMState {
   NOSTATE = "No state",
   RUNNING = "Running",
@@ -8,3 +10,5 @@ export enum VMState {
   CRASHED = "Crashed",
   PMSUSPENDED = "Suspended (power management)",
 }
+
+export const VMStateSchema = z.nativeEnum(VMState);

@@ -2,38 +2,93 @@ import uuid
 import subprocess
 from shutil import copy, rmtree
 import libvirt
-import hashlib
 from app.utils.vm import wait_for_state
 from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
-from app.models.vm import VmCreate
+from app.models.vm import VmCreate, VmCredentialCreateRequest
 from app.core.xml_builder import build_xml
 from app.core.config import QEMUConfig, engine
-from sqlmodel import Session, select, update, delete
+from sqlalchemy import func
+from sqlmodel import Session, select, delete
 from app.orm.vm import VmORM
+from app.orm.vm_credential import VmCredentialORM
 from fastapi import status, HTTPException
 from app.utils.vm import get_vm_ip
+from app.utils.crypto import decrypt_secret, encrypt_secret
+from app.utils.seed import ensure_seed_iso
+from app.core.config import s3, distribox_bucket_registry
+from os import path
+import yaml
 
 
 class Vm:
+    @staticmethod
+    def _resolve_image_name(os_value: str) -> str:
+        if not os_value.endswith(".qcow2"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid image '{os_value}': expected .qcow2 image",
+            )
+        return os_value
+
+    @staticmethod
+    def has_revision_changed(metadata_filename: str) -> bool:
+        if (path.exists(IMAGES_DIR / metadata_filename) is False):
+            return True
+
+        metadata_file = s3.get_object(
+            Bucket=distribox_bucket_registry,
+            Key=metadata_filename)
+        file_content = metadata_file["Body"].read().decode("utf-8")
+
+        metadata = yaml.safe_load(file_content)
+        local_metadata = yaml.safe_load(
+            (IMAGES_DIR /
+             metadata_filename).read_text(
+                encoding="utf-8"))
+
+        revision = metadata["revision"]
+        local_revision = local_metadata["revision"]
+        if (revision != local_revision):
+            return True
+        return False
+
     def __init__(self, vm_create: VmCreate):
         self.id = uuid.uuid4()
         self.name = vm_create.name
-        self.os = vm_create.os
+        self.os = self._resolve_image_name(vm_create.os)
         self.mem = vm_create.mem
         self.vcpus = vm_create.vcpus
         self.disk_size = vm_create.disk_size
         self.state: Optional[str] = None
         self.state = 'Stopped'
         self.ipv4: Optional[str] = None
+        self.credentials_count: int = 0
+
         vm_dir = VMS_DIR / str(self.id)
         distribox_image_dir = IMAGES_DIR / self.os
+
+        metadata_filename = self.os.replace("qcow2", "metadata.yaml")
+        if (self.has_revision_changed(metadata_filename) is True):
+            s3.download_file(
+                distribox_bucket_registry,
+                metadata_filename,
+                IMAGES_DIR / metadata_filename)
         try:
+            if (path.exists(distribox_image_dir)
+                    is False or self.has_revision_changed is True):
+                s3.download_file(
+                    distribox_bucket_registry,
+                    self.os,
+                    distribox_image_dir)
+
             vm_dir.mkdir(parents=True, exist_ok=True)
             copy(distribox_image_dir, vm_dir)
             vm_path = vm_dir / self.os
             subprocess.run(
-                ["qemu-img", "resize", vm_path, f"+{self.disk_size}G"])
+                ["qemu-img", "resize", vm_path, f"+{self.disk_size}G"],
+                check=True,
+            )
             vm_xml = build_xml(self)
             conn = QEMUConfig.get_connection()
             conn.defineXML(vm_xml)
@@ -52,7 +107,6 @@ class Vm:
                 self.start()
         except Exception:
             raise
-    # def create(self):
 
     @classmethod
     def get(cls, vm_id: str):
@@ -71,6 +125,12 @@ class Vm:
                 vm_instance.disk_size = vm_record.disk_size
                 vm_instance.state = VM_STATE_NAMES.get(vm_state, 'None')
                 vm_instance.ipv4 = get_vm_ip(str(vm_instance.id))
+                credentials_count_statement = select(func.count()).where(
+                    VmCredentialORM.vm_id == vm_record.id
+                )
+                vm_instance.credentials_count = session.exec(
+                    credentials_count_statement
+                ).one()
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
@@ -93,6 +153,7 @@ class Vm:
             raise
 
     def start(self):
+        ensure_seed_iso()
         try:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
@@ -101,11 +162,23 @@ class Vm:
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
-                                    f'Vm {vm.id} not found')
+                                    f'Vm {self.id} not found')
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Failed to start VM {self.id}: {str(e)}",
+            ) from e
         except Exception:
             raise
         state_code = wait_for_state(vm, libvirt.VIR_DOMAIN_RUNNING, 0.5, 10)
         self.state = VM_STATE_NAMES.get(state_code, 'None')
+        if state_code != libvirt.VIR_DOMAIN_RUNNING:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Failed to start VM {
+                    self.id}. Current state: {
+                    self.state}",
+            )
+        self.ipv4 = get_vm_ip(str(self.id))
         return self
 
     def stop(self):
@@ -117,7 +190,7 @@ class Vm:
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
-                                    f'Vm {vm.id} not found')
+                                    f'Vm {self.id} not found')
         except Exception:
             raise
         state_code = wait_for_state(vm, libvirt.VIR_DOMAIN_SHUTOFF, 5, 10)
@@ -142,42 +215,48 @@ class Vm:
             vm_dir = VMS_DIR / str(self.id)
             rmtree(vm_dir)
             with Session(engine) as session:
+                credentials_statement = delete(VmCredentialORM).where(
+                    VmCredentialORM.vm_id == self.id
+                )
+                session.exec(credentials_statement)
                 statement = delete(VmORM).where(VmORM.id == self.id)
                 session.exec(statement)
                 session.commit()
         except Exception:
             raise
 
-    def generate_password(self):
-        try:
-            random_uuid = str(uuid.uuid4())
-            uuid_bytes = random_uuid.encode('utf-8')
-            hasher = hashlib.sha256()
-            hasher.update(uuid_bytes)
-            password = hasher.hexdigest()
-            with Session(engine) as session:
-                statement = update(VmORM).where(
-                    VmORM.id == self.id).values(password=password)
-                session.exec(statement)
-                session.commit()
-            return {"password": password}
-        except Exception:
-            raise
-
-    def remove_password(self):
-        try:
-            with Session(engine) as session:
-                statement = update(VmORM).where(
-                    VmORM.id == self.id).values(
-                    password=None)
-                session.exec(statement)
-                session.commit()
-
-        except Exception:
-            raise
-
 
 class VmService:
+    @staticmethod
+    def _parse_vm_id(vm_id: str) -> uuid.UUID:
+        try:
+            return uuid.UUID(vm_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid VM id",
+            ) from exc
+
+    @staticmethod
+    def _parse_credential_id(credential_id: str) -> uuid.UUID:
+        try:
+            return uuid.UUID(credential_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid credential id",
+            ) from exc
+
+    @staticmethod
+    def _get_vm_or_404(session: Session, vm_id: str) -> VmORM:
+        parsed_vm_id = VmService._parse_vm_id(vm_id)
+        vm_record = session.get(VmORM, parsed_vm_id)
+        if not vm_record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Vm {vm_id} not found",
+            )
+        return vm_record
 
     def get_vm_list():
         vm = Vm.get_all()
@@ -209,10 +288,93 @@ class VmService:
         vm = Vm.get(vm_id)
         vm.remove()
 
-    def set_vm_password(vm_id: str):
-        vm = Vm.get(vm_id)
-        return vm.generate_password()
+    @staticmethod
+    def create_vm_credential(vm_id: str, payload: VmCredentialCreateRequest):
+        with Session(engine) as session:
+            vm_record = VmService._get_vm_or_404(session, vm_id)
+            provided_password = payload.password.strip() if payload.password else ""
+            credential_password = provided_password or str(uuid.uuid4())
+            credential = VmCredentialORM(
+                vm_id=vm_record.id,
+                name=payload.name,
+                password=encrypt_secret(credential_password),
+            )
+            session.add(credential)
+            session.commit()
+            session.refresh(credential)
+            return {
+                "id": credential.id,
+                "vm_id": credential.vm_id,
+                "name": credential.name,
+                "password": credential_password,
+                "created_at": credential.created_at,
+            }
 
-    def remove_vm_password(vm_id: str):
-        vm = Vm.get(vm_id)
-        vm.remove_password()
+    @staticmethod
+    def list_vm_credentials(vm_id: str):
+        with Session(engine) as session:
+            vm_record = VmService._get_vm_or_404(session, vm_id)
+            statement = (
+                select(VmCredentialORM)
+                .where(VmCredentialORM.vm_id == vm_record.id)
+                .order_by(VmCredentialORM.created_at)
+            )
+            credentials = session.exec(statement).all()
+            return [
+                {
+                    "id": credential.id,
+                    "vm_id": credential.vm_id,
+                    "name": credential.name,
+                    "password": decrypt_secret(credential.password),
+                    "created_at": credential.created_at,
+                }
+                for credential in credentials
+            ]
+
+    @staticmethod
+    def get_vm_credential(vm_id: str, credential_id: str):
+        with Session(engine) as session:
+            vm_record = VmService._get_vm_or_404(session, vm_id)
+            parsed_credential_id = VmService._parse_credential_id(
+                credential_id)
+            statement = select(VmCredentialORM).where(
+                VmCredentialORM.id == parsed_credential_id,
+                VmCredentialORM.vm_id == vm_record.id,
+            )
+            credential = session.exec(statement).first()
+            if not credential:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Credential {credential_id} not found",
+                )
+
+            return {
+                "id": credential.id,
+                "vm_id": credential.vm_id,
+                "name": credential.name,
+                "password": decrypt_secret(credential.password),
+                "created_at": credential.created_at,
+            }
+
+    @staticmethod
+    def revoke_vm_credential(vm_id: str, credential_id: str):
+        with Session(engine) as session:
+            vm_record = VmService._get_vm_or_404(session, vm_id)
+            parsed_credential_id = VmService._parse_credential_id(
+                credential_id)
+            statement = select(VmCredentialORM).where(
+                VmCredentialORM.id == parsed_credential_id,
+                VmCredentialORM.vm_id == vm_record.id,
+            )
+            credential = session.exec(statement).first()
+            if not credential:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Credential {credential_id} not found",
+                )
+            session.exec(
+                delete(VmCredentialORM).where(
+                    VmCredentialORM.id == parsed_credential_id
+                )
+            )
+            session.commit()

@@ -4,3 +4,6 @@ export * from "./virtual-machine";
 export * from "./image-metadata";
 export * from "./create-vm";
 export * from "./vm-state";
+export * from "./vm-credential";
+export * from "./policies";
+export * from "./api-error";
