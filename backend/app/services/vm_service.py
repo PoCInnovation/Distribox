@@ -68,7 +68,7 @@ class Vm:
         vm_dir = VMS_DIR / str(self.id)
         distribox_image_dir = IMAGES_DIR / self.os
 
-        metadata_filename = self.os.rsplit(".", 1)[0] + ".metadata.yaml"
+        metadata_filename = self.os.replace("qcow2", "metadata.yaml")
         if (self.has_revision_changed(metadata_filename) is True):
             s3.download_file(
                 distribox_bucket_registry,
