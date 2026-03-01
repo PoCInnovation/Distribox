@@ -18,6 +18,7 @@ from app.utils.crypto import decrypt_secret, encrypt_secret
 from app.utils.seed import ensure_seed_iso
 from app.core.config import s3, distribox_bucket_registry
 from os import path
+import yaml
 
 
 class Vm:
@@ -29,6 +30,28 @@ class Vm:
                 detail=f"Invalid image '{os_value}': expected .qcow2 image",
             )
         return os_value
+
+    @staticmethod
+    def has_revision_changed(metadata_filename: str) -> bool:
+        if (path.exists(IMAGES_DIR / metadata_filename) is False):
+            return True
+
+        metadata_file = s3.get_object(
+            Bucket=distribox_bucket_registry,
+            Key=metadata_filename)
+        file_content = metadata_file["Body"].read().decode("utf-8")
+
+        metadata = yaml.safe_load(file_content)
+        local_metadata = yaml.safe_load(
+            (IMAGES_DIR /
+             metadata_filename).read_text(
+                encoding="utf-8"))
+
+        revision = metadata["revision"]
+        local_revision = local_metadata["revision"]
+        if (revision != local_revision):
+            return True
+        return False
 
     def __init__(self, vm_create: VmCreate):
         self.id = uuid.uuid4()
@@ -45,12 +68,20 @@ class Vm:
         vm_dir = VMS_DIR / str(self.id)
         distribox_image_dir = IMAGES_DIR / self.os
 
+        metadata_filename = self.os.rsplit(".", 1)[0] + ".metadata.yaml"
+        if (self.has_revision_changed(metadata_filename) is True):
+            s3.download_file(
+                distribox_bucket_registry,
+                metadata_filename,
+                IMAGES_DIR / metadata_filename)
         try:
-            if (path.exists(distribox_image_dir) is False):
+            if (path.exists(distribox_image_dir)
+                    is False or self.has_revision_changed is True):
                 s3.download_file(
                     distribox_bucket_registry,
                     self.os,
                     distribox_image_dir)
+
             vm_dir.mkdir(parents=True, exist_ok=True)
             copy(distribox_image_dir, vm_dir)
             vm_path = vm_dir / self.os
