@@ -1,10 +1,4 @@
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useState, useMemo } from "react";
 import { useImages } from "@/hooks/useImages";
 import { cn } from "~/lib/utils";
 import {
@@ -14,15 +8,79 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { CloudIcon, FrownIcon, LoaderCircleIcon, XIcon } from "lucide-react";
+import {
+  CloudIcon,
+  FrownIcon,
+  LoaderCircleIcon,
+  XIcon,
+  SearchIcon,
+  HardDriveIcon,
+  LayoutGridIcon,
+  TerminalIcon,
+  MonitorIcon,
+  BoxIcon,
+  CheckIcon,
+} from "lucide-react";
 import type { ImageMetadata } from "~/lib/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Image } from "@unpic/react";
+import { Badge } from "@/components/ui/badge";
 
 interface VMImageSelectProps {
   selectedOS: string;
   setSelectedOS: (value: string) => void;
   enabled?: boolean;
+}
+
+const DISTRO_ICON_SLUGS: Record<string, string> = {
+  debian: "debian",
+  ubuntu: "ubuntu",
+  archlinux: "archlinux",
+  fedora: "fedora",
+  centos: "centos",
+  "red hat enterprise linux": "redhat",
+  rhel: "redhat",
+  opensuse: "opensuse",
+  "alpine linux": "alpinelinux",
+  alpine: "alpinelinux",
+  manjaro: "manjaro",
+  "kali linux": "kalilinux",
+  "linux mint": "linuxmint",
+  almalinux: "almalinux",
+  freebsd: "freebsd",
+  openbsd: "openbsd",
+  windows: "windows",
+  "windows server": "windows",
+};
+
+const FAMILY_ICONS: Record<string, React.ReactNode> = {
+  All: <LayoutGridIcon className="h-4 w-4 shrink-0" />,
+  Linux: <TerminalIcon className="h-4 w-4 shrink-0" />,
+  Windows: <MonitorIcon className="h-4 w-4 shrink-0" />,
+  BSD: <BoxIcon className="h-4 w-4 shrink-0" />,
+};
+
+function getFamilyIcon(family: string): React.ReactNode {
+  return FAMILY_ICONS[family] ?? <BoxIcon className="h-4 w-4 shrink-0" />;
+}
+
+function DistroLogo({ distribution }: { distribution: string }) {
+  const [imgError, setImgError] = useState(false);
+  const slug = DISTRO_ICON_SLUGS[distribution.toLowerCase()];
+
+  return (
+    <div className="w-9 h-9 flex items-center justify-center rounded-md bg-muted shrink-0">
+      {slug && !imgError ? (
+        <img
+          src={`https://cdn.simpleicons.org/${slug}`}
+          alt={distribution}
+          className="w-5 h-5"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <HardDriveIcon className="w-4 h-4 text-muted-foreground" />
+      )}
+    </div>
+  );
 }
 
 function EmptyVMImageSelect() {
@@ -34,7 +92,7 @@ function EmptyVMImageSelect() {
         </EmptyMedia>
         <EmptyTitle>Cloud Storage Empty</EmptyTitle>
         <EmptyDescription>
-          The public registry is empty, or you haven't uplaoded any images on
+          The public registry is empty, or you haven't uploaded any images on
           your personal bucket yet.
         </EmptyDescription>
       </EmptyHeader>
@@ -83,7 +141,7 @@ function ErrorVMImageSelect({ error }: { error: Error | null }) {
             GitHub
           </a>{" "}
           if the issue persists. If you are using your own private registry,
-          please check that your bucket is accessible from the host machine
+          please check that your bucket is accessible from the host machine and
           contains valid qcow2 images.
         </EmptyDescription>
       </EmptyHeader>
@@ -91,62 +149,130 @@ function ErrorVMImageSelect({ error }: { error: Error | null }) {
   );
 }
 
-function ImageSelectOptions({ images }: { images: ImageMetadata[] }) {
+function ImagePicker({
+  images,
+  selectedOS,
+  setSelectedOS,
+}: {
+  images: ImageMetadata[];
+  selectedOS: string;
+  setSelectedOS: (value: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [activeFamily, setActiveFamily] = useState("All");
+
+  const families = useMemo(() => {
+    const unique = [...new Set(images.map((img) => img.family))].sort();
+    return ["All", ...unique];
+  }, [images]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return images.filter((img) => {
+      const matchesFamily =
+        activeFamily === "All" || img.family === activeFamily;
+      const matchesSearch =
+        !q ||
+        img.distribution.toLowerCase().includes(q) ||
+        img.version.toLowerCase().includes(q) ||
+        img.name.toLowerCase().includes(q) ||
+        img.image.toLowerCase().includes(q);
+      return matchesFamily && matchesSearch;
+    });
+  }, [images, search, activeFamily]);
+
   return (
-    <ScrollArea className="rounded-lg border-dashed text-center text-balance h-80 p-2">
-      <div className="space-y-2">
-        {images?.map((image) => (
-          <SelectItem
-            key={image.name}
-            value={image.name}
-            className="focus:bg-primary/25 focus:text-inherit h-fit border border-primary bg-primary/10 cursor-pointer"
-          >
-            <Image
-              className="transform translate-x-3"
-              src="https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/debian-logo-icon.png"
-              width={45}
-              height={45}
-              alt=""
-            />
-            <div className="grid grid-cols-1 text-left py-5 px-6">
-              <div className="space-x-3">
-                <span className="text-l font-mono">Debian 12</span>
-                <span className="text-xs text-muted-foreground">
-                  {image.virtual_size.toFixed(2)} GB
-                </span>
-              </div>
-              <div>
-                <span className="font-mono">{image.name}</span>
-              </div>
-            </div>
-          </SelectItem>
-        ))}
-        <SelectItem
-          key={"ubuntu"}
-          value={"ubuntu"}
-          className="focus:bg-primary/25 focus:text-inherit h-fit border border-primary bg-primary/10 cursor-pointer"
-        >
-          <Image
-            className="transform translate-x-3"
-            src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/UbuntuCoF.svg/960px-UbuntuCoF.svg.png"
-            width={45}
-            height={45}
-            alt=""
-          />
-          <div className="flex flex-col items-start justify-between gap-1 py-5 px-6">
-            <div className="space-x-3">
-              <span className="text-l font-mono">Ubuntu 25.10</span>
-              <span className="text-xs text-muted-foreground">
-                {"11.00"} GB
-              </span>
-            </div>
-            <div>
-              <span className="font-mono">{"distribox-ubuntu.qcow2"}</span>
-            </div>
-          </div>
-        </SelectItem>
+    <div className="border rounded-lg overflow-hidden">
+      {/* Search bar */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/20">
+        <SearchIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+        <input
+          placeholder="Search images..."
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
-    </ScrollArea>
+
+      <div className="flex h-72">
+        {/* Left: Family filter sidebar */}
+        <div className="border-r flex flex-col py-1 w-32 shrink-0 bg-muted/10">
+          {families.map((family) => (
+            <button
+              key={family}
+              type="button"
+              onClick={() => setActiveFamily(family)}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors hover:bg-muted",
+                activeFamily === family
+                  ? "bg-muted text-foreground font-medium border-l-2 border-primary"
+                  : "text-muted-foreground border-l-2 border-transparent",
+              )}
+            >
+              {getFamilyIcon(family)}
+              <span className="truncate">{family}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Right: scrollable image list */}
+        <div className="flex-1 relative min-w-0">
+          <ScrollArea className="h-full">
+            <div className="p-2 space-y-1">
+              {filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-2">
+                  <HardDriveIcon className="h-8 w-8 opacity-30" />
+                  <span className="text-sm">No images match your search.</span>
+                </div>
+              ) : (
+                filtered.map((image) => (
+                  <button
+                    key={image.name}
+                    type="button"
+                    onClick={() => setSelectedOS(image.name)}
+                    className={cn(
+                      "w-full text-left flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
+                      selectedOS === image.name
+                        ? "bg-primary/10 border border-primary/40 hover:bg-primary/15"
+                        : "border border-transparent hover:bg-muted/60",
+                    )}
+                  >
+                    <DistroLogo distribution={image.distribution} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">
+                          {image.distribution}
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="text-xs px-1.5 py-0 h-4"
+                        >
+                          {image.version}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="text-xs px-1.5 py-0 h-4 hidden sm:inline-flex"
+                        >
+                          {image.family}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate mt-0.5 font-mono">
+                        {image.image}
+                      </div>
+                    </div>
+                    {selectedOS === image.name && (
+                      <CheckIcon className="h-4 w-4 text-primary shrink-0" />
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+          {/* Bottom gradient to signal scrollability */}
+          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none rounded-b-lg" />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -155,37 +281,17 @@ export function VMImageSelect({
   setSelectedOS,
   enabled = true,
 }: VMImageSelectProps) {
-  const { data: images, isLoading: imagesLoading, error } = useImages(enabled);
+  const { data: images, isLoading, error } = useImages(enabled);
+
+  if (isLoading) return <LoadingVMImageSelect />;
+  if (error || !images) return <ErrorVMImageSelect error={error} />;
+  if (images.length === 0) return <EmptyVMImageSelect />;
 
   return (
-    <div className="space-y-2 w-full">
-      <div className="flex justify-center">
-        <Select value={selectedOS} onValueChange={setSelectedOS}>
-          <SelectTrigger
-            id="os-template"
-            className={cn("border-2", selectedOS === "" && "")}
-          >
-            <CloudIcon className="h-4 w-4 text-muted-foreground" />
-            <SelectValue
-              className="text-primary"
-              placeholder="Select an OS image"
-            >
-              {selectedOS || "Select an OS image"}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {imagesLoading === undefined ? (
-              <LoadingVMImageSelect />
-            ) : error || !images ? (
-              <ErrorVMImageSelect error={error} />
-            ) : images.length === 0 ? (
-              <EmptyVMImageSelect />
-            ) : (
-              <ImageSelectOptions images={images} />
-            )}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
+    <ImagePicker
+      images={images}
+      selectedOS={selectedOS}
+      setSelectedOS={setSelectedOS}
+    />
   );
 }
