@@ -40,3 +40,11 @@ class VmCredentialRead(BaseModel):
 
 class RecoverableVm(ImageRead):
     vm_id: str
+
+
+class RecoverableVmCreate(BaseModel):
+    vm_id: UUID
+    name: str
+    mem: int
+    vcpus: int
+    disk_size: int

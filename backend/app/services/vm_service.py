@@ -5,7 +5,7 @@ import libvirt
 from app.utils.vm import wait_for_state
 from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
-from app.models.vm import VmCreate, VmCredentialCreateRequest, RecoverableVm
+from app.models.vm import VmCreate, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate
 from app.models.image import ImageRead
 from app.core.xml_builder import build_xml
 from app.core.config import QEMUConfig, engine
@@ -388,7 +388,7 @@ class VmService:
             session.commit()
 
     @staticmethod
-    def get_recoverable_vms():
+    def get_recoverable_vms() -> list[RecoverableVm]:
         recoverable_vms = []
         vm_root = Path(VMS_DIR)
         for vm in vm_root.iterdir():
@@ -406,3 +406,26 @@ class VmService:
                             vm_id=vm.name,
                             **image_metadata.model_dump()))
         return recoverable_vms
+
+    @staticmethod
+    def recover_vm(recoverable_vm: RecoverableVmCreate):
+        rec_vms_list = VmService.get_recoverable_vms()
+
+        for v in rec_vms_list:
+            if v.vm_id == str(recoverable_vm.vm_id):
+                with Session(engine) as session:
+                    vm_record = VmORM(
+                        id=recoverable_vm.vm_id,
+                        name=recoverable_vm.name,
+                        os=v.image,
+                        mem=recoverable_vm.mem,
+                        vcpus=recoverable_vm.vcpus,
+                        disk_size=recoverable_vm.disk_size,
+                    )
+                    session.add(vm_record)
+                    session.commit()
+                return Vm.get(str(recoverable_vm.vm_id))
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Vm {recoverable_vm.vm_id} not found in database"
+        )
