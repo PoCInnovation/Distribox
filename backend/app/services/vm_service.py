@@ -5,7 +5,8 @@ import libvirt
 from app.utils.vm import wait_for_state
 from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
-from app.models.vm import VmCreate, VmCredentialCreateRequest
+from app.models.vm import VmCreate, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate
+from app.models.image import ImageRead
 from app.core.xml_builder import build_xml
 from app.core.config import QEMUConfig, engine
 from sqlalchemy import func
@@ -18,7 +19,9 @@ from app.utils.crypto import decrypt_secret, encrypt_secret
 from app.utils.seed import ensure_seed_iso
 from app.core.config import s3, distribox_bucket_registry
 from os import path
+from app.services.image_service import ImageService
 import yaml
+from pathlib import Path
 
 
 class Vm:
@@ -116,6 +119,11 @@ class Vm:
             vm_state, _ = vm.state()
             with Session(engine) as session:
                 vm_record = session.get(VmORM, uuid.UUID(vm_id))
+                if not vm_record:
+                    raise HTTPException(
+                        status.HTTP_404_NOT_FOUND,
+                        f"Vm {vm_id} not found in database"
+                    )
                 vm_instance = cls.__new__(cls)
                 vm_instance.id = vm_record.id
                 vm_instance.name = vm_record.name
@@ -378,3 +386,69 @@ class VmService:
                 )
             )
             session.commit()
+
+    @staticmethod
+    def get_recoverable_vms() -> list[RecoverableVm]:
+        recoverable_vms = []
+        vm_root = Path(VMS_DIR)
+        for vm in vm_root.iterdir():
+            try:
+                print("vm name", vm.name)
+                Vm.get(vm.name)
+            except HTTPException as e:
+                if e.status_code == status.HTTP_404_NOT_FOUND:
+                    vm_name = next(vm.iterdir())
+                    image_name = vm_name.name.replace("qcow2", "metadata.yaml")
+                    image_metadata = ImageService.get_distribox_image(
+                        image_name)
+                    recoverable_vms.append(
+                        RecoverableVm(
+                            vm_id=vm.name,
+                            **image_metadata.model_dump()))
+        return recoverable_vms
+
+    @staticmethod
+    def recover_vm(recoverable_vm: RecoverableVmCreate):
+        rec_vms_list = VmService.get_recoverable_vms()
+
+        for v in rec_vms_list:
+            if v.vm_id == str(recoverable_vm.vm_id):
+                with Session(engine) as session:
+                    vm_record = VmORM(
+                        id=recoverable_vm.vm_id,
+                        name=recoverable_vm.name,
+                        os=v.image,
+                        mem=recoverable_vm.mem,
+                        vcpus=recoverable_vm.vcpus,
+                        disk_size=recoverable_vm.disk_size,
+                    )
+                    session.add(vm_record)
+                    session.commit()
+                return Vm.get(str(recoverable_vm.vm_id))
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Vm {recoverable_vm.vm_id} not found in database"
+        )
+
+    @staticmethod
+    def remove_recoverable_vm(vm_id: str):
+        vm_root = Path(VMS_DIR)
+        for v in vm_root.iterdir():
+            if v.name == vm_id:
+                rmtree(VMS_DIR / v.name)
+                return
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Vm {vm_id} not found in database"
+        )
+
+    @staticmethod
+    def remove_all_recoverable_vms():
+        vms_to_delete = VmService.get_recoverable_vms()
+        vm_root = Path(VMS_DIR)
+        for v in vm_root.iterdir():
+            for x in vms_to_delete:
+                if v.name == str(x.vm_id):
+                    rmtree(VMS_DIR / v.name)
+                    break
+        return

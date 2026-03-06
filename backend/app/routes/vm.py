@@ -1,10 +1,51 @@
 from fastapi import APIRouter, Depends, status
 from app.models.user_management import MissingPoliciesResponse
-from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, VmCredentialRead
+from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, VmCredentialRead, RecoverableVm, RecoverableVmCreate
 from app.services.vm_service import VmService
 from app.utils.auth import require_policy
 
 router = APIRouter()
+
+
+@router.delete(
+    "/clean/{vm_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_policy("vms:cleanRecoverableVmById"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def remove_recoverable_vm(vm_id: str):
+    return VmService.remove_recoverable_vm(vm_id)
+
+
+@router.delete(
+    "/cleanall",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_policy("vms:cleanAllRecoverableVms"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def remove_all_recoverable_vms():
+    return VmService.remove_all_recoverable_vms()
+
+
+@router.post("/recover",
+             status_code=status.HTTP_201_CREATED,
+             response_model=VmRead,
+             dependencies=[Depends(require_policy("vms:recoverVmById"))],
+             responses={403: {"model": MissingPoliciesResponse}},
+             )
+def recover_vm(vm: RecoverableVmCreate):
+    return VmService.recover_vm(vm)
+
+
+@router.get(
+    "/recoverable",
+    status_code=status.HTTP_200_OK,
+    response_model=list[RecoverableVm],
+    dependencies=[Depends(require_policy("vms:getRecoverableVms"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def get_recoverable_vms():
+    return VmService.get_recoverable_vms()
 
 
 @router.get(
