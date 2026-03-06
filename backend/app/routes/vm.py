@@ -10,7 +10,7 @@ router = APIRouter()
 @router.delete(
     "/clean/{vm_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_policy("vms:delete"))],
+    dependencies=[Depends(require_policy("vms:cleanRecoverableVmById"))],
     responses={403: {"model": MissingPoliciesResponse}},
 )
 def remove_recoverable_vm(vm_id: str):
@@ -20,7 +20,7 @@ def remove_recoverable_vm(vm_id: str):
 @router.delete(
     "/cleanall",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_policy("vms:delete"))],
+    dependencies=[Depends(require_policy("vms:cleanAllRecoverableVms"))],
     responses={403: {"model": MissingPoliciesResponse}},
 )
 def remove_all_recoverable_vms():
@@ -30,8 +30,7 @@ def remove_all_recoverable_vms():
 @router.post("/recover",
              status_code=status.HTTP_201_CREATED,
              response_model=VmRead,
-             dependencies=[Depends(require_policy("vms:credentials:create")),
-                           Depends(require_policy("vms:getById"))],
+             dependencies=[Depends(require_policy("vms:recoverVmById"))],
              responses={403: {"model": MissingPoliciesResponse}},
              )
 def recover_vm(vm: RecoverableVmCreate):
@@ -42,7 +41,7 @@ def recover_vm(vm: RecoverableVmCreate):
     "/recoverable",
     status_code=status.HTTP_200_OK,
     response_model=list[RecoverableVm],
-    dependencies=[Depends(require_policy("vms:getById"))],
+    dependencies=[Depends(require_policy("vms:getRecoverableVms"))],
     responses={403: {"model": MissingPoliciesResponse}},
 )
 def get_recoverable_vms():
