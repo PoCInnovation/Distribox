@@ -429,3 +429,26 @@ class VmService:
             status.HTTP_404_NOT_FOUND,
             f"Vm {recoverable_vm.vm_id} not found in database"
         )
+
+    @staticmethod
+    def remove_recoverable_vm(vm_id: str):
+        vm_root = Path(VMS_DIR)
+        for v in vm_root.iterdir():
+            if v.name == vm_id:
+                rmtree(VMS_DIR / v.name)
+                return
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Vm {vm_id} not found in database"
+        )
+
+    @staticmethod
+    def remove_all_recoverable_vms():
+        vms_to_delete = VmService.get_recoverable_vms()
+        vm_root = Path(VMS_DIR)
+        for v in vm_root.iterdir():
+            for x in vms_to_delete:
+                if v.name == str(x.vm_id):
+                    rmtree(VMS_DIR / v.name)
+                    break
+        return

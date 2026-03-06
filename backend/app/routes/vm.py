@@ -7,6 +7,26 @@ from app.utils.auth import require_policy
 router = APIRouter()
 
 
+@router.delete(
+    "/clean/{vm_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_policy("vms:delete"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def remove_recoverable_vm(vm_id: str):
+    return VmService.remove_recoverable_vm(vm_id)
+
+
+@router.delete(
+    "/cleanall",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_policy("vms:delete"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def remove_all_recoverable_vms():
+    return VmService.remove_all_recoverable_vms()
+
+
 @router.post("/recover",
              status_code=status.HTTP_201_CREATED,
              response_model=VmRead,
