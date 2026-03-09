@@ -391,20 +391,20 @@ class VmService:
     def get_recoverable_vms() -> list[RecoverableVm]:
         recoverable_vms = []
         vm_root = Path(VMS_DIR)
-        for vm in vm_root.iterdir():
-            try:
-                print("vm name", vm.name)
-                Vm.get(vm.name)
-            except HTTPException as e:
-                if e.status_code == status.HTTP_404_NOT_FOUND:
-                    vm_name = next(vm.iterdir())
-                    image_name = vm_name.name.replace("qcow2", "metadata.yaml")
-                    image_metadata = ImageService.get_distribox_image(
-                        image_name)
-                    recoverable_vms.append(
-                        RecoverableVm(
-                            vm_id=vm.name,
-                            **image_metadata.model_dump()))
+        with Session(engine) as session:
+            for vm in vm_root.iterdir():
+                vm_record = session.get(VmORM, uuid.UUID(vm.name))
+                if vm_record is None:
+                    for vm_file in vm.iterdir():
+                        if vm_file.name.endswith(".qcow2"):
+                            image_name = vm_file.name.replace(
+                                ".qcow2", ".metadata.yaml")
+                            image_metadata = ImageService.get_distribox_image(
+                                image_name)
+                            recoverable_vms.append(
+                                RecoverableVm(
+                                    vm_id=vm.name,
+                                    **image_metadata.model_dump()))
         return recoverable_vms
 
     @staticmethod
@@ -424,7 +424,7 @@ class VmService:
                     )
                     session.add(vm_record)
                     session.commit()
-                return Vm.get(str(recoverable_vm.vm_id))
+                return session.get(VmORM, str(recoverable_vm.vm_id))
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
             f"Vm {recoverable_vm.vm_id} not found in database"
