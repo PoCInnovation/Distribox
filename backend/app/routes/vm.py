@@ -72,6 +72,17 @@ def get_vm(vm_id: str):
     return vm
 
 
+@router.post("/{vm_id}/restart",
+             status_code=status.HTTP_200_OK,
+             response_model=VmRead,
+             dependencies=[Depends(require_policy("vms:start")),
+                           Depends(require_policy("vms:stop"))],
+             responses={403: {"model": MissingPoliciesResponse}})
+def restart_vm(vm_id: str):
+    vm = VmService.restart_vm(vm_id)
+    return vm
+
+
 @router.post("/{vm_id}/start",
              status_code=status.HTTP_200_OK,
              response_model=VmRead,
