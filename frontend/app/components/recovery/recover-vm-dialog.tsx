@@ -39,7 +39,8 @@ export function RecoverVMDialog({
   const memNum = Number.parseInt(mem) || 0;
   const diskNum = Number.parseInt(diskSize) || 0;
 
-  const isValid = name.trim() !== "" && vcpusNum > 0 && memNum > 0 && diskNum > 0;
+  const isValid =
+    name.trim() !== "" && vcpusNum > 0 && memNum > 0 && diskNum > 0;
 
   const handleRecover = async () => {
     if (!vm || !isValid) return;
@@ -72,7 +73,8 @@ export function RecoverVMDialog({
         <DialogHeader>
           <DialogTitle>Recover Virtual Machine</DialogTitle>
           <DialogDescription>
-            Assign a name and resources to recover this VM back into the database.
+            Assign a name and resources to recover this VM back into the
+            database.
           </DialogDescription>
         </DialogHeader>
 
@@ -109,7 +111,10 @@ export function RecoverVMDialog({
 
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="recover-vcpus" className="flex items-center gap-1.5">
+              <Label
+                htmlFor="recover-vcpus"
+                className="flex items-center gap-1.5"
+              >
                 <Cpu className="h-3.5 w-3.5" />
                 vCPUs
               </Label>
@@ -123,7 +128,10 @@ export function RecoverVMDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="recover-mem" className="flex items-center gap-1.5">
+              <Label
+                htmlFor="recover-mem"
+                className="flex items-center gap-1.5"
+              >
                 <MemoryStick className="h-3.5 w-3.5" />
                 RAM (GB)
               </Label>
@@ -137,7 +145,10 @@ export function RecoverVMDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="recover-disk" className="flex items-center gap-1.5">
+              <Label
+                htmlFor="recover-disk"
+                className="flex items-center gap-1.5"
+              >
                 <HardDrive className="h-3.5 w-3.5" />
                 Disk (GB)
               </Label>

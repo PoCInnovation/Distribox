@@ -41,8 +41,9 @@ export function RecoveryDialog({
             VM Recovery Mode
           </DialogTitle>
           <DialogDescription>
-            {recoverableVMs.length} untracked VM{recoverableVMs.length !== 1 ? "s" : ""}{" "}
-            found on disk. Recover them to the database or clean them up.
+            {recoverableVMs.length} untracked VM
+            {recoverableVMs.length !== 1 ? "s" : ""} found on disk. Recover them
+            to the database or clean them up.
           </DialogDescription>
         </DialogHeader>
 

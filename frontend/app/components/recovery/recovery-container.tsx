@@ -28,7 +28,9 @@ export function RecoveryContainer() {
   } = useRecoverableVMs();
 
   const [recoveryOpen, setRecoveryOpen] = useState(false);
-  const [recoverTarget, setRecoverTarget] = useState<RecoverableVM | null>(null);
+  const [recoverTarget, setRecoverTarget] = useState<RecoverableVM | null>(
+    null,
+  );
   const [cleanTarget, setCleanTarget] = useState<RecoverableVM | null>(null);
 
   if (isLoading || recoverableVMs.length === 0) return null;
@@ -82,7 +84,12 @@ export function RecoveryContainer() {
         isRecovering={isRecovering}
       />
 
-      <Dialog open={!!cleanTarget} onOpenChange={(open) => { if (!open) setCleanTarget(null); }}>
+      <Dialog
+        open={!!cleanTarget}
+        onOpenChange={(open) => {
+          if (!open) setCleanTarget(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Clean Recoverable VM</DialogTitle>

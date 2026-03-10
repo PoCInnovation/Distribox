@@ -57,10 +57,8 @@ export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
     "Allows the user to list virtual machine credentials.",
   [Policy.VMS_CREDENTIALS_GET_BY_ID]:
     "Allows the user to fetch a virtual machine credential by id.",
-  [Policy.VMS_GET_RECOVERABLE]:
-    "Allows the user to get all recoverable vms.",
-  [Policy.VMS_RECOVER]:
-    "Allows the user to recover a vm by id.",
+  [Policy.VMS_GET_RECOVERABLE]: "Allows the user to get all recoverable vms.",
+  [Policy.VMS_RECOVER]: "Allows the user to recover a vm by id.",
   [Policy.VMS_CLEAN_RECOVERABLE]:
     "Allows the user to clean a recoverable vm by id.",
   [Policy.VMS_CLEAN_ALL_RECOVERABLE]:

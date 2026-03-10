@@ -3,11 +3,7 @@ import { RecoverableVMSchema } from "@/lib/types";
 import { apiRequest } from "./core";
 
 export async function getRecoverableVMs(): Promise<RecoverableVM[]> {
-  return apiRequest(
-    "/vms/recoverable",
-    {},
-    RecoverableVMSchema.array(),
-  );
+  return apiRequest("/vms/recoverable", {}, RecoverableVMSchema.array());
 }
 
 export async function recoverVM(payload: RecoverVMPayload): Promise<void> {
