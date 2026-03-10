@@ -21,6 +21,7 @@ import {
   BoxIcon,
   CheckIcon,
 } from "lucide-react";
+import { DistroLogo } from "@/components/distro-logo";
 import type { ImageMetadata } from "~/lib/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -31,27 +32,6 @@ interface VMImageSelectProps {
   enabled?: boolean;
 }
 
-const DISTRO_ICON_SLUGS: Record<string, string> = {
-  debian: "debian",
-  ubuntu: "ubuntu",
-  archlinux: "archlinux",
-  fedora: "fedora",
-  centos: "centos",
-  "red hat enterprise linux": "redhat",
-  rhel: "redhat",
-  opensuse: "opensuse",
-  "alpine linux": "alpinelinux",
-  alpine: "alpinelinux",
-  manjaro: "manjaro",
-  "kali linux": "kalilinux",
-  "linux mint": "linuxmint",
-  almalinux: "almalinux",
-  freebsd: "freebsd",
-  openbsd: "openbsd",
-  windows: "windows",
-  "windows server": "windows",
-};
-
 const FAMILY_ICONS: Record<string, React.ReactNode> = {
   All: <LayoutGridIcon className="h-4 w-4 shrink-0" />,
   Linux: <TerminalIcon className="h-4 w-4 shrink-0" />,
@@ -61,26 +41,6 @@ const FAMILY_ICONS: Record<string, React.ReactNode> = {
 
 function getFamilyIcon(family: string): React.ReactNode {
   return FAMILY_ICONS[family] ?? <BoxIcon className="h-4 w-4 shrink-0" />;
-}
-
-function DistroLogo({ distribution }: { distribution: string }) {
-  const [imgError, setImgError] = useState(false);
-  const slug = DISTRO_ICON_SLUGS[distribution.toLowerCase()];
-
-  return (
-    <div className="w-9 h-9 flex items-center justify-center rounded-md bg-muted shrink-0">
-      {slug && !imgError ? (
-        <img
-          src={`https://cdn.simpleicons.org/${slug}`}
-          alt={distribution}
-          className="w-5 h-5"
-          onError={() => setImgError(true)}
-        />
-      ) : (
-        <HardDriveIcon className="w-4 h-4 text-muted-foreground" />
-      )}
-    </div>
-  );
 }
 
 function EmptyVMImageSelect() {
