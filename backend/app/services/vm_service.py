@@ -296,6 +296,11 @@ class VmService:
         vm = Vm.get(vm_id)
         vm.remove()
 
+    def restart_vm(vm_id):
+        vm = Vm.get(vm_id)
+        vm.stop()
+        return vm.start()
+
     @staticmethod
     def create_vm_credential(vm_id: str, payload: VmCredentialCreateRequest):
         with Session(engine) as session:
