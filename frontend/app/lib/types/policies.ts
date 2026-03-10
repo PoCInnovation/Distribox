@@ -22,6 +22,10 @@ export enum Policy {
   VMS_CREDENTIALS_REVOKE = "vms:credentials:revoke",
   VMS_CREDENTIALS_LIST = "vms:credentials:list",
   VMS_CREDENTIALS_GET_BY_ID = "vms:credentials:getById",
+  VMS_GET_RECOVERABLE = "vms:getRecoverableVms",
+  VMS_RECOVER = "vms:recoverVmById",
+  VMS_CLEAN_RECOVERABLE = "vms:cleanRecoverableVmById",
+  VMS_CLEAN_ALL_RECOVERABLE = "vms:cleanAllRecoverableVms",
 }
 
 export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
@@ -53,6 +57,14 @@ export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
     "Allows the user to list virtual machine credentials.",
   [Policy.VMS_CREDENTIALS_GET_BY_ID]:
     "Allows the user to fetch a virtual machine credential by id.",
+  [Policy.VMS_GET_RECOVERABLE]:
+    "Allows the user to get all recoverable vms.",
+  [Policy.VMS_RECOVER]:
+    "Allows the user to recover a vm by id.",
+  [Policy.VMS_CLEAN_RECOVERABLE]:
+    "Allows the user to clean a recoverable vm by id.",
+  [Policy.VMS_CLEAN_ALL_RECOVERABLE]:
+    "Allows the user to clean all recoverable vms.",
 };
 
 export const PolicySchema = z.string().min(1);
@@ -184,6 +196,30 @@ export const POLICY_COLORS = {
     border: "border-sky-700",
     hover: "hover:bg-sky-700/30",
     text: "text-sky-700 dark:text-sky-400",
+  },
+  [Policy.VMS_GET_RECOVERABLE]: {
+    bg: "bg-amber-600/20",
+    border: "border-amber-600",
+    hover: "hover:bg-amber-600/30",
+    text: "text-amber-700 dark:text-amber-400",
+  },
+  [Policy.VMS_RECOVER]: {
+    bg: "bg-emerald-600/20",
+    border: "border-emerald-600",
+    hover: "hover:bg-emerald-600/30",
+    text: "text-emerald-700 dark:text-emerald-400",
+  },
+  [Policy.VMS_CLEAN_RECOVERABLE]: {
+    bg: "bg-rose-600/20",
+    border: "border-rose-600",
+    hover: "hover:bg-rose-600/30",
+    text: "text-rose-700 dark:text-rose-400",
+  },
+  [Policy.VMS_CLEAN_ALL_RECOVERABLE]: {
+    bg: "bg-red-600/20",
+    border: "border-red-600",
+    hover: "hover:bg-red-600/30",
+    text: "text-red-700 dark:text-red-400",
   },
   default: {
     bg: "bg-gray-500/20",
