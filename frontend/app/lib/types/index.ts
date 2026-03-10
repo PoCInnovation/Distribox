@@ -7,3 +7,4 @@ export * from "./vm-state";
 export * from "./vm-credential";
 export * from "./policies";
 export * from "./api-error";
+export * from "./recoverable-vm";

@@ -5,3 +5,4 @@ export * from "./images";
 export * from "./vms";
 export * from "./users";
 export * from "./credentials";
+export * from "./recoverable-vms";

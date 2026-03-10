@@ -5,7 +5,7 @@ import libvirt
 from app.utils.vm import wait_for_state
 from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
-from app.models.vm import VmCreate, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate
+from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate
 from app.models.image import ImageRead
 from app.core.xml_builder import build_xml
 from app.core.config import QEMUConfig, engine
@@ -429,7 +429,18 @@ class VmService:
                     )
                     session.add(vm_record)
                     session.commit()
-                return session.get(VmORM, str(recoverable_vm.vm_id))
+                    session.refresh(vm_record)
+                return VmRead(
+                    id=vm_record.id,
+                    os=vm_record.os,
+                    name=vm_record.name,
+                    mem=vm_record.mem,
+                    vcpus=vm_record.vcpus,
+                    disk_size=vm_record.disk_size,
+                    state="Stopped",
+                    ipv4=None,
+                    credentials_count=0,
+                )
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
             f"Vm {recoverable_vm.vm_id} not found in database"
