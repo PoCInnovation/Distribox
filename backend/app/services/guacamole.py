@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-GUACAMOLE_PROTOCOL_VERSION = "1.5.5"
+GUACAMOLE_PROTOCOL_VERSION = "1.5.0"
 logger = logging.getLogger(__name__)
 
 
@@ -10,23 +10,32 @@ def build_instruction(*args: str) -> str:
 
 
 async def read_instruction(reader: asyncio.StreamReader) -> list[str]:
-    """Read one complete Guacamole instruction (ends with ';') and parse it."""
-    buf = bytearray()
-    while True:
-        byte = await reader.read(1)
-        if not byte:
-            raise ConnectionError("guacd closed connection")
-        buf.extend(byte)
-        if byte == b";":
-            break
-    raw = buf.decode().rstrip(";")
+    """Read one Guacamole instruction using length-prefix parsing.
+
+    Each element is ``<len>.<data>`` separated by ``,`` and terminated by ``;``.
+    We must parse by length-prefix rather than scanning for ``;`` because
+    element data (e.g. guacd log messages) can contain literal semicolons.
+    """
     elements: list[str] = []
-    idx = 0
-    while idx < len(raw):
-        dot = raw.index(".", idx)
-        n = int(raw[idx:dot])
-        elements.append(raw[dot + 1: dot + 1 + n])
-        idx = dot + 1 + n + 1  # skip trailing comma
+    try:
+        while True:
+            # Read the length digits until we hit '.'
+            length_buf = bytearray()
+            while True:
+                byte = await reader.readexactly(1)
+                if byte == b".":
+                    break
+                length_buf.extend(byte)
+            n = int(length_buf.decode())
+            # Read exactly n bytes of element data
+            data = await reader.readexactly(n)
+            elements.append(data.decode())
+            # Read the separator: ',' (more elements) or ';' (end of instruction)
+            sep = await reader.readexactly(1)
+            if sep == b";":
+                break
+    except asyncio.IncompleteReadError:
+        raise ConnectionError("guacd closed connection")
     return elements
 
 
@@ -35,6 +44,8 @@ async def guacd_handshake(
     writer: asyncio.StreamWriter,
     vnc_host: str,
     vnc_port: int,
+    width: int = 1024,
+    height: int = 768,
 ) -> str:
     """Perform the Guacamole VNC handshake with guacd up to and including
     the `connect` instruction.
@@ -86,7 +97,7 @@ async def guacd_handshake(
         "password": "",
         "swap-red-blue": "false",
         "read-only": "false",
-        "cursor": "remote",
+        "cursor": "local",
         "encoding": "",
         "color-depth": "",
         "autoretry": "",
@@ -122,6 +133,19 @@ async def guacd_handshake(
         param_pairs,
         any(k.strip().upper().startswith("VERSION_") or k.lower() == "version" for k in required),
     )
+
+    # The Guacamole protocol requires size, audio, video, and image
+    # capability instructions BEFORE connect. Without these, guacd's
+    # child process has no display dimensions and exits immediately.
+    writer.write(build_instruction("size", str(width), str(height), "96").encode())
+    await writer.drain()
+    writer.write(build_instruction("audio").encode())
+    await writer.drain()
+    writer.write(build_instruction("video").encode())
+    await writer.drain()
+    writer.write(build_instruction("image", "image/png", "image/jpeg", "image/webp").encode())
+    await writer.drain()
+
     writer.write(build_instruction(*connect_values).encode())
     await writer.drain()
 

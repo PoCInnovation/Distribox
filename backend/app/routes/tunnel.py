@@ -123,6 +123,8 @@ async def vm_tunnel(
             writer,
             vnc_host=VNC_HOST,
             vnc_port=vnc_port,
+            width=width,
+            height=height,
         )
         logger.warning(
             "Tunnel connected via configured vnc host=%s port=%s",
