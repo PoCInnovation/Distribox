@@ -28,7 +28,7 @@ arch() {
     blue "\nArch system detected"
     init
     set -x
-    sudo pacman -Sy libvirt qemu-desktop virt-manager virt-viewer
+    sudo pacman -Sy libvirt qemu-desktop virt-manager virt-viewer guacamole-server
     set +x
 }
 
@@ -37,7 +37,7 @@ ubuntu() {
     init
     set -x
     sudo apt update
-    sudo apt install -y qemu-kvm libvirt-daemon-system genisoimage libvirt-clients bridge-utils virtinst pkg-config libvirt-dev python3-dev libguestfs-tools
+    sudo apt install -y qemu-kvm libvirt-daemon-system genisoimage libvirt-clients bridge-utils virtinst pkg-config libvirt-dev python3-dev libguestfs-tools libguac-client-vnc0 guacd
     set +x
 }
 
@@ -51,6 +51,9 @@ fi
 echo "Enabling libvirt daemon (libvirtd)..."
 
 sudo systemctl enable --now libvirtd
+
+echo "Enabling Guacamole proxy daemon (guacd)..."
+sudo systemctl enable --now guacd
 
 sudo mkdir /var/lib/distribox/
 sudo mkdir /var/lib/distribox/images

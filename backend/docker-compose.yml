@@ -16,6 +16,13 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - DISTRIBOX_SECRET=${DISTRIBOX_SECRET:-secret}
+      - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-images}
+      - AWS_REGION=${AWS_REGION:-eu-west-3}
+      - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
+      - GUACD_PORT=${GUACD_PORT:-4822}
+      - VNC_HOST=${VNC_HOST:-127.0.0.1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${BACKEND_PORT:-8080}:${BACKEND_PORT:-8080}"
     volumes:
@@ -24,6 +31,8 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      guacd:
+        condition: service_started
     networks:
       - distribox-network
     profiles: ["prod"]
@@ -47,6 +56,11 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-images}
       - AWS_REGION=${AWS_REGION:-eu-west-3}
+      - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
+      - GUACD_PORT=${GUACD_PORT:-4822}
+      - VNC_HOST=${VNC_HOST:-127.0.0.1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${BACKEND_PORT:-8080}:${BACKEND_PORT:-8080}"
     volumes:
@@ -57,9 +71,25 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      guacd:
+        condition: service_started
     networks:
       - distribox-network
     profiles: ["dev"]
+
+
+  guacd:
+    image: guacamole/guacd:1.5.5
+    container_name: distribox-guacd
+    restart: unless-stopped
+    # host networking gives guacd access to 127.0.0.1 on the host so it can
+    # reach VNC ports bound to the loopback interface by libvirt/QEMU.
+    # guacd binds 0.0.0.0:4822, which includes the Docker bridge IP, so the
+    # backend containers can reach it via host.docker.internal:4822.
+    network_mode: host
+    command: ["/opt/guacamole/sbin/guacd", "-f", "-b", "0.0.0.0", "-l", "4822", "-L", "debug"]
+    profiles: ["prod", "dev"]
+
 
 volumes:
   backend:
