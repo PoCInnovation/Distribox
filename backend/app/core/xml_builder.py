@@ -59,6 +59,9 @@ def build_xml(vm_read: VmRead):
     etree.SubElement(devices, "graphics", type="vnc",
                      port="-1", autoport="yes", listen="127.0.0.1")
 
+    video = etree.SubElement(devices, "video")
+    etree.SubElement(video, "model", type="vga", vram="16384", heads="1")
+
     etree.SubElement(devices, "console", type="pty")
     etree.SubElement(devices, "input", type="keyboard", bus="ps2")
     etree.SubElement(devices, "input", type="tablet", bus="usb")

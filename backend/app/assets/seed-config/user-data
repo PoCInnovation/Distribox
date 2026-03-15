@@ -17,3 +17,32 @@ ssh_pwauth: true
 
 package_update: true
 package_upgrade: true
+
+# Set VNC framebuffer to 1920x1080 on every boot via XDG autostart
+write_files:
+  - path: /usr/local/bin/distribox-set-resolution.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # Wait for display server to be ready
+      sleep 2
+      OUTPUT=$(xrandr | grep ' connected' | head -1 | awk '{print $1}')
+      [ -z "$OUTPUT" ] && exit 0
+      # Try native mode first
+      xrandr --output "$OUTPUT" --mode 1920x1080 2>/dev/null && exit 0
+      # If mode doesn't exist, create it via cvt and add it
+      MODELINE=$(cvt 1920 1080 60 | grep Modeline | sed 's/Modeline //')
+      MODE_NAME=$(echo "$MODELINE" | awk '{print $1}' | tr -d '"')
+      MODE_ARGS=$(echo "$MODELINE" | sed 's/^"[^"]*" //')
+      xrandr --newmode $MODE_NAME $MODE_ARGS 2>/dev/null
+      xrandr --addmode "$OUTPUT" $MODE_NAME 2>/dev/null
+      xrandr --output "$OUTPUT" --mode $MODE_NAME
+  - path: /etc/xdg/autostart/distribox-resolution.desktop
+    permissions: '0644'
+    content: |
+      [Desktop Entry]
+      Type=Application
+      Name=Distribox Resolution
+      Exec=/usr/local/bin/distribox-set-resolution.sh
+      X-GNOME-Autostart-enabled=true
+      Hidden=false
