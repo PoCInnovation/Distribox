@@ -2,6 +2,7 @@ import { HostInfoPanel } from "./host-info";
 import { DashboardVMsTableContainer } from "./vms-table-container";
 import { Policy } from "@/lib/types";
 import { PolicyGate } from "@/components/policy/policy-gate";
+import { RecoveryContainer } from "@/components/recovery/recovery-container";
 
 export default function OverviewPage() {
   return (
@@ -14,6 +15,8 @@ export default function OverviewPage() {
           Monitor and manage your virtual machines
         </p>
       </div>
+
+      <RecoveryContainer />
 
       <PolicyGate
         requiredPolicies={[Policy.HOST_GET]}

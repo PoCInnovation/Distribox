@@ -16,6 +16,8 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - DISTRIBOX_SECRET=${DISTRIBOX_SECRET:-secret}
+      - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-images}
+      - AWS_REGION=${AWS_REGION:-eu-west-3}
       - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
       - GUACD_PORT=${GUACD_PORT:-4822}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}
@@ -52,6 +54,8 @@ services:
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-images}
+      - AWS_REGION=${AWS_REGION:-eu-west-3}
       - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
       - GUACD_PORT=${GUACD_PORT:-4822}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}

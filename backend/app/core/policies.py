@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 
-# When this changes, please update the frontend as well here frontend/app/lib/types/policies.ts
+# When this changes, please update the frontend as well here
+# frontend/app/lib/types/policies.ts
 DISTRIBOX_ADMIN_POLICY = "distribox:admin"
 
 POLICIES: list[dict[str, str]] = [
@@ -87,6 +88,22 @@ POLICIES: list[dict[str, str]] = [
     {
         "policy": "vms:credentials:getById",
         "description": "Allows the user to fetch a virtual machine credential by id.",
+    },
+    {
+        "policy": "vms:cleanRecoverableVmById",
+        "description": "Allows the user clean a recoverable vm by id.",
+    },
+    {
+        "policy": "vms:cleanAllRecoverableVms",
+        "description": "Allows the user to clean all recoverable vms by id.",
+    },
+    {
+        "policy": "vms:getRecoverableVms",
+        "description": "Allows the user to get all recoverable vms.",
+    },
+    {
+        "policy": "vms:recoverVmById",
+        "description": "Allows the user to recover a vm by id.",
     },
 ]
 

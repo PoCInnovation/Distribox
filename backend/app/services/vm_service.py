@@ -1,12 +1,12 @@
 import uuid
 import subprocess
-import json
 from shutil import copy, rmtree
 import libvirt
 from app.utils.vm import wait_for_state
 from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
-from app.models.vm import VmCreate, VmCredentialCreateRequest
+from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate
+from app.models.image import ImageRead
 from app.core.xml_builder import build_xml
 from app.core.config import QEMUConfig, engine
 from sqlalchemy import func
@@ -17,24 +17,44 @@ from fastapi import status, HTTPException
 from app.utils.vm import get_vm_ip
 from app.utils.crypto import decrypt_secret, encrypt_secret
 from app.utils.seed import ensure_seed_iso
+from app.core.config import s3, distribox_bucket_registry
+from os import path
+from app.services.image_service import ImageService
+import yaml
+from pathlib import Path
 
 
 class Vm:
     @staticmethod
     def _resolve_image_name(os_value: str) -> str:
-        requested_path = IMAGES_DIR / os_value
-        if not requested_path.exists():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Image not found: {requested_path}",
-            )
-
         if not os_value.endswith(".qcow2"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid image '{os_value}': expected .qcow2 image",
             )
         return os_value
+
+    @staticmethod
+    def has_revision_changed(metadata_filename: str) -> bool:
+        if (path.exists(IMAGES_DIR / metadata_filename) is False):
+            return True
+
+        metadata_file = s3.get_object(
+            Bucket=distribox_bucket_registry,
+            Key=metadata_filename)
+        file_content = metadata_file["Body"].read().decode("utf-8")
+
+        metadata = yaml.safe_load(file_content)
+        local_metadata = yaml.safe_load(
+            (IMAGES_DIR /
+             metadata_filename).read_text(
+                encoding="utf-8"))
+
+        revision = metadata["revision"]
+        local_revision = local_metadata["revision"]
+        if (revision != local_revision):
+            return True
+        return False
 
     def __init__(self, vm_create: VmCreate):
         self.id = uuid.uuid4()
@@ -47,22 +67,24 @@ class Vm:
         self.state = 'Stopped'
         self.ipv4: Optional[str] = None
         self.credentials_count: int = 0
+
         vm_dir = VMS_DIR / str(self.id)
         distribox_image_dir = IMAGES_DIR / self.os
+
+        metadata_filename = self.os.replace("qcow2", "metadata.yaml")
+        if (self.has_revision_changed(metadata_filename) is True):
+            s3.download_file(
+                distribox_bucket_registry,
+                metadata_filename,
+                IMAGES_DIR / metadata_filename)
         try:
-            image_info = subprocess.run(
-                ["qemu-img", "info", "--output=json",
-                    str(distribox_image_dir)],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            image_info_json = json.loads(image_info.stdout)
-            if image_info_json.get("format") != "qcow2":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Image '{self.os}' is not qcow2",
-                )
+            if (path.exists(distribox_image_dir)
+                    is False or self.has_revision_changed is True):
+                s3.download_file(
+                    distribox_bucket_registry,
+                    self.os,
+                    distribox_image_dir)
+
             vm_dir.mkdir(parents=True, exist_ok=True)
             copy(distribox_image_dir, vm_dir)
             vm_path = vm_dir / self.os
@@ -88,7 +110,6 @@ class Vm:
                 self.start()
         except Exception:
             raise
-    # def create(self):
 
     @classmethod
     def get(cls, vm_id: str):
@@ -98,6 +119,11 @@ class Vm:
             vm_state, _ = vm.state()
             with Session(engine) as session:
                 vm_record = session.get(VmORM, uuid.UUID(vm_id))
+                if not vm_record:
+                    raise HTTPException(
+                        status.HTTP_404_NOT_FOUND,
+                        f"Vm {vm_id} not found in database"
+                    )
                 vm_instance = cls.__new__(cls)
                 vm_instance.id = vm_record.id
                 vm_instance.name = vm_record.name
@@ -156,7 +182,9 @@ class Vm:
         if state_code != libvirt.VIR_DOMAIN_RUNNING:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Failed to start VM {self.id}. Current state: {self.state}",
+                detail=f"Failed to start VM {
+                    self.id}. Current state: {
+                    self.state}",
             )
         self.ipv4 = get_vm_ip(str(self.id))
         return self
@@ -268,6 +296,11 @@ class VmService:
         vm = Vm.get(vm_id)
         vm.remove()
 
+    def restart_vm(vm_id):
+        vm = Vm.get(vm_id)
+        vm.stop()
+        return vm.start()
+
     @staticmethod
     def create_vm_credential(vm_id: str, payload: VmCredentialCreateRequest):
         with Session(engine) as session:
@@ -358,3 +391,80 @@ class VmService:
                 )
             )
             session.commit()
+
+    @staticmethod
+    def get_recoverable_vms() -> list[RecoverableVm]:
+        recoverable_vms = []
+        vm_root = Path(VMS_DIR)
+        with Session(engine) as session:
+            for vm in vm_root.iterdir():
+                vm_record = session.get(VmORM, uuid.UUID(vm.name))
+                if vm_record is None:
+                    for vm_file in vm.iterdir():
+                        if vm_file.name.endswith(".qcow2"):
+                            image_name = vm_file.name.replace(
+                                ".qcow2", ".metadata.yaml")
+                            image_metadata = ImageService.get_distribox_image(
+                                image_name)
+                            recoverable_vms.append(
+                                RecoverableVm(
+                                    vm_id=vm.name,
+                                    **image_metadata.model_dump()))
+        return recoverable_vms
+
+    @staticmethod
+    def recover_vm(recoverable_vm: RecoverableVmCreate):
+        rec_vms_list = VmService.get_recoverable_vms()
+
+        for v in rec_vms_list:
+            if v.vm_id == str(recoverable_vm.vm_id):
+                with Session(engine) as session:
+                    vm_record = VmORM(
+                        id=recoverable_vm.vm_id,
+                        name=recoverable_vm.name,
+                        os=v.image,
+                        mem=recoverable_vm.mem,
+                        vcpus=recoverable_vm.vcpus,
+                        disk_size=recoverable_vm.disk_size,
+                    )
+                    session.add(vm_record)
+                    session.commit()
+                    session.refresh(vm_record)
+                return VmRead(
+                    id=vm_record.id,
+                    os=vm_record.os,
+                    name=vm_record.name,
+                    mem=vm_record.mem,
+                    vcpus=vm_record.vcpus,
+                    disk_size=vm_record.disk_size,
+                    state="Stopped",
+                    ipv4=None,
+                    credentials_count=0,
+                )
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Vm {recoverable_vm.vm_id} not found in database"
+        )
+
+    @staticmethod
+    def remove_recoverable_vm(vm_id: str):
+        vm_root = Path(VMS_DIR)
+        for v in vm_root.iterdir():
+            if v.name == vm_id:
+                rmtree(VMS_DIR / v.name)
+                return
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Vm {vm_id} not found in database"
+        )
+
+    @staticmethod
+    def remove_all_recoverable_vms():
+        vms_to_delete = VmService.get_recoverable_vms()
+        vm_root = Path(VMS_DIR)
+        for v in vm_root.iterdir():
+            for x in vms_to_delete:
+                if v.name == str(x.vm_id):
+                    rmtree(VMS_DIR / v.name)
+                    break
+        return
