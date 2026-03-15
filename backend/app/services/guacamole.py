@@ -64,16 +64,19 @@ async def guacd_handshake(
             required_params = [param.upper() for param in inst[1:]]
             if "VERSION" in required_params:
                 writer.write(
-                    build_instruction("client", GUACAMOLE_PROTOCOL_VERSION).encode()
+                    build_instruction(
+                        "client", GUACAMOLE_PROTOCOL_VERSION).encode()
                 )
                 await writer.drain()
             continue
 
         if opcode != "args":
-            raise RuntimeError(f"Unexpected guacd instruction before args: {inst!r}")
+            raise RuntimeError(
+                f"Unexpected guacd instruction before args: {inst!r}")
 
         required = inst[1:]
-        protocol_marker = required[0] if required and required[0].upper().startswith("VERSION_") else None
+        protocol_marker = required[0] if required and required[0].upper(
+        ).startswith("VERSION_") else None
         logger.warning(
             "guacd args protocol_marker=%s required=%s",
             protocol_marker,
@@ -120,19 +123,22 @@ async def guacd_handshake(
     logger.warning(
         "guacd connect params=%s version_arg_present=%s",
         param_pairs,
-        any(k.strip().upper().startswith("VERSION_") or k.lower() == "version" for k in required),
+        any(k.strip().upper().startswith("VERSION_")
+            or k.lower() == "version" for k in required),
     )
 
     # The Guacamole protocol requires size, audio, video, and image
     # capability instructions BEFORE connect. Without these, guacd's
     # child process has no display dimensions and exits immediately.
-    writer.write(build_instruction("size", str(width), str(height), "96").encode())
+    writer.write(build_instruction(
+        "size", str(width), str(height), "96").encode())
     await writer.drain()
     writer.write(build_instruction("audio").encode())
     await writer.drain()
     writer.write(build_instruction("video").encode())
     await writer.drain()
-    writer.write(build_instruction("image", "image/png", "image/jpeg", "image/webp").encode())
+    writer.write(build_instruction("image", "image/png",
+                 "image/jpeg", "image/webp").encode())
     await writer.drain()
 
     writer.write(build_instruction(*connect_values).encode())

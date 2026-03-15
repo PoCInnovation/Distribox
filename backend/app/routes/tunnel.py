@@ -1,3 +1,9 @@
+from app.utils.vnc import get_vnc_port
+from app.utils.crypto import decrypt_secret
+from app.services.guacamole import build_instruction, guacd_handshake, read_instruction
+from app.orm.vm_credential import VmCredentialORM
+from app.core.config import engine, GUACD_HOST, GUACD_PORT, VNC_HOST
+from sqlmodel import Session, select
 import asyncio
 import logging
 from uuid import UUID
@@ -5,13 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
-from sqlmodel import Session, select
 
-from app.core.config import engine, GUACD_HOST, GUACD_PORT, VNC_HOST
-from app.orm.vm_credential import VmCredentialORM
-from app.services.guacamole import build_instruction, guacd_handshake, read_instruction
-from app.utils.crypto import decrypt_secret
-from app.utils.vnc import get_vnc_port
 
 router = APIRouter()
 
@@ -54,7 +54,8 @@ def _find_vm_for_credential(token: str) -> str | None:
 
     with Session(engine) as session:
         credentials = session.exec(
-            select(VmCredentialORM.id, VmCredentialORM.vm_id, VmCredentialORM.password)
+            select(VmCredentialORM.id, VmCredentialORM.vm_id,
+                   VmCredentialORM.password)
         ).all()
 
         for cred in credentials:
@@ -184,7 +185,8 @@ async def vm_tunnel(
         try:
             if first_instruction:
                 initial_opcode = _extract_opcode(first_instruction)
-                logger.warning("Tunnel initial guacd->browser opcode=%s", initial_opcode)
+                logger.warning(
+                    "Tunnel initial guacd->browser opcode=%s", initial_opcode)
                 await send_ws_text(first_instruction)
             while True:
                 instruction = await read_instruction(reader)

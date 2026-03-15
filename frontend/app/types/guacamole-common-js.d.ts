@@ -18,7 +18,10 @@ declare module "guacamole-common-js" {
       connect(params?: string): void;
       disconnect(): void;
       sendKeyEvent(pressed: 0 | 1, keysym: number): void;
-      sendMouseState(mouseState: Mouse.State, applyDisplayScale?: boolean): void;
+      sendMouseState(
+        mouseState: Mouse.State,
+        applyDisplayScale?: boolean,
+      ): void;
       onstatechange: ((state: number) => void) | null;
       onerror: ((error: { message?: string }) => void) | null;
       onrequired: ((required: string[]) => void) | null;
