@@ -123,8 +123,8 @@ async def guacd_handshake(
     logger.warning(
         "guacd connect params=%s version_arg_present=%s",
         param_pairs,
-        any(k.strip().upper().startswith("VERSION_")
-            or k.lower() == "version" for k in required),
+        any(k.strip().upper().startswith("VERSION_") or
+            k.lower() == "version" for k in required),
     )
 
     # The Guacamole protocol requires size, audio, video, and image
