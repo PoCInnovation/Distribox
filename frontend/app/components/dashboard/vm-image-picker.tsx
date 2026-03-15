@@ -189,10 +189,10 @@ function ImagePicker({
                   <button
                     key={image.name}
                     type="button"
-                    onClick={() => setSelectedOS(image.name)}
+                    onClick={() => setSelectedOS(image.image)}
                     className={cn(
                       "w-full text-left flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-                      selectedOS === image.name
+                      selectedOS === image.image
                         ? "bg-primary/10 border border-primary/40 hover:bg-primary/15"
                         : "border border-transparent hover:bg-muted/60",
                     )}
@@ -220,7 +220,7 @@ function ImagePicker({
                         {image.image}
                       </div>
                     </div>
-                    {selectedOS === image.name && (
+                    {selectedOS === image.image && (
                       <CheckIcon className="h-4 w-4 text-primary shrink-0" />
                     )}
                   </button>

@@ -44,8 +44,8 @@ export function useGuacamoleClient({
       const container = containerRef.current;
       if (!container) return;
 
-      const w = container.clientWidth || 1024;
-      const h = container.clientHeight || 768;
+      const w = 1920;
+      const h = 1080;
 
       const wsBase = (import.meta.env.VITE_API_DOMAIN as string).replace(
         /^http/,
@@ -64,8 +64,15 @@ export function useGuacamoleClient({
       container.appendChild(displayEl);
 
       // Scale display to fill container
-      const scale = Math.min(w / 1024, h / 768);
-      client.getDisplay().scale(scale);
+      client.getDisplay().onresize = (newWidth: number, newHeight: number) => {
+        const containerEl = containerRef.current;
+        if (!containerEl) return;
+        const scale = Math.min(
+          containerEl.clientWidth / newWidth,
+          containerEl.clientHeight / newHeight,
+        );
+        client!.getDisplay().scale(scale);
+      };
 
       // Keep hook for potential future required-parameter UI handling.
       // This client should not emit low-level protocol opcodes directly.

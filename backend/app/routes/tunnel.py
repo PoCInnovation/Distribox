@@ -80,8 +80,8 @@ def _find_vm_for_credential(token: str) -> str | None:
 async def vm_tunnel(
     websocket: WebSocket,
     credential: str = Query(...),
-    width: int = Query(default=1024),
-    height: int = Query(default=768),
+    width: int = Query(default=1920),
+    height: int = Query(default=1080),
 ):
     vm_id = await asyncio.to_thread(_find_vm_for_credential, credential)
     if not vm_id:
