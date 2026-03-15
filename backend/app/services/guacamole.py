@@ -19,7 +19,6 @@ async def read_instruction(reader: asyncio.StreamReader) -> list[str]:
     elements: list[str] = []
     try:
         while True:
-            # Read the length digits until we hit '.'
             length_buf = bytearray()
             while True:
                 byte = await reader.readexactly(1)
@@ -27,10 +26,8 @@ async def read_instruction(reader: asyncio.StreamReader) -> list[str]:
                     break
                 length_buf.extend(byte)
             n = int(length_buf.decode())
-            # Read exactly n bytes of element data
             data = await reader.readexactly(n)
             elements.append(data.decode())
-            # Read the separator: ',' (more elements) or ';' (end of instruction)
             sep = await reader.readexactly(1)
             if sep == b";":
                 break
@@ -58,11 +55,7 @@ async def guacd_handshake(
     writer.write(build_instruction("select", "vnc").encode())
     await writer.drain()
 
-    # guacd 1.5.x may request protocol version negotiation via:
-    # required,VERSION;
-    # We must answer with:
-    # client,1.5.0;
-    # before proceeding, otherwise guacd closes the connection.
+    # client,1.5.0
     while True:
         inst = await read_instruction(reader)
         opcode = inst[0] if inst else ""
@@ -102,7 +95,6 @@ async def guacd_handshake(
         "color-depth": "",
         "autoretry": "",
         "username": "",
-        # Some guacd versions/plugins require protocol version as a connect arg.
         "version": GUACAMOLE_PROTOCOL_VERSION,
         "protocol-version": GUACAMOLE_PROTOCOL_VERSION,
     }
@@ -110,14 +102,11 @@ async def guacd_handshake(
     def value_for_param(param_name: str) -> str:
         normalized = param_name.strip().lower()
         if param_name.strip().upper().startswith("VERSION_"):
-            # For VERSION_1_5_0-style markers, guacd expects a dotted semantic
-            # version string as the connect value (for example, "1.5.0").
             marker = param_name.strip().upper()[len("VERSION_"):]
             return marker.replace("_", ".")
         if normalized in param_map:
             return param_map[normalized]
 
-        # guacd/plugin variants may use different version key spellings.
         if "version" in normalized:
             return GUACAMOLE_PROTOCOL_VERSION
 
@@ -149,7 +138,6 @@ async def guacd_handshake(
     writer.write(build_instruction(*connect_values).encode())
     await writer.drain()
 
-    # Read the first post-connect instruction to validate the connection.
     first = await read_instruction(reader)
     if not first:
         raise RuntimeError("Empty response from guacd after connect")
@@ -159,6 +147,4 @@ async def guacd_handshake(
         detail = first[1] if len(first) > 1 else "guacd connection error"
         raise RuntimeError(detail)
 
-    # Return the first instruction (typically "ready") so callers can forward
-    # it to the browser before continuing stream relay.
     return build_instruction(*first)

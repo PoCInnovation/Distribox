@@ -57,7 +57,6 @@ def _find_vm_for_credential(token: str) -> str | None:
             select(VmCredentialORM.id, VmCredentialORM.vm_id, VmCredentialORM.password)
         ).all()
 
-        # First, preserve existing semantics: direct password lookup.
         for cred in credentials:
             try:
                 if decrypt_secret(cred.password) == normalized:
@@ -65,7 +64,6 @@ def _find_vm_for_credential(token: str) -> str | None:
             except Exception:
                 continue
 
-        # Fallback: allow UUID credential-id tokens as well.
         try:
             parsed_id = UUID(normalized)
         except ValueError:
@@ -84,14 +82,12 @@ async def vm_tunnel(
     width: int = Query(default=1024),
     height: int = Query(default=768),
 ):
-    # 1. Credential lookup (sync → thread pool)
     vm_id = await asyncio.to_thread(_find_vm_for_credential, credential)
     if not vm_id:
         logger.warning("Tunnel rejected: unknown credential token")
         await websocket.close(code=4001, reason="Invalid credential")
         return
 
-    # 2. VNC port discovery (sync → thread pool)
     try:
         vnc_port = await asyncio.to_thread(get_vnc_port, vm_id)
     except Exception as exc:
@@ -104,10 +100,8 @@ async def vm_tunnel(
         vm_id, VNC_HOST, vnc_port, GUACD_HOST, GUACD_PORT,
     )
 
-    # 3. Accept WebSocket with guacamole subprotocol
     await websocket.accept(subprotocol="guacamole")
 
-    # 4. Connect to guacd using configured VNC_HOST only.
     try:
         reader, writer = await asyncio.open_connection(GUACD_HOST, GUACD_PORT)
     except Exception as exc:
@@ -146,7 +140,6 @@ async def vm_tunnel(
         await websocket.close(code=1011, reason=str(exc))
         return
 
-    # 6. Bidirectional relay
     ws_send_lock = asyncio.Lock()
     browser_opcode_logs_remaining = 40
 
@@ -159,8 +152,6 @@ async def vm_tunnel(
         try:
             async for msg in websocket.iter_text():
                 if _is_internal_instruction(msg):
-                    # Echo tunnel ping instructions back to keep browser-side
-                    # stability checks satisfied. guacd cannot process these.
                     await send_ws_text(msg)
                     continue
                 opcode = _extract_opcode(msg)
