@@ -41,8 +41,8 @@ async def guacd_handshake(
     writer: asyncio.StreamWriter,
     vnc_host: str,
     vnc_port: int,
-    width: int = 1024,
-    height: int = 768,
+    width: int = 1920,
+    height: int = 1080,
 ) -> str:
     """Perform the Guacamole VNC handshake with guacd up to and including
     the `connect` instruction.
