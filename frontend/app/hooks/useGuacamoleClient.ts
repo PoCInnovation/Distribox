@@ -60,7 +60,20 @@ export function useGuacamoleClient({
       const tunnel = new Guacamole.WebSocketTunnel(tunnelUrl);
       client = new Guacamole.Client(tunnel);
 
-      const displayEl = client.getDisplay().getElement();
+      const display = client.getDisplay();
+
+      // Suppress guacamole-common-js software cursor entirely — we only
+      // want the cursor rendered in the VM framebuffer (cursor="remote").
+      const killCursor = () => {
+        display.showCursor(false);
+        // Hide the cursor layer element directly
+        const cursorEl = display.getElement().querySelector(".cursor");
+        if (cursorEl) (cursorEl as HTMLElement).style.display = "none";
+      };
+      killCursor();
+      display.oncursor = killCursor;
+
+      const displayEl = display.getElement();
       container.appendChild(displayEl);
 
       // Scale display to fill container
@@ -81,6 +94,7 @@ export function useGuacamoleClient({
       client.onstatechange = (newState: number) => {
         // guacamole-common-js state: 3 = CONNECTED, 5 = DISCONNECTED
         if (newState === 3) {
+          killCursor();
           setState("connected");
         } else if (newState === 5) {
           setState("disconnected");

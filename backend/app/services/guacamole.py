@@ -93,7 +93,7 @@ async def guacd_handshake(
         "password": "",
         "swap-red-blue": "false",
         "read-only": "false",
-        "cursor": "local",
+        "cursor": "remote",
         "encoding": "",
         "color-depth": "",
         "autoretry": "",

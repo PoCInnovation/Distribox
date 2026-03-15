@@ -12,8 +12,13 @@ export function GuacamoleDisplay({ credential }: GuacamoleDisplayProps) {
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
+      <style>{`
+        .guacamole-display, .guacamole-display * {
+          cursor: none !important;
+        }
+      `}</style>
       {/* Guacamole canvas container */}
-      <div ref={containerRef} className="w-full h-full" />
+      <div ref={containerRef} className="guacamole-display w-full h-full" />
 
       {/* Connecting overlay */}
       {state === "connecting" && (
