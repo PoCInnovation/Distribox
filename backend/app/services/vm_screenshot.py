@@ -27,7 +27,8 @@ def capture_screenshot(vm_id: str) -> bytes:
         domain = conn.lookupByName(vm_id)
     except libvirt.libvirtError as exc:
         if exc.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, f"VM {vm_id} not found")
+            raise HTTPException(status.HTTP_404_NOT_FOUND,
+                                f"VM {vm_id} not found")
         raise
 
     if not domain.isActive():

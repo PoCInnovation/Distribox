@@ -25,16 +25,19 @@ async def get_vm_screenshot(vm_id: str, token: str = Query(...)):
     """Screenshot endpoint using query-param JWT auth (for <img src=> usage)."""
     payload = decode_access_token(token)
     if payload is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED,
+                            "Invalid or expired token")
     user_id = payload.get("sub")
     if user_id is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token payload")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED,
+                            "Invalid token payload")
     with Session(engine) as session:
         user = session.get(UserORM, user_id)
         if user is None:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
         if not user_has_policy(user, "vms:get"):
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Missing vms:get policy")
+            raise HTTPException(status.HTTP_403_FORBIDDEN,
+                                "Missing vms:get policy")
     jpeg_bytes = await asyncio.to_thread(capture_screenshot, vm_id)
     return Response(
         content=jpeg_bytes,
