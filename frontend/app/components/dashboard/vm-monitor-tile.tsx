@@ -31,9 +31,7 @@ export function VmMonitorTile({ vm }: { vm: VirtualMachineMetadata }) {
     }
 
     function refresh() {
-      setScreenshotUrl(
-        `${getVmScreenshotUrl(vm.id)}&t=${Date.now()}`,
-      );
+      setScreenshotUrl(`${getVmScreenshotUrl(vm.id)}&t=${Date.now()}`);
     }
 
     refresh();

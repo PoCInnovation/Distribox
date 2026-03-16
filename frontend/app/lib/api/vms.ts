@@ -3,7 +3,12 @@ import {
   CreateVMPayloadSchema,
   VirtualMachineMetadataSchema,
 } from "@/lib/types";
-import { API_BASE_URL, apiRequest, getAuthToken, validateWithSchema } from "./core";
+import {
+  API_BASE_URL,
+  apiRequest,
+  getAuthToken,
+  validateWithSchema,
+} from "./core";
 
 /**
  * Build the authenticated URL for a VM screenshot image.
