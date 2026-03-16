@@ -17,6 +17,7 @@ export enum Policy {
   VMS_CREATE = "vms:create",
   VMS_START = "vms:start",
   VMS_STOP = "vms:stop",
+  VMS_CONNECT = "vms:connect",
   VMS_CREDENTIALS_CREATE = "vms:credentials:create",
   VMS_DELETE = "vms:delete",
   VMS_CREDENTIALS_REVOKE = "vms:credentials:revoke",
@@ -48,6 +49,8 @@ export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
   [Policy.VMS_CREATE]: "Allows the user to create virtual machines.",
   [Policy.VMS_START]: "Allows the user to start virtual machines.",
   [Policy.VMS_STOP]: "Allows the user to stop virtual machines.",
+  [Policy.VMS_CONNECT]:
+    "Allows the user to connect to a virtual machine via the dashboard tunnel.",
   [Policy.VMS_CREDENTIALS_CREATE]:
     "Allows the user to create virtual machine credentials.",
   [Policy.VMS_DELETE]: "Allows the user to remove virtual machines.",
@@ -164,6 +167,12 @@ export const POLICY_COLORS = {
     border: "border-orange-500",
     hover: "hover:bg-orange-500/30",
     text: "text-orange-600 dark:text-orange-400",
+  },
+  [Policy.VMS_CONNECT]: {
+    bg: "bg-green-500/20",
+    border: "border-green-500",
+    hover: "hover:bg-green-500/30",
+    text: "text-green-600 dark:text-green-400",
   },
   [Policy.VMS_CREDENTIALS_CREATE]: {
     bg: "bg-pink-500/20",
