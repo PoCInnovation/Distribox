@@ -128,7 +128,8 @@ async def vm_tunnel(
     elif vm_id and token:
         resolved_vm_id = await asyncio.to_thread(_resolve_vm_id_with_token, vm_id, token)
         if not resolved_vm_id:
-            logger.warning("Tunnel rejected: invalid token or missing vms:connect policy")
+            logger.warning(
+                "Tunnel rejected: invalid token or missing vms:connect policy")
             await websocket.close(code=4003, reason="Unauthorized")
             return
     else:

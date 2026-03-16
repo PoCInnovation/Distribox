@@ -10,8 +10,17 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
 
   const options =
     "vmId" in props
-      ? ({ mode: "vm" as const, vmId: props.vmId, token: props.token, containerRef })
-      : ({ mode: "credential" as const, credential: props.credential, containerRef });
+      ? {
+          mode: "vm" as const,
+          vmId: props.vmId,
+          token: props.token,
+          containerRef,
+        }
+      : {
+          mode: "credential" as const,
+          credential: props.credential,
+          containerRef,
+        };
 
   const { state, error } = useGuacamoleClient(options);
   const [hintDismissed, setHintDismissed] = useState(false);
