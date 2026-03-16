@@ -93,6 +93,7 @@ export function DashboardVMsTableContainer() {
     e?: React.MouseEvent,
   ) => {
     e?.stopPropagation();
+    window.open(`/client?vm_id=${encodeURIComponent(vm.id)}`, "_blank");
   };
 
   const handleConfigureVM = (
