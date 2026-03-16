@@ -7,6 +7,7 @@ export default [
   route("error", "routes/error.tsx"),
   route("dashboard", "routes/dashboard.tsx", [
     index("routes/dashboard._index.tsx"),
+    route("monitor", "routes/dashboard.monitor.tsx"),
     route("provision", "routes/dashboard.provision.tsx"),
     route("users-policies", "routes/dashboard.users-policies.tsx"),
   ]),
