@@ -3,7 +3,20 @@ import {
   CreateVMPayloadSchema,
   VirtualMachineMetadataSchema,
 } from "@/lib/types";
-import { apiRequest, validateWithSchema } from "./core";
+import {
+  API_BASE_URL,
+  apiRequest,
+  getAuthToken,
+  validateWithSchema,
+} from "./core";
+
+/**
+ * Build the authenticated URL for a VM screenshot image.
+ */
+export function getVmScreenshotUrl(vmId: string): string {
+  const token = getAuthToken();
+  return `${API_BASE_URL}/vms/${vmId}/screenshot${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+}
 
 export async function getVMs(): Promise<VirtualMachineMetadata[]> {
   return apiRequest("/vms", {}, VirtualMachineMetadataSchema.array());

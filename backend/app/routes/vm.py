@@ -1,10 +1,49 @@
-from fastapi import APIRouter, Depends, status
+import asyncio
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
+from sqlmodel import Session
 from app.models.user_management import MissingPoliciesResponse
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, VmCredentialRead, RecoverableVm, RecoverableVmCreate
 from app.services.vm_service import VmService
-from app.utils.auth import require_policy
+from app.services.vm_screenshot import capture_screenshot
+from app.utils.auth import require_policy, decode_access_token, user_has_policy
+from app.orm.user import UserORM
+from app.core.config import engine
 
 router = APIRouter()
+
+
+@router.get(
+    "/{vm_id}/screenshot",
+    status_code=status.HTTP_200_OK,
+    responses={
+        200: {"content": {"image/jpeg": {}}, "description": "JPEG thumbnail of the VM screen"},
+    },
+)
+async def get_vm_screenshot(vm_id: str, token: str = Query(...)):
+    """Screenshot endpoint using query-param JWT auth (for <img src=> usage)."""
+    payload = decode_access_token(token)
+    if payload is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED,
+                            "Invalid or expired token")
+    user_id = payload.get("sub")
+    if user_id is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED,
+                            "Invalid token payload")
+    with Session(engine) as session:
+        user = session.get(UserORM, user_id)
+        if user is None:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+        if not user_has_policy(user, "vms:get"):
+            raise HTTPException(status.HTTP_403_FORBIDDEN,
+                                "Missing vms:get policy")
+    jpeg_bytes = await asyncio.to_thread(capture_screenshot, vm_id)
+    return Response(
+        content=jpeg_bytes,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.delete(

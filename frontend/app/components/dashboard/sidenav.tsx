@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LayoutIcon,
+  Monitor,
   PlusIcon,
   User,
   LogOut,
@@ -36,6 +37,12 @@ const navItems = [
     label: "Dashboard",
     icon: LayoutIcon,
     requiredPolicies: [] as PolicyName[],
+  },
+  {
+    href: "/dashboard/monitor",
+    label: "Monitor",
+    icon: Monitor,
+    requiredPolicies: [Policy.VMS_GET] as PolicyName[],
   },
   {
     href: "/dashboard/provision",
