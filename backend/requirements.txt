@@ -13,3 +13,4 @@ uvicorn[standard]
 python-dotenv
 cryptography
 boto3
+Pillow
