@@ -43,6 +43,7 @@ export const TableActionsColumn = ({
   if (!vm) return null;
   const authz = useAuthz();
   const isOperating = operatingVMs.has(vm.id);
+  const missingForConnect = authz.missingPolicies([Policy.VMS_CONNECT]);
   const missingForStart = authz.missingPolicies([Policy.VMS_START]);
   const missingForStop = authz.missingPolicies([Policy.VMS_STOP]);
   const missingForDelete = authz.missingPolicies([Policy.VMS_DELETE]);
@@ -52,6 +53,7 @@ export const TableActionsColumn = ({
   ]);
 
   const hiddenActions = [
+    ...(missingForConnect.length > 0 ? ["Connect"] : []),
     ...(missingForStart.length > 0 ? ["Start"] : []),
     ...(missingForStop.length > 0 ? ["Stop"] : []),
     ...(missingForRestart.length > 0 ? ["Restart"] : []),
@@ -86,10 +88,16 @@ export const TableActionsColumn = ({
           {onConnectVM && (
             <DropdownMenuItem
               className="focus:bg-primary/10 focus:text-primary"
+              disabled={
+                vm.state !== VMState.RUNNING || missingForConnect.length > 0
+              }
               onClick={(e) => onConnectVM(vm, e)}
             >
               <Terminal className="mr-2 h-4 w-4 text-inherit" />
               Connect
+              {missingForConnect.length > 0
+                ? ` (missing: ${missingForConnect.join(", ")})`
+                : ""}
             </DropdownMenuItem>
           )}
           {onStartVM && (

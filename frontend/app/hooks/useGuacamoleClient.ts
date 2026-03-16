@@ -8,25 +8,35 @@ export type GuacamoleConnectionState =
   | "error"
   | "disconnected";
 
-interface UseGuacamoleClientOptions {
-  credential: string;
-  containerRef: RefObject<HTMLDivElement | null>;
-}
+type UseGuacamoleClientOptions =
+  | {
+      mode: "credential";
+      credential: string;
+      containerRef: RefObject<HTMLDivElement | null>;
+    }
+  | {
+      mode: "vm";
+      vmId: string;
+      token: string;
+      containerRef: RefObject<HTMLDivElement | null>;
+    };
 
 interface UseGuacamoleClientResult {
   state: GuacamoleConnectionState;
   error?: string;
 }
 
-export function useGuacamoleClient({
-  credential,
-  containerRef,
-}: UseGuacamoleClientOptions): UseGuacamoleClientResult {
+export function useGuacamoleClient(
+  options: UseGuacamoleClientOptions,
+): UseGuacamoleClientResult {
   const [state, setState] = useState<GuacamoleConnectionState>("connecting");
   const [error, setError] = useState<string | undefined>();
 
+  const connectKey =
+    options.mode === "credential" ? options.credential : options.vmId;
+
   useEffect(() => {
-    if (!credential) return;
+    if (!connectKey) return;
     setState("connecting");
     setError(undefined);
 
@@ -41,7 +51,7 @@ export function useGuacamoleClient({
 
       if (cancelled) return;
 
-      const container = containerRef.current;
+      const container = options.containerRef.current;
       if (!container) return;
 
       const w = 1920;
@@ -55,7 +65,13 @@ export function useGuacamoleClient({
       // "?" + connectParams itself inside connect(), so query params must
       // NOT be in the tunnel URL or the URL ends up with a double "?".
       const tunnelUrl = `${wsBase}/tunnel`;
-      const connectParams = `credential=${encodeURIComponent(credential)}&width=${w}&height=${h}`;
+
+      let connectParams: string;
+      if (options.mode === "credential") {
+        connectParams = `credential=${encodeURIComponent(options.credential)}&width=${w}&height=${h}`;
+      } else {
+        connectParams = `vm_id=${encodeURIComponent(options.vmId)}&token=${encodeURIComponent(options.token)}&width=${w}&height=${h}`;
+      }
 
       const tunnel = new Guacamole.WebSocketTunnel(tunnelUrl);
       client = new Guacamole.Client(tunnel);
@@ -78,7 +94,7 @@ export function useGuacamoleClient({
 
       // Scale display to fill container
       client.getDisplay().onresize = (newWidth: number, newHeight: number) => {
-        const containerEl = containerRef.current;
+        const containerEl = options.containerRef.current;
         if (!containerEl) return;
         const scale = Math.min(
           containerEl.clientWidth / newWidth,
@@ -149,14 +165,14 @@ export function useGuacamoleClient({
       cancelled = true;
       keyboard?.reset();
       client?.disconnect();
-      const container = containerRef.current;
+      const container = options.containerRef.current;
       if (container) {
         while (container.firstChild) {
           container.removeChild(container.firstChild);
         }
       }
     };
-  }, [credential, containerRef]);
+  }, [connectKey, options.containerRef]);
 
   return { state, error };
 }

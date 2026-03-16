@@ -70,6 +70,10 @@ POLICIES: list[dict[str, str]] = [
         "description": "Allows the user to stop virtual machines.",
     },
     {
+        "policy": "vms:connect",
+        "description": "Allows the user to connect to a virtual machine via the dashboard tunnel.",
+    },
+    {
         "policy": "vms:credentials:create",
         "description": "Allows the user to create virtual machine credentials.",
     },

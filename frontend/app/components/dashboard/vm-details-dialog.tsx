@@ -27,7 +27,8 @@ import {
   rememberForbiddenError,
   revokeVMCredential,
 } from "@/lib/api";
-import { VMState, type VirtualMachineMetadata } from "@/lib/types";
+import { Policy, VMState, type VirtualMachineMetadata } from "@/lib/types";
+import { useAuthz } from "@/contexts/authz-context";
 
 interface VMDetailsDialogProps {
   vm: VirtualMachineMetadata | null;
@@ -63,6 +64,8 @@ export function VMDetailsDialog({
   onConnectVM,
 }: VMDetailsDialogProps) {
   const queryClient = useQueryClient();
+  const authz = useAuthz();
+  const missingForConnect = authz.missingPolicies([Policy.VMS_CONNECT]);
   const [credentialName, setCredentialName] = useState("");
   const [credentialPassword, setCredentialPassword] = useState("");
 
@@ -323,7 +326,13 @@ export function VMDetailsDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <Button variant="outline" onClick={(e) => onConnectVM?.(vm, e)}>
+          <Button
+            variant="outline"
+            disabled={
+              vm.state !== VMState.RUNNING || missingForConnect.length > 0
+            }
+            onClick={(e) => onConnectVM?.(vm, e)}
+          >
             <Terminal className="mr-2 h-4 w-4" />
             Connect
           </Button>
