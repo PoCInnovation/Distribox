@@ -1,7 +1,9 @@
 from app.utils.vnc import get_vnc_port
 from app.utils.crypto import decrypt_secret
+from app.utils.auth import decode_access_token, user_has_policy
 from app.services.guacamole import build_instruction, guacd_handshake, read_instruction
 from app.orm.vm_credential import VmCredentialORM
+from app.orm.user import UserORM
 from app.core.config import engine, GUACD_HOST, GUACD_PORT, VNC_HOST
 from sqlmodel import Session, select
 import asyncio
@@ -76,21 +78,65 @@ def _find_vm_for_credential(token: str) -> str | None:
     return None
 
 
+def _resolve_vm_id_with_token(vm_id: str, jwt_token: str) -> str | None:
+    """
+    Validate a JWT token and check that the user has the vms:connect policy.
+    Returns the vm_id string if authorized, None otherwise.
+    """
+    payload = decode_access_token(jwt_token)
+    if payload is None:
+        return None
+
+    user_id = payload.get("sub")
+    if user_id is None:
+        return None
+
+    with Session(engine) as session:
+        user = session.get(UserORM, user_id)
+        if user is None:
+            return None
+        if not user_has_policy(user, "vms:connect"):
+            return None
+
+    # Validate that vm_id is a valid UUID format
+    try:
+        UUID(vm_id)
+    except ValueError:
+        return None
+
+    return vm_id
+
+
 @router.websocket("/tunnel")
 async def vm_tunnel(
     websocket: WebSocket,
-    credential: str = Query(...),
+    credential: str | None = Query(default=None),
+    vm_id: str | None = Query(default=None),
+    token: str | None = Query(default=None),
     width: int = Query(default=1920),
     height: int = Query(default=1080),
 ):
-    vm_id = await asyncio.to_thread(_find_vm_for_credential, credential)
-    if not vm_id:
-        logger.warning("Tunnel rejected: unknown credential token")
-        await websocket.close(code=4001, reason="Invalid credential")
+    # Resolve VM ID from either credential or vm_id+token
+    resolved_vm_id: str | None = None
+
+    if credential:
+        resolved_vm_id = await asyncio.to_thread(_find_vm_for_credential, credential)
+        if not resolved_vm_id:
+            logger.warning("Tunnel rejected: unknown credential token")
+            await websocket.close(code=4001, reason="Invalid credential")
+            return
+    elif vm_id and token:
+        resolved_vm_id = await asyncio.to_thread(_resolve_vm_id_with_token, vm_id, token)
+        if not resolved_vm_id:
+            logger.warning("Tunnel rejected: invalid token or missing vms:connect policy")
+            await websocket.close(code=4003, reason="Unauthorized")
+            return
+    else:
+        await websocket.close(code=4001, reason="Provide credential or vm_id+token")
         return
 
     try:
-        vnc_port = await asyncio.to_thread(get_vnc_port, vm_id)
+        vnc_port = await asyncio.to_thread(get_vnc_port, resolved_vm_id)
     except Exception as exc:
         detail = getattr(exc, "detail", str(exc))
         await websocket.close(code=4002, reason=detail)
@@ -98,7 +144,7 @@ async def vm_tunnel(
 
     logger.warning(
         "Tunnel: vm_id=%s vnc=%s:%s guacd=%s:%s",
-        vm_id, VNC_HOST, vnc_port, GUACD_HOST, GUACD_PORT,
+        resolved_vm_id, VNC_HOST, vnc_port, GUACD_HOST, GUACD_PORT,
     )
 
     await websocket.accept(subprotocol="guacamole")
