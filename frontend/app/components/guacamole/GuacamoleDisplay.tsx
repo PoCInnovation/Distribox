@@ -1,13 +1,19 @@
 import { useRef, useState } from "react";
 import { useGuacamoleClient } from "@/hooks/useGuacamoleClient";
 
-interface GuacamoleDisplayProps {
-  credential: string;
-}
+type GuacamoleDisplayProps =
+  | { mode?: "credential"; credential: string }
+  | { mode: "vm"; vmId: string; token: string };
 
-export function GuacamoleDisplay({ credential }: GuacamoleDisplayProps) {
+export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { state, error } = useGuacamoleClient({ credential, containerRef });
+
+  const options =
+    "vmId" in props
+      ? ({ mode: "vm" as const, vmId: props.vmId, token: props.token, containerRef })
+      : ({ mode: "credential" as const, credential: props.credential, containerRef });
+
+  const { state, error } = useGuacamoleClient(options);
   const [hintDismissed, setHintDismissed] = useState(false);
 
   return (
@@ -61,7 +67,7 @@ export function GuacamoleDisplay({ credential }: GuacamoleDisplayProps) {
             onClick={() => setHintDismissed(true)}
             aria-label="Dismiss hint"
           >
-            ✕
+            x
           </button>
         </div>
       )}
