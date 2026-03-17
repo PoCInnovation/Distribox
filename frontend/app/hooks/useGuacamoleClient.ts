@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { RefObject } from "react";
 import type Guacamole from "guacamole-common-js";
+import { API_BASE_URL } from "~/lib/api";
 
 export type GuacamoleConnectionState =
   | "connecting"
@@ -45,8 +46,6 @@ export function useGuacamoleClient(
     let keyboard: Guacamole.Keyboard | undefined;
 
     async function initGuacamole() {
-      // Dynamic import prevents SSR breakage. The package uses `export default
-      // Guacamole`, so we pull `.default` from the module namespace object.
       const { default: Guacamole } = await import("guacamole-common-js");
 
       if (cancelled) return;
@@ -57,14 +56,7 @@ export function useGuacamoleClient(
       const w = 1920;
       const h = 1080;
 
-      const wsBase = (import.meta.env.VITE_API_DOMAIN as string).replace(
-        /^http/,
-        "ws",
-      );
-      // Pass only the base path to WebSocketTunnel — the library appends
-      // "?" + connectParams itself inside connect(), so query params must
-      // NOT be in the tunnel URL or the URL ends up with a double "?".
-      const tunnelUrl = `${wsBase}/tunnel`;
+      const tunnelUrl = `${API_BASE_URL.replace(/^http/, "ws")}/tunnel`;
 
       let connectParams: string;
       if (options.mode === "credential") {
@@ -78,11 +70,8 @@ export function useGuacamoleClient(
 
       const display = client.getDisplay();
 
-      // Suppress guacamole-common-js software cursor entirely — we only
-      // want the cursor rendered in the VM framebuffer (cursor="remote").
       const killCursor = () => {
         display.showCursor(false);
-        // Hide the cursor layer element directly
         const cursorEl = display.getElement().querySelector(".cursor");
         if (cursorEl) (cursorEl as HTMLElement).style.display = "none";
       };
@@ -92,7 +81,6 @@ export function useGuacamoleClient(
       const displayEl = display.getElement();
       container.appendChild(displayEl);
 
-      // Scale display to fill container
       client.getDisplay().onresize = (newWidth: number, newHeight: number) => {
         const containerEl = options.containerRef.current;
         if (!containerEl) return;
@@ -103,8 +91,6 @@ export function useGuacamoleClient(
         client!.getDisplay().scale(scale);
       };
 
-      // Keep hook for potential future required-parameter UI handling.
-      // This client should not emit low-level protocol opcodes directly.
       client.onrequired = () => {};
 
       client.onstatechange = (newState: number) => {
@@ -127,7 +113,6 @@ export function useGuacamoleClient(
         setError(err?.message ?? "Tunnel error");
       };
       tunnel.onstatechange = (newState: number) => {
-        // guacamole-common-js tunnel states: 0=CONNECTING, 1=OPEN, 2=CLOSED, 3=UNSTABLE
         if (newState === 0 || newState === 1 || newState === 3) return;
         if (newState === 2) {
           setState((prev) => (prev === "connected" ? "disconnected" : "error"));
@@ -143,14 +128,11 @@ export function useGuacamoleClient(
       // Mouse
       const mouse: Guacamole.Mouse = new Guacamole.Mouse(displayEl);
       const sendMouse = (mouseState: Guacamole.Mouse.State) =>
-        // Coordinates from the display element must be normalized by current
-        // display scale before being sent to guacd.
         client!.sendMouseState(mouseState, true);
       mouse.onmousedown = sendMouse;
       mouse.onmouseup = sendMouse;
       mouse.onmousemove = sendMouse;
 
-      // connectParams are appended as "?connectParams" by WebSocketTunnel
       client.connect(connectParams);
     }
 

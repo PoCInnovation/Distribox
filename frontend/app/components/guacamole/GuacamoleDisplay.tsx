@@ -32,10 +32,8 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
           cursor: none !important;
         }
       `}</style>
-      {/* Guacamole canvas container */}
       <div ref={containerRef} className="guacamole-display w-full h-full" />
 
-      {/* Connecting overlay */}
       {state === "connecting" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white">
           <div className="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
@@ -43,7 +41,6 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
         </div>
       )}
 
-      {/* Error overlay */}
       {state === "error" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white">
           <p className="text-lg font-semibold text-destructive">
@@ -57,14 +54,12 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
         </div>
       )}
 
-      {/* Disconnected overlay */}
       {state === "disconnected" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white">
           <p className="text-lg font-medium">Disconnected</p>
         </div>
       )}
 
-      {/* OS login hint badge */}
       {state === "connected" && !hintDismissed && (
         <div className="absolute bottom-4 right-4 flex items-center gap-3 rounded-lg border border-white/20 bg-black/70 px-4 py-2 text-sm text-white backdrop-blur">
           <span>
