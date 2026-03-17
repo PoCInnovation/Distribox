@@ -2,12 +2,12 @@ import { VmMonitorGrid } from "@/components/dashboard/vm-monitor-grid";
 
 export default function MonitorRoute() {
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">
+    <div className="h-full p-8 mb-10">
+      <div className="mb-8">
+        <h1 className="mb-2 font-mono text-3xl font-bold tracking-tight text-balance">
           Monitor
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-muted-foreground">
           Live view of all virtual machines. Click a running VM to connect.
         </p>
       </div>
