@@ -98,9 +98,7 @@ export function DashboardSidenav() {
                 : "max-w-[12rem] translate-x-0 opacity-100",
             )}
           >
-            <span className="block truncate">
-              {item.label}
-            </span>
+            <span className="block truncate">{item.label}</span>
             <span className="block truncate text-[11px] text-amber-200/70">
               Missing: {missingPoliciesSummary}
             </span>
@@ -152,7 +150,9 @@ export function DashboardSidenav() {
       <Tooltip key={item.href}>
         <TooltipTrigger asChild>{itemContent}</TooltipTrigger>
         <TooltipContent side="right" align="center">
-          {missingPolicies.length > 0 ? `${item.label} (No access)` : item.label}
+          {missingPolicies.length > 0
+            ? `${item.label} (No access)`
+            : item.label}
         </TooltipContent>
       </Tooltip>
     );
@@ -223,7 +223,9 @@ export function DashboardSidenav() {
                 size="sm"
                 className={cn(
                   "h-12 w-full rounded-lg bg-transparent text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-                  collapsed ? "justify-center gap-0 px-0" : "justify-start gap-3 px-3",
+                  collapsed
+                    ? "justify-center gap-0 px-0"
+                    : "justify-start gap-3 px-3",
                 )}
                 aria-label="Open user menu"
               >
