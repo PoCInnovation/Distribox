@@ -64,18 +64,18 @@ export function EventJoinPage() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-background to-background/80 px-4 py-12">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-primary to-background px-4 py-12">
       <div className="w-full max-w-lg">
         {/* Branding header */}
         <div className="mb-8 flex flex-col items-center gap-3">
           <Image
             src="/favicon.ico"
-            width={48}
-            height={48}
+            width={120}
+            height={120}
             alt=""
             draggable={false}
           />
-          <h1 className="font-mono text-2xl font-bold tracking-wider text-foreground">
+          <h1 className="font-mono text-4xl font-bold tracking-wider">
             DISTRIBOX
           </h1>
         </div>

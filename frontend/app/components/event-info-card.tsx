@@ -49,7 +49,7 @@ export function EventInfoCard({
   return (
     <div className={cn("rounded-2xl border border-border bg-card", className)}>
       {/* Event header */}
-      <div className="border-b border-border px-6 pt-3 text-center">
+      <div className="border-b border-border px-6 pt-3 pb-3 text-center">
         <h2 className="text-2xl font-bold">{name}</h2>
         {description && (
           <p className="mt-2 text-sm text-muted-foreground">{description}</p>
