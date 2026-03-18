@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
@@ -54,8 +54,13 @@ import { VMState } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { getVMs } from "@/lib/api";
 
-function isExpired(deadline: string): boolean {
-  return new Date(deadline) < new Date();
+function useNow(intervalMs = 1000) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
 }
 
 function formatDeadline(deadline: string): string {
@@ -80,6 +85,7 @@ export function EventDetailPage() {
   const navigate = useNavigate();
   const authz = useAuthz();
 
+  const now = useNow(10000);
   const { data: event, isLoading, isError } = useEvent(eventId ?? "");
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
@@ -194,7 +200,7 @@ export function EventDetailPage() {
     );
   }
 
-  const expired = isExpired(event.deadline);
+  const expired = new Date(event.deadline) < now;
   const participantForVm = (vmId: string) =>
     event.participants.find((p) => p.vm_id === vmId);
 

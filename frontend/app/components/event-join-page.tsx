@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "@unpic/react";
@@ -18,8 +18,13 @@ import { Label } from "@/components/ui/label";
 import { getPublicEvent, joinEvent } from "@/lib/api/events";
 import type { Event, EventJoinResponse } from "@/lib/types/event";
 
-function isExpired(deadline: string): boolean {
-  return new Date(deadline) < new Date();
+function useNow(intervalMs = 1000) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
 }
 
 function formatDeadline(deadline: string): string {
@@ -35,6 +40,7 @@ function formatDeadline(deadline: string): string {
 export function EventJoinPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const now = useNow(10000);
 
   const {
     data: event,
@@ -182,7 +188,7 @@ export function EventJoinPage() {
 
             {/* Join form */}
             <div className="p-6">
-              {isExpired(event.deadline) ? (
+              {new Date(event.deadline) < now ? (
                 <div className="flex flex-col items-center gap-2 text-center">
                   <AlertCircle className="h-6 w-6 text-destructive" />
                   <p className="font-medium text-destructive">

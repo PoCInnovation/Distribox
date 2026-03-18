@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   Calendar,
@@ -35,10 +35,6 @@ import {
 } from "@/components/ui/dialog";
 import { DistroLogo } from "../distro-logo";
 
-function isExpired(deadline: string): boolean {
-  return new Date(deadline) < new Date();
-}
-
 function formatDeadline(deadline: string): string {
   const date = new Date(deadline);
   return date.toLocaleDateString("en-US", {
@@ -50,8 +46,7 @@ function formatDeadline(deadline: string): string {
   });
 }
 
-function timeRemaining(deadline: string): string {
-  const now = new Date();
+function timeRemaining(deadline: string, now: Date): string {
   const end = new Date(deadline);
   const diff = end.getTime() - now.getTime();
 
@@ -65,6 +60,15 @@ function timeRemaining(deadline: string): string {
   return `${hours}h ${minutes}m remaining`;
 }
 
+function useNow(intervalMs = 1000) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
 function EventCard({
   event,
   onSelect,
@@ -76,7 +80,8 @@ function EventCard({
   onDelete: () => void;
   canDelete: boolean;
 }) {
-  const expired = isExpired(event.deadline);
+  const now = useNow(10000);
+  const expired = new Date(event.deadline) < now;
 
   return (
     <Card
@@ -130,7 +135,7 @@ function EventCard({
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-4 w-4 shrink-0" />
-            <span className="truncate">{timeRemaining(event.deadline)}</span>
+            <span className="truncate">{timeRemaining(event.deadline, now)}</span>
           </div>
         </div>
 
