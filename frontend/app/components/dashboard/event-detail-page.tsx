@@ -10,6 +10,7 @@ import {
   ExternalLink,
   HardDrive,
   Link2,
+  LinkIcon,
   MemoryStick,
   Monitor,
   Pencil,
@@ -39,6 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EventInfoCard } from "@/components/event-info-card";
 import {
   useEvent,
   useUpdateEvent,
@@ -243,7 +245,7 @@ export function EventDetailPage() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShareLinkOpen(true)}>
             <Link2 className="mr-2 h-4 w-4" />
-            Share Link
+            Open Share Preview
           </Button>
           {canUpdate && !editing && (
             <Button variant="outline" onClick={startEditing}>
@@ -468,30 +470,55 @@ export function EventDetailPage() {
         </div>
       </div>
 
-      {/* Share Link Dialog */}
-      <Dialog open={shareLinkOpen} onOpenChange={setShareLinkOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <div className="flex flex-col items-center gap-6 py-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
-              <Link2 className="h-8 w-8 text-primary" />
-            </div>
-            <div className="text-center">
-              <h2 className="text-xl font-bold">{event.name}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Share this link with participants to let them get their Virtual
-                Machine
-              </p>
+      {/* Share Preview Overlay */}
+      {shareLinkOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-gradient-to-b from-primary to-background">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-6 top-6 z-10"
+            onClick={() => setShareLinkOpen(false)}
+          >
+            <X className="h-6 w-6" />
+          </Button>
+
+          <div className="flex w-full flex-col items-center gap-8 px-4 py-12">
+            {/* Big logo + branding */}
+            <div className="flex flex-col items-center gap-4">
+              <img
+                src="/favicon.ico"
+                width={120}
+                height={120}
+                alt="Distribox"
+                draggable={false}
+              />
+              <h1 className="font-mono text-4xl font-bold tracking-wider">
+                DISTRIBOX
+              </h1>
             </div>
 
-            <div className="w-full rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-6 text-center">
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Enter this Event link to get your Virtual Machine
-              </p>
-              <p className="break-all font-mono text-lg font-semibold text-primary">
+            {/* Event info card — same as /events/:slug */}
+            <EventInfoCard
+              name={event.name}
+              description="Get yourself the following Virtual Machine through this Distribox Event Link!"
+              vmOs={event.vm_os}
+              vmVcpus={event.vm_vcpus}
+              vmMem={event.vm_mem}
+              vmDiskSize={event.vm_disk_size}
+              participantsCount={event.participants_count}
+              maxVms={event.max_vms}
+              deadline={event.deadline}
+              className="w-full max-w-lg"
+            />
+
+            {/* Share link */}
+            <div className="rounded-2xl border-2 border-dashed border-primary/30 bg-card px-10 py-6 text-center">
+              <p className="whitespace-nowrap font-mono text-3xl font-semibold text-primary">
                 {shareUrl}
               </p>
             </div>
 
+            {/* Actions */}
             <div className="flex gap-3">
               <Button variant="outline" onClick={handleCopy}>
                 {copied ? (
@@ -512,8 +539,8 @@ export function EventDetailPage() {
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* Delete VM Confirm */}
       <Dialog

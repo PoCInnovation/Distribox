@@ -2,21 +2,13 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "@unpic/react";
-import {
-  AlertCircle,
-  Calendar,
-  Cpu,
-  HardDrive,
-  Loader2,
-  MemoryStick,
-  Server,
-  Users,
-} from "lucide-react";
+import { AlertCircle, Loader2, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getPublicEvent, joinEvent } from "@/lib/api/events";
 import type { Event, EventJoinResponse } from "@/lib/types/event";
+import { EventInfoCard } from "@/components/event-info-card";
 
 function useNow(intervalMs = 1000) {
   const [now, setNow] = useState(() => new Date());
@@ -25,16 +17,6 @@ function useNow(intervalMs = 1000) {
     return () => clearInterval(id);
   }, [intervalMs]);
   return now;
-}
-
-function formatDeadline(deadline: string): string {
-  return new Date(deadline).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 export function EventJoinPage() {
@@ -149,43 +131,17 @@ export function EventJoinPage() {
         )}
 
         {event && !joinResult && (
-          <div className="rounded-2xl border border-border bg-card">
-            {/* Event header */}
-            <div className="border-b border-border p-6 text-center">
-              <h2 className="text-2xl font-bold">{event.name}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Enter your name to get your Virtual Machine
-              </p>
-            </div>
-
-            {/* Event info */}
-            <div className="grid grid-cols-2 gap-3 border-b border-border p-4">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Server className="h-3.5 w-3.5" />
-                {event.vm_os.replace(".qcow2", "")}
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Cpu className="h-3.5 w-3.5" />
-                {event.vm_vcpus} vCPUs
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <MemoryStick className="h-3.5 w-3.5" />
-                {event.vm_mem} GB RAM
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <HardDrive className="h-3.5 w-3.5" />
-                {event.vm_disk_size} GB Disk
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Users className="h-3.5 w-3.5" />
-                {event.participants_count}/{event.max_vms} joined
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Calendar className="h-3.5 w-3.5" />
-                {formatDeadline(event.deadline)}
-              </div>
-            </div>
-
+          <EventInfoCard
+            name={event.name}
+            description="Enter your name to get your Virtual Machine"
+            vmOs={event.vm_os}
+            vmVcpus={event.vm_vcpus}
+            vmMem={event.vm_mem}
+            vmDiskSize={event.vm_disk_size}
+            participantsCount={event.participants_count}
+            maxVms={event.max_vms}
+            deadline={event.deadline}
+          >
             {/* Join form */}
             <div className="p-6">
               {new Date(event.deadline) < now ? (
@@ -241,7 +197,7 @@ export function EventJoinPage() {
                 </div>
               )}
             </div>
-          </div>
+          </EventInfoCard>
         )}
       </div>
     </main>
