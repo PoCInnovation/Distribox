@@ -1,3 +1,5 @@
+from sqlalchemy import Column, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import SQLModel, Field
 from datetime import datetime
 import uuid
@@ -24,7 +26,13 @@ class EventParticipantORM(SQLModel, table=True):
     __tablename__ = "event_participants"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    event_id: uuid.UUID = Field(foreign_key="events.id")
+    event_id: uuid.UUID = Field(
+        sa_column=Column(
+            UUID(as_uuid=True),
+            ForeignKey("events.id", ondelete="CASCADE"),
+            nullable=False,
+        )
+    )
     participant_name: str
     vm_id: uuid.UUID = Field(foreign_key="vms.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)

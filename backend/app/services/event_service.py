@@ -13,6 +13,7 @@ from app.models.event import (
 from app.models.vm import VmCreate, VmCredentialCreateRequest
 from app.orm.event import EventORM, EventParticipantORM
 from app.orm.vm import VmORM
+from app.orm.vm_credential import VmCredentialORM
 from app.services.host_service import HostService
 from app.services.vm_service import VmService
 
@@ -172,6 +173,22 @@ class EventService:
             for key, value in update_data.items():
                 setattr(event, key, value)
 
+            # If deadline changed, update expires_at on all participant credentials
+            if "deadline" in update_data:
+                new_deadline = update_data["deadline"]
+                participants = session.exec(
+                    select(EventParticipantORM)
+                    .where(EventParticipantORM.event_id == event.id)
+                ).all()
+                for participant in participants:
+                    credentials = session.exec(
+                        select(VmCredentialORM)
+                        .where(VmCredentialORM.vm_id == participant.vm_id)
+                    ).all()
+                    for cred in credentials:
+                        cred.expires_at = new_deadline
+                        session.add(cred)
+
             session.add(event)
             session.commit()
             session.refresh(event)
@@ -302,6 +319,7 @@ class EventService:
             VmCredentialCreateRequest(
                 name=sanitized,
                 password=credential_password,
+                expires_at=event.deadline,
             ),
         )
 
