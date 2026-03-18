@@ -62,6 +62,18 @@ def init_db():
                 )
             )
 
+        if "vm_credentials" in inspector.get_table_names():
+            cred_columns = {
+                col["name"] for col in inspector.get_columns("vm_credentials")
+            }
+            if "expires_at" not in cred_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE vm_credentials "
+                        "ADD COLUMN expires_at TIMESTAMP"
+                    )
+                )
+
 
 class QEMUConfig:
     qemu_conn = None

@@ -28,6 +28,7 @@ class VmCreate(VmBase):
 class VmCredentialCreateRequest(BaseModel):
     name: str = Field(min_length=1)
     password: Optional[str] = None
+    expires_at: Optional[datetime] = None
 
 
 class VmCredentialRead(BaseModel):
@@ -36,6 +37,7 @@ class VmCredentialRead(BaseModel):
     name: str
     password: str
     created_at: datetime
+    expires_at: Optional[datetime] = None
 
 
 class RecoverableVm(ImageRead):
