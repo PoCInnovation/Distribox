@@ -27,6 +27,11 @@ export enum Policy {
   VMS_RECOVER = "vms:recoverVmById",
   VMS_CLEAN_RECOVERABLE = "vms:cleanRecoverableVmById",
   VMS_CLEAN_ALL_RECOVERABLE = "vms:cleanAllRecoverableVms",
+  EVENTS_GET = "events:get",
+  EVENTS_GET_BY_ID = "events:getById",
+  EVENTS_CREATE = "events:create",
+  EVENTS_UPDATE = "events:update",
+  EVENTS_DELETE = "events:delete",
 }
 
 export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
@@ -66,6 +71,11 @@ export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
     "Allows the user to clean a recoverable vm by id.",
   [Policy.VMS_CLEAN_ALL_RECOVERABLE]:
     "Allows the user to clean all recoverable vms.",
+  [Policy.EVENTS_GET]: "Allows the user to list events.",
+  [Policy.EVENTS_GET_BY_ID]: "Allows the user to fetch an event by id.",
+  [Policy.EVENTS_CREATE]: "Allows the user to create events.",
+  [Policy.EVENTS_UPDATE]: "Allows the user to update events.",
+  [Policy.EVENTS_DELETE]: "Allows the user to delete events and their VMs.",
 };
 
 export const PolicySchema = z.string().min(1);
@@ -227,6 +237,36 @@ export const POLICY_COLORS = {
     border: "border-red-600",
     hover: "hover:bg-red-600/30",
     text: "text-red-700 dark:text-red-400",
+  },
+  [Policy.EVENTS_GET]: {
+    bg: "bg-indigo-500/20",
+    border: "border-indigo-500",
+    hover: "hover:bg-indigo-500/30",
+    text: "text-indigo-600 dark:text-indigo-400",
+  },
+  [Policy.EVENTS_GET_BY_ID]: {
+    bg: "bg-indigo-600/20",
+    border: "border-indigo-600",
+    hover: "hover:bg-indigo-600/30",
+    text: "text-indigo-700 dark:text-indigo-400",
+  },
+  [Policy.EVENTS_CREATE]: {
+    bg: "bg-violet-500/20",
+    border: "border-violet-500",
+    hover: "hover:bg-violet-500/30",
+    text: "text-violet-600 dark:text-violet-400",
+  },
+  [Policy.EVENTS_UPDATE]: {
+    bg: "bg-violet-600/20",
+    border: "border-violet-600",
+    hover: "hover:bg-violet-600/30",
+    text: "text-violet-700 dark:text-violet-400",
+  },
+  [Policy.EVENTS_DELETE]: {
+    bg: "bg-rose-500/20",
+    border: "border-rose-500",
+    hover: "hover:bg-rose-500/30",
+    text: "text-rose-600 dark:text-rose-400",
   },
   default: {
     bg: "bg-gray-500/20",

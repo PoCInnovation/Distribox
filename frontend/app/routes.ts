@@ -5,11 +5,14 @@ export default [
   route("client", "routes/client.tsx"),
   route("auth/login", "routes/auth.login.tsx"),
   route("error", "routes/error.tsx"),
+  route("events/:slug", "routes/events.$slug.tsx"),
   route("dashboard", "routes/dashboard.tsx", [
     index("routes/dashboard._index.tsx"),
     route("monitor", "routes/dashboard.monitor.tsx"),
     route("provision", "routes/dashboard.provision.tsx"),
     route("users-policies", "routes/dashboard.users-policies.tsx"),
+    route("events", "routes/dashboard.events.tsx"),
+    route("events/:eventId", "routes/dashboard.events.$eventId.tsx"),
   ]),
   route("*", "routes/404.tsx"),
 ] satisfies RouteConfig;

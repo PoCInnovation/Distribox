@@ -6,7 +6,7 @@ import { RecoveryContainer } from "@/components/recovery/recovery-container";
 
 export default function OverviewPage() {
   return (
-    <div className="h-full p-8 mb-10">
+    <div className="h-full p-8">
       <div className="mb-8">
         <h1 className="mb-2 font-mono text-3xl font-bold tracking-tight text-balance">
           Dashboard Overview

@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   PanelLeftClose,
   PanelLeftOpen,
+  Calendar1Icon,
 } from "lucide-react";
 import { Image } from "@unpic/react";
 import { cn } from "@/lib/utils";
@@ -54,6 +55,12 @@ const navItems = [
     label: "Provision VM",
     icon: PlusIcon,
     requiredPolicies: [Policy.VMS_CREATE] as PolicyName[],
+  },
+  {
+    href: "/dashboard/events",
+    label: "Events",
+    icon: Calendar1Icon,
+    requiredPolicies: [Policy.EVENTS_GET] as PolicyName[],
   },
   {
     href: "/dashboard/users-policies",

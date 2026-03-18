@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 import uuid
 
 from sqlalchemy import Column, ForeignKey
@@ -21,3 +22,4 @@ class VmCredentialORM(SQLModel, table=True):
     name: str
     password: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: Optional[datetime] = Field(default=None, nullable=True)

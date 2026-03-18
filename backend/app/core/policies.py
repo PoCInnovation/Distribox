@@ -109,6 +109,26 @@ POLICIES: list[dict[str, str]] = [
         "policy": "vms:recoverVmById",
         "description": "Allows the user to recover a vm by id.",
     },
+    {
+        "policy": "events:get",
+        "description": "Allows the user to list events.",
+    },
+    {
+        "policy": "events:getById",
+        "description": "Allows the user to fetch an event by id.",
+    },
+    {
+        "policy": "events:create",
+        "description": "Allows the user to create events.",
+    },
+    {
+        "policy": "events:update",
+        "description": "Allows the user to update events.",
+    },
+    {
+        "policy": "events:delete",
+        "description": "Allows the user to delete events and their VMs.",
+    },
 ]
 
 VALID_POLICIES = {entry["policy"] for entry in POLICIES}
