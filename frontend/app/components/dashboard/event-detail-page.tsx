@@ -45,10 +45,17 @@ import {
   useDeleteEvent,
   useDeleteEventVm,
 } from "@/hooks/useEvents";
+import { useHostInfo } from "@/hooks/useHostInfo";
 import { useAuthz } from "@/contexts/authz-context";
 import { Policy } from "@/lib/types";
 import { VMImageSelect } from "./vm-image-picker";
 import { VmMonitorTile } from "./vm-monitor-tile";
+import {
+  DateTimePicker,
+  VmSpecFields,
+  HostResourcesBar,
+  ResourceWarnings,
+} from "./event-form-fields";
 import type { VirtualMachineMetadata } from "@/lib/types";
 import { VMState } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
@@ -73,13 +80,6 @@ function formatDeadline(deadline: string): string {
   });
 }
 
-function toLocalDatetimeValue(isoString: string): string {
-  const date = new Date(isoString);
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60000);
-  return local.toISOString().slice(0, 16);
-}
-
 export function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
@@ -93,16 +93,21 @@ export function EventDetailPage() {
 
   const canUpdate = authz.hasPolicy(Policy.EVENTS_UPDATE);
   const canDelete = authz.hasPolicy(Policy.EVENTS_DELETE);
+  const canReadHost = authz.hasPolicy(Policy.HOST_GET);
   const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
 
   const [editing, setEditing] = useState(false);
+  const { data: hostInfo } = useHostInfo(canReadHost && editing, 2000);
+
   const [editName, setEditName] = useState("");
   const [editOS, setEditOS] = useState("");
   const [editVcpus, setEditVcpus] = useState("");
   const [editMem, setEditMem] = useState("");
   const [editDisk, setEditDisk] = useState("");
   const [editMaxVms, setEditMaxVms] = useState("");
-  const [editDeadline, setEditDeadline] = useState("");
+  const [editDeadline, setEditDeadline] = useState<Date | undefined>(
+    undefined,
+  );
 
   const [shareLinkOpen, setShareLinkOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -131,7 +136,7 @@ export function EventDetailPage() {
     setEditMem(String(event.vm_mem));
     setEditDisk(String(event.vm_disk_size));
     setEditMaxVms(String(event.max_vms));
-    setEditDeadline(toLocalDatetimeValue(event.deadline));
+    setEditDeadline(new Date(event.deadline));
     setEditing(true);
   };
 
@@ -148,7 +153,7 @@ export function EventDetailPage() {
           vm_disk_size: Number.parseInt(editDisk) || undefined,
           max_vms: Number.parseInt(editMaxVms) || undefined,
           deadline: editDeadline
-            ? new Date(editDeadline).toISOString()
+            ? editDeadline.toISOString()
             : undefined,
         },
       });
@@ -283,35 +288,15 @@ export function EventDetailPage() {
                       enabled={canReadImages}
                     />
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">vCPUs</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={editVcpus}
-                        onChange={(e) => setEditVcpus(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">RAM (GB)</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={editMem}
-                        onChange={(e) => setEditMem(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Disk (GB)</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={editDisk}
-                        onChange={(e) => setEditDisk(e.target.value)}
-                      />
-                    </div>
-                  </div>
+                  <VmSpecFields
+                    vcpus={editVcpus}
+                    onVcpusChange={setEditVcpus}
+                    mem={editMem}
+                    onMemChange={setEditMem}
+                    diskSize={editDisk}
+                    onDiskChange={setEditDisk}
+                    maxCpus={hostInfo?.cpu.cpu_count}
+                  />
                   <div className="space-y-2">
                     <Label>Max Participants</Label>
                     <Input
@@ -323,12 +308,22 @@ export function EventDetailPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Deadline</Label>
-                    <Input
-                      type="datetime-local"
+                    <DateTimePicker
                       value={editDeadline}
-                      onChange={(e) => setEditDeadline(e.target.value)}
+                      onChange={setEditDeadline}
+                      side="bottom"
                     />
                   </div>
+                  {hostInfo && <HostResourcesBar hostInfo={hostInfo} />}
+                  {hostInfo && (
+                    <ResourceWarnings
+                      vcpus={Number.parseInt(editVcpus) || 0}
+                      mem={Number.parseInt(editMem) || 0}
+                      diskSize={Number.parseInt(editDisk) || 0}
+                      maxVms={Number.parseInt(editMaxVms) || 0}
+                      hostInfo={hostInfo}
+                    />
+                  )}
 
                   <div className="flex gap-2">
                     <Button
@@ -419,7 +414,7 @@ export function EventDetailPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                           onClick={() => setDeleteVmConfirm(p.vm_id)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
