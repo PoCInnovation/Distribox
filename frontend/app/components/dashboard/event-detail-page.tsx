@@ -115,8 +115,7 @@ export function EventDetailPage() {
     enabled: !!event,
   });
 
-  const eventVms =
-    allVms?.filter((vm) => participantVmIds.has(vm.id)) ?? [];
+  const eventVms = allVms?.filter((vm) => participantVmIds.has(vm.id)) ?? [];
 
   const startEditing = () => {
     if (!event) return;
@@ -231,10 +230,7 @@ export function EventDetailPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShareLinkOpen(true)}
-          >
+          <Button variant="outline" onClick={() => setShareLinkOpen(true)}>
             <Link2 className="mr-2 h-4 w-4" />
             Share Link
           </Button>
@@ -337,10 +333,7 @@ export function EventDetailPage() {
                       <Save className="mr-2 h-4 w-4" />
                       {updateEvent.isPending ? "Saving..." : "Save"}
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setEditing(false)}
-                    >
+                    <Button variant="outline" onClick={() => setEditing(false)}>
                       <X className="mr-2 h-4 w-4" />
                       Cancel
                     </Button>
@@ -512,9 +505,7 @@ export function EventDetailPage() {
                   </>
                 )}
               </Button>
-              <Button
-                onClick={() => window.open(shareUrl, "_blank")}
-              >
+              <Button onClick={() => window.open(shareUrl, "_blank")}>
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Open
               </Button>
@@ -537,10 +528,7 @@ export function EventDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteVmConfirm(null)}
-            >
+            <Button variant="outline" onClick={() => setDeleteVmConfirm(null)}>
               Cancel
             </Button>
             <Button
@@ -555,10 +543,7 @@ export function EventDetailPage() {
       </Dialog>
 
       {/* Delete Event Confirm */}
-      <Dialog
-        open={deleteEventConfirm}
-        onOpenChange={setDeleteEventConfirm}
-      >
+      <Dialog open={deleteEventConfirm} onOpenChange={setDeleteEventConfirm}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Event</DialogTitle>

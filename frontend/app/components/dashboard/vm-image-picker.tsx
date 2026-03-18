@@ -189,7 +189,9 @@ function ImagePicker({
                   <button
                     key={image.name}
                     type="button"
-                    onClick={() => setSelectedOS(image.image, image.distribution)}
+                    onClick={() =>
+                      setSelectedOS(image.image, image.distribution)
+                    }
                     className={cn(
                       "w-full text-left flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
                       selectedOS === image.image

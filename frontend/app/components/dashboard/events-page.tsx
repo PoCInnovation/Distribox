@@ -141,7 +141,9 @@ function EventCard({
           <div className="flex flex-wrap gap-3">
             <div className="flex items-center gap-1.5 text-xs text-foreground">
               <DistroLogo
-                distribution={event.vm_distribution || event.vm_os.replace(".qcow2", "")}
+                distribution={
+                  event.vm_distribution || event.vm_os.replace(".qcow2", "")
+                }
                 className="w-5 h-5 rounded-none bg-transparent"
               />
               {event.vm_distribution || event.vm_os.replace(".qcow2", "")}
@@ -255,8 +257,9 @@ export function EventsPage() {
               <DialogTitle>Delete Event</DialogTitle>
               <DialogDescription>
                 Are you sure you want to delete{" "}
-                <strong>{eventToDelete?.name}</strong>? This will stop and remove
-                all VMs associated with this event. This action cannot be undone.
+                <strong>{eventToDelete?.name}</strong>? This will stop and
+                remove all VMs associated with this event. This action cannot be
+                undone.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>

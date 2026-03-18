@@ -8,7 +8,8 @@ export default function EventsRoute() {
           Events
         </h1>
         <p className="text-muted-foreground">
-          An Event allows you to easily distribute a fixed number of VMs with a predefined specification for a set duration.
+          An Event allows you to easily distribute a fixed number of VMs with a
+          predefined specification for a set duration.
         </p>
       </div>
       <EventsPage />

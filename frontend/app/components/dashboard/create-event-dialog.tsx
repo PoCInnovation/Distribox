@@ -11,13 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import {
-  AlertCircle,
-  Check,
-  Cpu,
-  HardDrive,
-  MemoryStick,
-} from "lucide-react";
+import { AlertCircle, Check, Cpu, HardDrive, MemoryStick } from "lucide-react";
 import { useCreateEvent } from "@/hooks/useEvents";
 import { useHostInfo } from "@/hooks/useHostInfo";
 import { VMImageSelect } from "./vm-image-picker";

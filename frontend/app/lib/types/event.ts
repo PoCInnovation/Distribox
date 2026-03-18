@@ -29,7 +29,10 @@ export type EventParticipant = z.infer<typeof EventParticipantSchema>;
 
 export const CreateEventPayloadSchema = z.object({
   name: z.string().min(1),
-  slug: z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/),
+  slug: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/),
   vm_os: z.string().min(1),
   vm_distribution: z.string().default(""),
   vm_mem: z.number().positive(),

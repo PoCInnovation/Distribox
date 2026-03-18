@@ -74,7 +74,8 @@ class EventService:
             parsed_id = _parse_uuid(event_id)
             event = session.get(EventORM, parsed_id)
             if not event:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f"Event {event_id} not found")
+                raise HTTPException(status.HTTP_404_NOT_FOUND,
+                                    f"Event {event_id} not found")
             participants = session.exec(
                 select(EventParticipantORM)
                 .where(EventParticipantORM.event_id == event.id)
@@ -89,7 +90,8 @@ class EventService:
                 select(EventORM).where(EventORM.slug == slug)
             ).first()
             if not event:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f"Event '{slug}' not found")
+                raise HTTPException(status.HTTP_404_NOT_FOUND,
+                                    f"Event '{slug}' not found")
             participants = session.exec(
                 select(EventParticipantORM)
                 .where(EventParticipantORM.event_id == event.id)
@@ -132,7 +134,8 @@ class EventService:
             parsed_id = _parse_uuid(event_id)
             event = session.get(EventORM, parsed_id)
             if not event:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f"Event {event_id} not found")
+                raise HTTPException(status.HTTP_404_NOT_FOUND,
+                                    f"Event {event_id} not found")
 
             update_data = payload.model_dump(exclude_unset=True)
             for key, value in update_data.items():
@@ -155,7 +158,8 @@ class EventService:
             parsed_id = _parse_uuid(event_id)
             event = session.get(EventORM, parsed_id)
             if not event:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f"Event {event_id} not found")
+                raise HTTPException(status.HTTP_404_NOT_FOUND,
+                                    f"Event {event_id} not found")
 
             participants = session.exec(
                 select(EventParticipantORM)
@@ -180,7 +184,8 @@ class EventService:
 
             event = session.get(EventORM, parsed_event_id)
             if not event:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f"Event {event_id} not found")
+                raise HTTPException(status.HTTP_404_NOT_FOUND,
+                                    f"Event {event_id} not found")
 
             participant = session.exec(
                 select(EventParticipantORM).where(
@@ -189,7 +194,8 @@ class EventService:
                 )
             ).first()
             if not participant:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, "Participant VM not found in this event")
+                raise HTTPException(status.HTTP_404_NOT_FOUND,
+                                    "Participant VM not found in this event")
 
             try:
                 VmService.remove_vm(str(parsed_vm_id))
@@ -206,10 +212,12 @@ class EventService:
                 select(EventORM).where(EventORM.slug == slug)
             ).first()
             if not event:
-                raise HTTPException(status.HTTP_404_NOT_FOUND, f"Event '{slug}' not found")
+                raise HTTPException(status.HTTP_404_NOT_FOUND,
+                                    f"Event '{slug}' not found")
 
             if datetime.utcnow() > event.deadline:
-                raise HTTPException(status.HTTP_410_GONE, "This event has expired")
+                raise HTTPException(status.HTTP_410_GONE,
+                                    "This event has expired")
 
             participants_count = session.exec(
                 select(func.count()).where(

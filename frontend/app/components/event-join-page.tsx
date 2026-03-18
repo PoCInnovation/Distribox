@@ -69,9 +69,7 @@ export function EventJoinPage() {
         );
       }, 3000);
     } catch (err) {
-      setJoinError(
-        err instanceof Error ? err.message : "Failed to join event",
-      );
+      setJoinError(err instanceof Error ? err.message : "Failed to join event");
     } finally {
       setJoining(false);
     }
@@ -128,9 +126,7 @@ export function EventJoinPage() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Username</span>
-                <span className="font-mono">
-                  {joinResult.credential_name}
-                </span>
+                <span className="font-mono">{joinResult.credential_name}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Password</span>
