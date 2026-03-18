@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { getHostInfo } from "@/lib/api";
 
-export function useHostInfo(enabled = true) {
+export function useHostInfo(enabled = true, refetchInterval = 1000) {
   return useQuery({
     queryKey: ["host", "info"],
     queryFn: getHostInfo,
-    refetchInterval: 1000,
+    refetchInterval,
     enabled,
     retry: false,
   });

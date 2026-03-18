@@ -13,6 +13,7 @@ from app.models.event import (
 from app.models.vm import VmCreate, VmCredentialCreateRequest
 from app.orm.event import EventORM, EventParticipantORM
 from app.orm.vm import VmORM
+from app.services.host_service import HostService
 from app.services.vm_service import VmService
 
 
@@ -100,7 +101,37 @@ class EventService:
             return _event_to_read(event, list(participants))
 
     @staticmethod
+    def _check_host_resources(payload: EventCreate) -> None:
+        host = HostService.get_host_info()
+
+        if payload.vm_vcpus > host.cpu.cpu_count:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Requested {payload.vm_vcpus} vCPUs per VM but host only has {host.cpu.cpu_count} CPU cores",
+            )
+
+        total_mem = payload.max_vms * payload.vm_mem
+        available_mem = host.mem.available
+        if total_mem > available_mem:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Event requires up to {total_mem} GB RAM ({payload.max_vms} VMs x {payload.vm_mem} GB) "
+                f"but only {available_mem} GB is available",
+            )
+
+        total_disk = payload.max_vms * payload.vm_disk_size
+        available_disk = host.disk.available
+        if total_disk > available_disk:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Event requires up to {total_disk} GB disk ({payload.max_vms} VMs x {payload.vm_disk_size} GB) "
+                f"but only {available_disk} GB is available",
+            )
+
+    @staticmethod
     def create_event(payload: EventCreate, created_by: str) -> EventRead:
+        EventService._check_host_resources(payload)
+
         with Session(engine) as session:
             existing = session.exec(
                 select(EventORM).where(EventORM.slug == payload.slug)
