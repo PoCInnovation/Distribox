@@ -144,7 +144,7 @@ export function CreateEventDialog({
         vm_mem: memNum,
         vm_disk_size: diskNum,
         max_vms: maxVmsNum,
-        deadline: format(deadline, "yyyy-MM-dd'T'HH:mm:ss"),
+        deadline: deadline.toISOString(),
       });
 
       setName("");

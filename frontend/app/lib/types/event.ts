@@ -16,7 +16,7 @@ export const EventSchema = z.object({
   vm_mem: z.number(),
   vm_vcpus: z.number(),
   vm_disk_size: z.number(),
-  deadline: z.string(),
+  deadline: z.string().transform((s) => (s.endsWith("Z") ? s : s + "Z")),
   max_vms: z.number(),
   created_at: z.string(),
   created_by: z.string(),
