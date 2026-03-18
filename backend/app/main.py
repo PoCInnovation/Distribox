@@ -99,7 +99,8 @@ async def _enforce_event_deadlines():
         try:
             with Session(engine) as session:
                 expired_events = session.exec(
-                    select(EventORM).where(EventORM.deadline < datetime.utcnow())
+                    select(EventORM).where(
+                        EventORM.deadline < datetime.utcnow())
                 ).all()
                 for ev in expired_events:
                     participants = session.exec(

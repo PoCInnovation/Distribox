@@ -7,7 +7,8 @@ import { ForbiddenErrorResponseSchema } from "@/lib/types";
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_DOMAIN || "http://localhost:8080";
-export const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || "http://localhost:3000";
+export const FRONTEND_URL =
+  import.meta.env.VITE_FRONTEND_URL || "http://localhost:3000";
 const TOKEN_KEY = "auth_token";
 const LAST_VALIDATION_ERROR_KEY = "last_validation_error";
 const LAST_FORBIDDEN_ERROR_KEY = "last_forbidden_error";

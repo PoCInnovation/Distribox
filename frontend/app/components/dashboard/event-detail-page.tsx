@@ -339,7 +339,10 @@ export function EventDetailPage() {
                   <InfoRow
                     icon={
                       <DistroLogo
-                        distribution={event.vm_distribution || event.vm_os.replace(".qcow2", "")}
+                        distribution={
+                          event.vm_distribution ||
+                          event.vm_os.replace(".qcow2", "")
+                        }
                         className="h-6 w-6 rounded-sm bg-transparent"
                       />
                     }

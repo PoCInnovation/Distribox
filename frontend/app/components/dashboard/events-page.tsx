@@ -135,7 +135,9 @@ function EventCard({
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-4 w-4 shrink-0" />
-            <span className="truncate">{timeRemaining(event.deadline, now)}</span>
+            <span className="truncate">
+              {timeRemaining(event.deadline, now)}
+            </span>
           </div>
         </div>
 

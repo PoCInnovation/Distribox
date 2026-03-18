@@ -1,11 +1,5 @@
 import type { ReactNode } from "react";
-import {
-  Calendar,
-  Cpu,
-  HardDrive,
-  MemoryStick,
-  Users,
-} from "lucide-react";
+import { Calendar, Cpu, HardDrive, MemoryStick, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DistroLogo } from "@/components/distro-logo";
 
