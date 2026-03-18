@@ -6,3 +6,4 @@ export * from "./vms";
 export * from "./users";
 export * from "./credentials";
 export * from "./recoverable-vms";
+export * from "./events";
