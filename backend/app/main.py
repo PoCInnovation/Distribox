@@ -1,3 +1,7 @@
+import asyncio
+import logging
+from datetime import datetime
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +14,9 @@ from app.orm.event import EventORM, EventParticipantORM  # noqa: F401
 from app.utils.auth import hash_password
 from app.core.config import engine, get_env_or_default, init_db
 from app.utils.crypto import encrypt_secret, is_encrypted_secret
+from app.services.vm_service import VmService
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -83,6 +90,45 @@ async def startup_event():
                 "✓ Encrypted plaintext passwords for users: " +
                 ", ".join(migrated_usernames)
             )
+
+    asyncio.create_task(_enforce_event_deadlines())
+
+
+async def _enforce_event_deadlines():
+    while True:
+        try:
+            with Session(engine) as session:
+                expired_events = session.exec(
+                    select(EventORM).where(EventORM.deadline < datetime.utcnow())
+                ).all()
+                for ev in expired_events:
+                    participants = session.exec(
+                        select(EventParticipantORM)
+                        .where(EventParticipantORM.event_id == ev.id)
+                    ).all()
+                    for p in participants:
+                        try:
+                            vm = await asyncio.to_thread(
+                                VmService.get_vm, str(p.vm_id)
+                            )
+                            if vm and vm.state.lower() == "running":
+                                await asyncio.to_thread(
+                                    VmService.stop_vm, str(p.vm_id)
+                                )
+                                logger.info(
+                                    "Stopped VM %s for expired event %s",
+                                    p.vm_id, ev.slug,
+                                )
+                        except HTTPException:
+                            pass
+                        except Exception:
+                            logger.exception(
+                                "Failed to stop VM %s for event %s",
+                                p.vm_id, ev.slug,
+                            )
+        except Exception:
+            logger.exception("Error in deadline enforcement loop")
+        await asyncio.sleep(30)
 
 
 @app.exception_handler(HTTPException)
