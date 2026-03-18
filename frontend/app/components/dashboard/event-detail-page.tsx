@@ -10,7 +10,6 @@ import {
   ExternalLink,
   HardDrive,
   Link2,
-  LinkIcon,
   MemoryStick,
   Monitor,
   Pencil,
@@ -59,9 +58,8 @@ import {
   ResourceWarnings,
 } from "./event-form-fields";
 import type { VirtualMachineMetadata } from "@/lib/types";
-import { VMState } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
-import { getVMs } from "@/lib/api";
+import { FRONTEND_URL, getVMs } from "@/lib/api";
 
 function useNow(intervalMs = 1000) {
   const [now, setNow] = useState(() => new Date());
@@ -107,9 +105,7 @@ export function EventDetailPage() {
   const [editMem, setEditMem] = useState("");
   const [editDisk, setEditDisk] = useState("");
   const [editMaxVms, setEditMaxVms] = useState("");
-  const [editDeadline, setEditDeadline] = useState<Date | undefined>(
-    undefined,
-  );
+  const [editDeadline, setEditDeadline] = useState<Date | undefined>(undefined);
 
   const [shareLinkOpen, setShareLinkOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -154,9 +150,7 @@ export function EventDetailPage() {
           vm_mem: Number.parseInt(editMem) || undefined,
           vm_disk_size: Number.parseInt(editDisk) || undefined,
           max_vms: Number.parseInt(editMaxVms) || undefined,
-          deadline: editDeadline
-            ? editDeadline.toISOString()
-            : undefined,
+          deadline: editDeadline ? editDeadline.toISOString() : undefined,
         },
       });
       setEditing(false);
@@ -180,9 +174,7 @@ export function EventDetailPage() {
     );
   };
 
-  const shareUrl = event
-    ? `${window.location.origin}/events/${event.slug}`
-    : "";
+  const shareUrl = event ? `${FRONTEND_URL}/events/${event.slug}` : "";
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(shareUrl);
@@ -512,7 +504,7 @@ export function EventDetailPage() {
             />
 
             {/* Share link */}
-            <div className="rounded-2xl border-2 border-dashed border-primary/30 bg-card px-10 py-6 text-center">
+            <div className="border border-dashed border-primary/30 bg-card px-10 py-6 text-center">
               <p className="whitespace-nowrap font-mono text-3xl font-semibold text-primary">
                 {shareUrl}
               </p>

@@ -49,7 +49,7 @@ export function EventInfoCard({
   return (
     <div className={cn("rounded-2xl border border-border bg-card", className)}>
       {/* Event header */}
-      <div className="border-b border-border p-6 text-center">
+      <div className="border-b border-border px-6 pt-3 text-center">
         <h2 className="text-2xl font-bold">{name}</h2>
         {description && (
           <p className="mt-2 text-sm text-muted-foreground">{description}</p>
@@ -64,19 +64,19 @@ export function EventInfoCard({
         )}
       >
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Server className="h-3.5 w-3.5" />
+          <Server className="h-3.5 w-3.5 text-primary" />
           {vmOs.replace(".qcow2", "")}
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Cpu className="h-3.5 w-3.5" />
+          <Cpu className="h-3.5 w-3.5 text-primary" />
           {vmVcpus} vCPUs
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <MemoryStick className="h-3.5 w-3.5" />
+          <MemoryStick className="h-3.5 w-3.5 text-accent" />
           {vmMem} GB RAM
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <HardDrive className="h-3.5 w-3.5" />
+          <HardDrive className="h-3.5 w-3.5 text-chart-4" />
           {vmDiskSize} GB Disk
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
