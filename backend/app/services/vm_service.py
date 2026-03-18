@@ -311,6 +311,7 @@ class VmService:
                 vm_id=vm_record.id,
                 name=payload.name,
                 password=encrypt_secret(credential_password),
+                expires_at=payload.expires_at,
             )
             session.add(credential)
             session.commit()
@@ -321,6 +322,7 @@ class VmService:
                 "name": credential.name,
                 "password": credential_password,
                 "created_at": credential.created_at,
+                "expires_at": credential.expires_at,
             }
 
     @staticmethod
@@ -340,6 +342,7 @@ class VmService:
                     "name": credential.name,
                     "password": decrypt_secret(credential.password),
                     "created_at": credential.created_at,
+                    "expires_at": credential.expires_at,
                 }
                 for credential in credentials
             ]
@@ -367,6 +370,7 @@ class VmService:
                 "name": credential.name,
                 "password": decrypt_secret(credential.password),
                 "created_at": credential.created_at,
+                "expires_at": credential.expires_at,
             }
 
     @staticmethod

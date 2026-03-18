@@ -49,7 +49,11 @@ def _find_vm_for_credential(token: str) -> str | None:
     Supported token formats:
     - credential password (legacy/current behaviour)
     - credential record UUID (fallback for clients using credential id)
+
+    Returns None if the credential is expired or not found.
     """
+    from datetime import datetime
+
     normalized = token.strip()
     if not normalized:
         return None
@@ -57,12 +61,14 @@ def _find_vm_for_credential(token: str) -> str | None:
     with Session(engine) as session:
         credentials = session.exec(
             select(VmCredentialORM.id, VmCredentialORM.vm_id,
-                   VmCredentialORM.password)
+                   VmCredentialORM.password, VmCredentialORM.expires_at)
         ).all()
 
         for cred in credentials:
             try:
                 if decrypt_secret(cred.password) == normalized:
+                    if cred.expires_at and datetime.utcnow() > cred.expires_at:
+                        return None
                     return str(cred.vm_id)
             except Exception:
                 continue
@@ -74,6 +80,8 @@ def _find_vm_for_credential(token: str) -> str | None:
 
         credential = session.get(VmCredentialORM, parsed_id)
         if credential:
+            if credential.expires_at and datetime.now() > credential.expires_at:
+                return None
             return str(credential.vm_id)
     return None
 
