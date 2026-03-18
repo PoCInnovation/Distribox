@@ -135,6 +135,7 @@ export function EventJoinPage() {
             name={event.name}
             description="Enter your name to get your Virtual Machine"
             vmOs={event.vm_os}
+            vmDistribution={event.vm_distribution}
             vmVcpus={event.vm_vcpus}
             vmMem={event.vm_mem}
             vmDiskSize={event.vm_disk_size}

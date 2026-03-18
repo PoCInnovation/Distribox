@@ -4,14 +4,15 @@ import {
   Cpu,
   HardDrive,
   MemoryStick,
-  Server,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DistroLogo } from "@/components/distro-logo";
 
 interface EventInfoCardProps {
   name: string;
   vmOs: string;
+  vmDistribution?: string;
   vmVcpus: number;
   vmMem: number;
   vmDiskSize: number;
@@ -36,6 +37,7 @@ function formatDeadline(deadline: string): string {
 export function EventInfoCard({
   name,
   vmOs,
+  vmDistribution,
   vmVcpus,
   vmMem,
   vmDiskSize,
@@ -64,7 +66,10 @@ export function EventInfoCard({
         )}
       >
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Server className="h-3.5 w-3.5 text-primary" />
+          <DistroLogo
+            distribution={vmDistribution || vmOs.replace(".qcow2", "")}
+            className="h-5 w-5 rounded-sm bg-transparent"
+          />
           {vmOs.replace(".qcow2", "")}
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">

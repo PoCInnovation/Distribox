@@ -14,7 +14,6 @@ import {
   Monitor,
   Pencil,
   Save,
-  Server,
   Trash2,
   Users,
   X,
@@ -40,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EventInfoCard } from "@/components/event-info-card";
+import { DistroLogo } from "@/components/distro-logo";
 import {
   useEvent,
   useUpdateEvent,
@@ -337,7 +337,12 @@ export function EventDetailPage() {
               ) : (
                 <div className="space-y-3">
                   <InfoRow
-                    icon={<Server className="h-4 w-4 text-primary" />}
+                    icon={
+                      <DistroLogo
+                        distribution={event.vm_distribution || event.vm_os.replace(".qcow2", "")}
+                        className="h-6 w-6 rounded-sm bg-transparent"
+                      />
+                    }
                     label="OS"
                     value={event.vm_os.replace(".qcow2", "")}
                   />
@@ -494,6 +499,7 @@ export function EventDetailPage() {
               name={event.name}
               description="Get yourself the following Virtual Machine through this Distribox Event Link!"
               vmOs={event.vm_os}
+              vmDistribution={event.vm_distribution}
               vmVcpus={event.vm_vcpus}
               vmMem={event.vm_mem}
               vmDiskSize={event.vm_disk_size}
