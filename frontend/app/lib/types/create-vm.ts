@@ -6,6 +6,7 @@ export const CreateVMPayloadSchema = z.object({
   mem: z.number().int().positive(),
   vcpus: z.number().int().positive(),
   disk_size: z.number().int().positive(),
+  keyboard_layout: z.string().nullable().optional(),
   activate_at_start: z.boolean(),
 });
 

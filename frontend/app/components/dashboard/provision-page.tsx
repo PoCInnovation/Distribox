@@ -18,6 +18,9 @@ import {
   Check,
   AlertCircle,
   Pencil,
+  Keyboard,
+  CheckIcon,
+  SearchIcon,
 } from "lucide-react";
 import { useHostInfo } from "@/hooks/useHostInfo";
 import { useCreateVM } from "@/hooks/useCreateVM";
@@ -34,6 +37,8 @@ import { useAuthz } from "@/contexts/authz-context";
 import { PolicyGate } from "@/components/policy/policy-gate";
 import { PolicyNotice } from "@/components/policy/policy-notice";
 import { useSettings } from "@/hooks/useSettings";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { KEYBOARD_LAYOUTS, getKeyboardLabel } from "@/lib/keyboard-layouts";
 
 export default function ProvisionPage() {
   const navigate = useNavigate();
@@ -52,6 +57,8 @@ export default function ProvisionPage() {
   const [vcpus, setVcpus] = useState("2");
   const [mem, setMem] = useState("4");
   const [diskSize, setDiskSize] = useState("20");
+  const [keyboardLayout, setKeyboardLayout] = useState("");
+  const [keyboardSearch, setKeyboardSearch] = useState("");
 
   useEffect(() => {
     if (userSettings) {
@@ -59,8 +66,13 @@ export default function ProvisionPage() {
       if (userSettings.default_mem) setMem(userSettings.default_mem.toString());
       if (userSettings.default_disk_size) setDiskSize(userSettings.default_disk_size.toString());
       if (userSettings.default_os) setSelectedOS(userSettings.default_os);
+      if (userSettings.default_keyboard_layout) setKeyboardLayout(userSettings.default_keyboard_layout);
     }
   }, [userSettings]);
+
+  const filteredKeyboards = KEYBOARD_LAYOUTS.filter((kb) =>
+    kb.label.toLowerCase().includes(keyboardSearch.toLowerCase()),
+  );
 
   const vcpusNum = Number.parseInt(vcpus) || 0;
   const memNum = Number.parseInt(mem) || 0;
@@ -108,6 +120,7 @@ export default function ProvisionPage() {
         vcpus: vcpusNum,
         mem: memNum,
         disk_size: diskNum,
+        keyboard_layout: keyboardLayout || null,
         activate_at_start: autoStart,
       });
 
@@ -310,6 +323,57 @@ export default function ProvisionPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="border-border bg-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Keyboard className="h-5 w-5 text-primary" />
+                Keyboard Layout
+              </CardTitle>
+              <CardDescription>
+                Keyboard mapping for the VM console connection
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-hidden rounded-lg border">
+                <div className="flex items-center gap-2 border-b bg-muted/20 px-3 py-2">
+                  <SearchIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <input
+                    placeholder="Search keyboard layouts..."
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                    value={keyboardSearch}
+                    onChange={(e) => setKeyboardSearch(e.target.value)}
+                  />
+                </div>
+                <ScrollArea className="h-48">
+                  <div className="space-y-0.5 p-1.5">
+                    {filteredKeyboards.map((kb) => (
+                      <button
+                        key={kb.value}
+                        type="button"
+                        onClick={() => setKeyboardLayout(kb.value)}
+                        className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                          keyboardLayout === kb.value
+                            ? "border border-primary/40 bg-primary/10 text-foreground"
+                            : "border border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                        }`}
+                      >
+                        <span>{kb.label}</span>
+                        {keyboardLayout === kb.value && (
+                          <CheckIcon className="h-4 w-4 shrink-0 text-primary" />
+                        )}
+                      </button>
+                    ))}
+                    {filteredKeyboards.length === 0 && (
+                      <p className="px-3 py-4 text-center text-sm text-muted-foreground">
+                        No keyboard layouts match your search.
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6 sticky top-8 self-start">
@@ -332,6 +396,14 @@ export default function ProvisionPage() {
                   </span>
                   <span className="font-mono text-sm text-right max-w-[60%] break-words">
                     {selectedOS || "Not selected"}
+                  </span>
+                </div>
+                <div className="flex items-start justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Keyboard
+                  </span>
+                  <span className="text-sm text-right max-w-[60%] break-words">
+                    {keyboardLayout ? getKeyboardLabel(keyboardLayout) : "Default"}
                   </span>
                 </div>
               </div>
@@ -390,13 +462,14 @@ export default function ProvisionPage() {
               <div className="w-full flex flex-row items-center space-x-2">
                 <Checkbox
                   checked={autoStart}
+                  id="auto-start"
                   onCheckedChange={(checked) =>
                     setAutoStart(typeof checked === "boolean" ? checked : false)
                   }
                 />
-                <span className="text-sm text-muted-foreground">
+                <label className="text-sm text-muted-foreground cursor-pointer" htmlFor="auto-start">
                   Automatically start after creation
-                </span>
+                </label>
               </div>
 
               <Button
