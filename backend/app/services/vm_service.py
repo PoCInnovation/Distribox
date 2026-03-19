@@ -63,6 +63,7 @@ class Vm:
         self.mem = vm_create.mem
         self.vcpus = vm_create.vcpus
         self.disk_size = vm_create.disk_size
+        self.keyboard_layout = vm_create.keyboard_layout
         self.state: Optional[str] = None
         self.state = 'Stopped'
         self.ipv4: Optional[str] = None
@@ -86,6 +87,10 @@ class Vm:
                     distribox_image_dir)
 
             vm_dir.mkdir(parents=True, exist_ok=True)
+            ensure_seed_iso(
+                keyboard_layout=self.keyboard_layout,
+                vm_dir=vm_dir,
+            )
             copy(distribox_image_dir, vm_dir)
             vm_path = vm_dir / self.os
             subprocess.run(
@@ -103,6 +108,7 @@ class Vm:
                     mem=self.mem,
                     vcpus=self.vcpus,
                     disk_size=self.disk_size,
+                    keyboard_layout=self.keyboard_layout,
                 )
                 session.add(vm_record)
                 session.commit()
@@ -131,6 +137,7 @@ class Vm:
                 vm_instance.mem = vm_record.mem
                 vm_instance.vcpus = vm_record.vcpus
                 vm_instance.disk_size = vm_record.disk_size
+                vm_instance.keyboard_layout = vm_record.keyboard_layout
                 vm_instance.state = VM_STATE_NAMES.get(vm_state, 'None')
                 vm_instance.ipv4 = get_vm_ip(str(vm_instance.id))
                 credentials_count_statement = select(func.count()).where(
@@ -161,7 +168,10 @@ class Vm:
             raise
 
     def start(self):
-        ensure_seed_iso()
+        vm_dir = VMS_DIR / str(self.id)
+        per_vm_seed = vm_dir / "seed.iso"
+        if not per_vm_seed.exists():
+            ensure_seed_iso()
         try:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
