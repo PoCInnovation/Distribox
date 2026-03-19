@@ -11,6 +11,7 @@ class VmBase(BaseModel):
     mem: int
     vcpus: int
     disk_size: int
+    keyboard_layout: Optional[str] = None
 
 
 class VmRead(VmBase):
@@ -22,7 +23,6 @@ class VmRead(VmBase):
 
 class VmCreate(VmBase):
     activate_at_start: bool
-    pass
 
 
 class VmCredentialCreateRequest(BaseModel):
