@@ -9,6 +9,7 @@ import {
   Cpu,
   ExternalLink,
   HardDrive,
+  Keyboard,
   Link2,
   MemoryStick,
   Monitor,
@@ -49,6 +50,7 @@ import {
 import { useHostInfo } from "@/hooks/useHostInfo";
 import { useAuthz } from "@/contexts/authz-context";
 import { Policy } from "@/lib/types";
+import { getKeyboardLabel } from "@/lib/keyboard-layouts";
 import { VMImageSelect } from "./vm-image-picker";
 import { VmMonitorTile } from "./vm-monitor-tile";
 import {
@@ -364,6 +366,15 @@ export function EventDetailPage() {
                     label="Disk"
                     value={`${event.vm_disk_size} GB`}
                   />
+                  {event.keyboard_layout && (
+                    <InfoRow
+                      icon={
+                        <Keyboard className="h-4 w-4 text-muted-foreground" />
+                      }
+                      label="Keyboard"
+                      value={getKeyboardLabel(event.keyboard_layout)}
+                    />
+                  )}
                   <Separator />
                   <InfoRow
                     icon={<Users className="h-4 w-4" />}

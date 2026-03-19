@@ -16,6 +16,7 @@ export const EventSchema = z.object({
   vm_mem: z.number(),
   vm_vcpus: z.number(),
   vm_disk_size: z.number(),
+  keyboard_layout: z.string().nullable().optional(),
   deadline: z.string().transform((s) => (s.endsWith("Z") ? s : s + "Z")),
   max_vms: z.number(),
   created_at: z.string(),
@@ -38,6 +39,7 @@ export const CreateEventPayloadSchema = z.object({
   vm_mem: z.number().positive(),
   vm_vcpus: z.number().positive(),
   vm_disk_size: z.number().positive(),
+  keyboard_layout: z.string().nullable().optional(),
   deadline: z.string(),
   max_vms: z.number().positive(),
 });

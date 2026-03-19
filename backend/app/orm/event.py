@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy import Column, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import SQLModel, Field
@@ -16,6 +17,7 @@ class EventORM(SQLModel, table=True):
     vm_mem: int
     vm_vcpus: int
     vm_disk_size: int
+    keyboard_layout: Optional[str] = Field(default=None)
     deadline: datetime
     max_vms: int
     created_at: datetime = Field(default_factory=datetime.utcnow)
