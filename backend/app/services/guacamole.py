@@ -98,6 +98,7 @@ async def guacd_handshake(
         "color-depth": "",
         "autoretry": "",
         "username": "",
+        "server-layout": "",
         "version": GUACAMOLE_PROTOCOL_VERSION,
         "protocol-version": GUACAMOLE_PROTOCOL_VERSION,
     }

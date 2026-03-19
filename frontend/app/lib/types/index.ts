@@ -9,3 +9,4 @@ export * from "./policies";
 export * from "./api-error";
 export * from "./recoverable-vm";
 export * from "./event";
+export * from "./user-settings";

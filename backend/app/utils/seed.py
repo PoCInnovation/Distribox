@@ -1,10 +1,45 @@
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 from fastapi import HTTPException, status
 
 from app.core.constants import IMAGES_DIR
+
+
+LAYOUT_TO_XKB = {
+    "en-us-qwerty": "us",
+    "en-gb-qwerty": "gb",
+    "fr-fr-azerty": "fr",
+    "fr-be-azerty": "be",
+    "fr-ch-qwertz": "ch",
+    "de-de-qwertz": "de",
+    "de-ch-qwertz": "ch",
+    "es-es-qwerty": "es",
+    "es-latam-qwerty": "latam",
+    "it-it-qwerty": "it",
+    "pt-br-qwerty": "br",
+    "pt-pt-qwerty": "pt",
+    "nl-nl-qwerty": "nl",
+    "sv-se-qwerty": "se",
+    "da-dk-qwerty": "dk",
+    "nb-no-qwerty": "no",
+    "fi-fi-qwerty": "fi",
+    "pl-pl-qwerty": "pl",
+    "cs-cz-qwertz": "cz",
+    "hu-hu-qwertz": "hu",
+    "ro-ro-qwerty": "ro",
+    "ru-ru-qwerty": "ru",
+    "ja-jp-qwerty": "jp",
+    "ko-kr-qwerty": "kr",
+    "tr-tr-qwerty": "tr",
+}
+
+LAYOUT_TO_XKB_VARIANT = {
+    "fr-ch-qwertz": "fr",
+    "de-ch-qwertz": "de",
+}
 
 
 def _resolve_seed_config_dir() -> Path:
@@ -21,21 +56,41 @@ def _resolve_seed_config_dir() -> Path:
     )
 
 
-def ensure_seed_iso() -> Path:
-    seed_iso_path = IMAGES_DIR / "seed.iso"
-    if seed_iso_path.exists():
-        return seed_iso_path
+def _build_user_data(base_text: str, keyboard_layout: Optional[str]) -> str:
+    if not keyboard_layout:
+        return base_text
 
+    xkb_layout = LAYOUT_TO_XKB.get(keyboard_layout)
+    if not xkb_layout:
+        return base_text
+
+    xkb_variant = LAYOUT_TO_XKB_VARIANT.get(keyboard_layout, "")
+
+    keyboard_block = f"\nkeyboard:\n  layout: {xkb_layout}\n"
+    if xkb_variant:
+        keyboard_block += f"  variant: {xkb_variant}\n"
+
+    return base_text.rstrip() + "\n" + keyboard_block
+
+
+def _generate_seed_iso(
+    output_path: Path,
+    keyboard_layout: Optional[str] = None,
+) -> Path:
     seed_config_dir = _resolve_seed_config_dir()
     user_data_path = seed_config_dir / "user-data"
     meta_data_path = seed_config_dir / "meta-data"
 
-    seed_iso_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    base_user_data = user_data_path.read_text()
+    final_user_data = _build_user_data(base_user_data, keyboard_layout)
+
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir_path = Path(temp_dir)
         temp_user_data_path = temp_dir_path / "user-data"
         temp_meta_data_path = temp_dir_path / "meta-data"
-        temp_user_data_path.write_text(user_data_path.read_text())
+        temp_user_data_path.write_text(final_user_data)
         temp_meta_data_path.write_text(meta_data_path.read_text())
 
         try:
@@ -43,7 +98,7 @@ def ensure_seed_iso() -> Path:
                 [
                     "genisoimage",
                     "-output",
-                    str(seed_iso_path),
+                    str(output_path),
                     "-volid",
                     "cidata",
                     "-joliet",
@@ -66,4 +121,19 @@ def ensure_seed_iso() -> Path:
                 detail=f"Failed to create seed.iso: {exc.stderr.strip()}",
             ) from exc
 
-    return seed_iso_path
+    return output_path
+
+
+def ensure_seed_iso(
+    keyboard_layout: Optional[str] = None,
+    vm_dir: Optional[Path] = None,
+) -> Path:
+    if keyboard_layout and vm_dir:
+        seed_iso_path = vm_dir / "seed.iso"
+        return _generate_seed_iso(seed_iso_path, keyboard_layout)
+
+    seed_iso_path = IMAGES_DIR / "seed.iso"
+    if seed_iso_path.exists():
+        return seed_iso_path
+
+    return _generate_seed_iso(seed_iso_path)

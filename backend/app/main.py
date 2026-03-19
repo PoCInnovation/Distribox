@@ -11,6 +11,7 @@ from app.routes import vm, image, host, auth, user_management, tunnel, event
 from app.orm.user import UserORM
 from app.orm.vm_credential import VmCredentialORM  # noqa: F401
 from app.orm.event import EventORM, EventParticipantORM  # noqa: F401
+from app.orm.user_settings import UserSettingsORM  # noqa: F401
 from app.utils.auth import hash_password
 from app.core.config import engine, get_env_or_default, init_db
 from app.utils.crypto import encrypt_secret, is_encrypted_secret

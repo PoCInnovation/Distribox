@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlmodel import SQLModel, Field
 import uuid
 
@@ -11,3 +12,4 @@ class VmORM(SQLModel, table=True, ):
     mem: int
     vcpus: int
     disk_size: int
+    keyboard_layout: Optional[str] = Field(default=None)
