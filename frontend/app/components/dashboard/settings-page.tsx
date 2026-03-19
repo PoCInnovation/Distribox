@@ -189,7 +189,16 @@ export default function SettingsPage() {
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
-  }, [vcpus, mem, diskSize, selectedOS, keyboardLayout, timezone, settings, doSave]);
+  }, [
+    vcpus,
+    mem,
+    diskSize,
+    selectedOS,
+    keyboardLayout,
+    timezone,
+    settings,
+    doSave,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -334,14 +343,17 @@ export default function SettingsPage() {
               Default VM Resources
             </CardTitle>
             <CardDescription>
-              Pre-fill values when provisioning new virtual machines. Leave empty
-              to use system defaults.
+              Pre-fill values when provisioning new virtual machines. Leave
+              empty to use system defaults.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-6 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor="default-vcpus" className="flex items-center gap-2">
+                <Label
+                  htmlFor="default-vcpus"
+                  className="flex items-center gap-2"
+                >
                   <Cpu className="h-4 w-4 text-muted-foreground" />
                   Virtual CPUs
                 </Label>
@@ -359,7 +371,10 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="default-mem" className="flex items-center gap-2">
+                <Label
+                  htmlFor="default-mem"
+                  className="flex items-center gap-2"
+                >
                   <MemoryStick className="h-4 w-4 text-muted-foreground" />
                   Memory (GB)
                 </Label>
@@ -377,7 +392,10 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="default-disk" className="flex items-center gap-2">
+                <Label
+                  htmlFor="default-disk"
+                  className="flex items-center gap-2"
+                >
                   <HardDrive className="h-4 w-4 text-muted-foreground" />
                   Disk Size (GB)
                 </Label>
@@ -507,7 +525,8 @@ export default function SettingsPage() {
               {timezone === "auto" && (
                 <span className="text-muted-foreground">
                   {" "}
-                  (currently {getBrowserTimezone()}, {getUtcOffset(getBrowserTimezone())})
+                  (currently {getBrowserTimezone()},{" "}
+                  {getUtcOffset(getBrowserTimezone())})
                 </span>
               )}
               .
@@ -542,7 +561,8 @@ export default function SettingsPage() {
                           <>
                             Auto{" "}
                             <span className="text-xs text-muted-foreground">
-                              ({getBrowserTimezone()}, {getUtcOffset(getBrowserTimezone())})
+                              ({getBrowserTimezone()},{" "}
+                              {getUtcOffset(getBrowserTimezone())})
                             </span>
                           </>
                         ) : (

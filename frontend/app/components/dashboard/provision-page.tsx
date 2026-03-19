@@ -62,11 +62,14 @@ export default function ProvisionPage() {
 
   useEffect(() => {
     if (userSettings) {
-      if (userSettings.default_vcpus) setVcpus(userSettings.default_vcpus.toString());
+      if (userSettings.default_vcpus)
+        setVcpus(userSettings.default_vcpus.toString());
       if (userSettings.default_mem) setMem(userSettings.default_mem.toString());
-      if (userSettings.default_disk_size) setDiskSize(userSettings.default_disk_size.toString());
+      if (userSettings.default_disk_size)
+        setDiskSize(userSettings.default_disk_size.toString());
       if (userSettings.default_os) setSelectedOS(userSettings.default_os);
-      if (userSettings.default_keyboard_layout) setKeyboardLayout(userSettings.default_keyboard_layout);
+      if (userSettings.default_keyboard_layout)
+        setKeyboardLayout(userSettings.default_keyboard_layout);
     }
   }, [userSettings]);
 
@@ -403,7 +406,9 @@ export default function ProvisionPage() {
                     Keyboard
                   </span>
                   <span className="text-sm text-right max-w-[60%] break-words">
-                    {keyboardLayout ? getKeyboardLabel(keyboardLayout) : "Default"}
+                    {keyboardLayout
+                      ? getKeyboardLabel(keyboardLayout)
+                      : "Default"}
                   </span>
                 </div>
               </div>
@@ -467,7 +472,10 @@ export default function ProvisionPage() {
                     setAutoStart(typeof checked === "boolean" ? checked : false)
                   }
                 />
-                <label className="text-sm text-muted-foreground cursor-pointer" htmlFor="auto-start">
+                <label
+                  className="text-sm text-muted-foreground cursor-pointer"
+                  htmlFor="auto-start"
+                >
                   Automatically start after creation
                 </label>
               </div>
