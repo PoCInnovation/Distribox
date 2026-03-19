@@ -230,18 +230,23 @@ class Vm:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
             vm.undefine()
-            vm_dir = VMS_DIR / str(self.id)
+        except Exception:
+            pass
+
+        vm_dir = VMS_DIR / str(self.id)
+        if vm_dir.exists():
             rmtree(vm_dir)
-            with Session(engine) as session:
-                credentials_statement = delete(VmCredentialORM).where(
+
+        with Session(engine) as session:
+            session.exec(
+                delete(VmCredentialORM).where(
                     VmCredentialORM.vm_id == self.id
                 )
-                session.exec(credentials_statement)
-                statement = delete(VmORM).where(VmORM.id == self.id)
-                session.exec(statement)
-                session.commit()
-        except Exception:
-            raise
+            )
+            session.exec(
+                delete(VmORM).where(VmORM.id == self.id)
+            )
+            session.commit()
 
 
 class VmService:

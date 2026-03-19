@@ -216,15 +216,19 @@ class EventService:
                 .where(EventParticipantORM.event_id == event.id)
             ).all()
 
+            vm_ids = [str(p.vm_id) for p in participants]
+
             for participant in participants:
-                try:
-                    VmService.remove_vm(str(participant.vm_id))
-                except Exception:
-                    pass
                 session.delete(participant)
 
             session.delete(event)
             session.commit()
+
+        for vm_id in vm_ids:
+            try:
+                VmService.remove_vm(vm_id)
+            except Exception:
+                pass
 
     @staticmethod
     def delete_event_vm(event_id: str, vm_id: str) -> None:
@@ -247,13 +251,13 @@ class EventService:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
                                     "Participant VM not found in this event")
 
-            try:
-                VmService.remove_vm(str(parsed_vm_id))
-            except Exception:
-                pass
-
             session.delete(participant)
             session.commit()
+
+        try:
+            VmService.remove_vm(str(parsed_vm_id))
+        except Exception:
+            pass
 
     @staticmethod
     def join_event(slug: str, payload: EventJoinRequest) -> EventJoinResponse:
