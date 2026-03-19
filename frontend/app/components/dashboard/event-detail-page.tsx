@@ -368,7 +368,9 @@ export function EventDetailPage() {
                   />
                   {event.keyboard_layout && (
                     <InfoRow
-                      icon={<Keyboard className="h-4 w-4 text-muted-foreground" />}
+                      icon={
+                        <Keyboard className="h-4 w-4 text-muted-foreground" />
+                      }
                       label="Keyboard"
                       value={getKeyboardLabel(event.keyboard_layout)}
                     />

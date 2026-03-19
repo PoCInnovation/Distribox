@@ -12,7 +12,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertCircle, Check, Keyboard, SearchIcon, CheckIcon } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  Keyboard,
+  SearchIcon,
+  CheckIcon,
+} from "lucide-react";
 import { useCreateEvent } from "@/hooks/useEvents";
 import { useHostInfo } from "@/hooks/useHostInfo";
 import { VMImageSelect } from "./vm-image-picker";
@@ -67,8 +73,7 @@ export function CreateEventDialog({
     if (userSettings) {
       if (userSettings.default_vcpus)
         setVcpus(userSettings.default_vcpus.toString());
-      if (userSettings.default_mem)
-        setMem(userSettings.default_mem.toString());
+      if (userSettings.default_mem) setMem(userSettings.default_mem.toString());
       if (userSettings.default_disk_size)
         setDiskSize(userSettings.default_disk_size.toString());
       if (userSettings.default_os) setSelectedOS(userSettings.default_os);
