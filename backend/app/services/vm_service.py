@@ -22,6 +22,7 @@ from os import path
 from app.services.image_service import ImageService
 import yaml
 from pathlib import Path
+from sqlalchemy.orm import make_transient
 
 
 class Vm:
@@ -153,6 +154,7 @@ class Vm:
             with Session(engine) as session:
                 statement = select(VmORM)
                 vm_records = session.scalars(statement).all()
+                print(vm_records)
             vm_list = []
             for vm_record in vm_records:
                 vm_list.append(cls.get(str(vm_record.id)))
@@ -472,3 +474,30 @@ class VmService:
                     rmtree(VMS_DIR / v.name)
                     break
         return
+
+    @staticmethod
+    def duplicate_vm(vm_id: str):
+        with Session(engine) as session:
+            duplicate_vm = session.get(VmORM, uuid.UUID(vm_id))
+            if duplicate_vm is None:
+                raise HTTPException(
+                    status.HTTP_404_NOT_FOUND,
+                    f"Vm {vm_id} not found in database"
+                )
+            session.expunge(duplicate_vm)
+            make_transient(duplicate_vm)
+
+            duplicate_vm.id = uuid.uuid4()
+            session.add(duplicate_vm)
+            session.commit()
+
+            src_path = VMS_DIR / vm_id / duplicate_vm.os
+            dest_path = VMS_DIR / str(duplicate_vm.id)
+
+            dest_path.mkdir(parents=True, exist_ok=True)
+            copy(src_path, dest_path / duplicate_vm.os)
+
+            vm_xml = build_xml(duplicate_vm)
+            conn = QEMUConfig.get_connection()
+            conn.defineXML(vm_xml)
+            return Vm.get(str(duplicate_vm.id))

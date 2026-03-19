@@ -3,7 +3,7 @@ from app.models.vm import VmRead
 from app.core.constants import VMS_DIR
 
 
-def build_xml(vm_read: VmRead):
+def build_xml(vm_read):
 
     domain = etree.Element("domain", type="kvm")
 
