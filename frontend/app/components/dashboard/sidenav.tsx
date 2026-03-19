@@ -11,6 +11,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Calendar1Icon,
+  Settings,
 } from "lucide-react";
 import { Image } from "@unpic/react";
 import { cn } from "@/lib/utils";
@@ -223,6 +224,41 @@ export function DashboardSidenav() {
         </nav>
 
         <div className="space-y-2 border-t border-sidebar-border/75 p-3">
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  to="/dashboard/settings"
+                  className={cn(
+                    "flex h-12 w-full items-center rounded-lg text-sm font-medium transition-colors",
+                    pathname === "/dashboard/settings"
+                      ? "bg-sidebar-primary/15 text-sidebar-primary"
+                      : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                    "justify-center px-0",
+                  )}
+                >
+                  <Settings className="h-4 w-4 shrink-0" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" align="center">
+                Settings
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Link
+              to="/dashboard/settings"
+              className={cn(
+                "flex h-12 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                pathname === "/dashboard/settings"
+                  ? "bg-sidebar-primary/15 text-sidebar-primary"
+                  : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+              )}
+            >
+              <Settings className="h-4 w-4 shrink-0" />
+              <span>Settings</span>
+            </Link>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
