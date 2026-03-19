@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -33,6 +33,7 @@ import { Policy } from "@/lib/types";
 import { useAuthz } from "@/contexts/authz-context";
 import { PolicyGate } from "@/components/policy/policy-gate";
 import { PolicyNotice } from "@/components/policy/policy-notice";
+import { useSettings } from "@/hooks/useSettings";
 
 export default function ProvisionPage() {
   const navigate = useNavigate();
@@ -42,6 +43,7 @@ export default function ProvisionPage() {
   const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
 
   const { data: hostInfo } = useHostInfo(canReadHost);
+  const { data: userSettings } = useSettings();
   const createVM = useCreateVM();
 
   const [name, setName] = useState("");
@@ -50,6 +52,15 @@ export default function ProvisionPage() {
   const [vcpus, setVcpus] = useState("2");
   const [mem, setMem] = useState("4");
   const [diskSize, setDiskSize] = useState("20");
+
+  useEffect(() => {
+    if (userSettings) {
+      if (userSettings.default_vcpus) setVcpus(userSettings.default_vcpus.toString());
+      if (userSettings.default_mem) setMem(userSettings.default_mem.toString());
+      if (userSettings.default_disk_size) setDiskSize(userSettings.default_disk_size.toString());
+      if (userSettings.default_os) setSelectedOS(userSettings.default_os);
+    }
+  }, [userSettings]);
 
   const vcpusNum = Number.parseInt(vcpus) || 0;
   const memNum = Number.parseInt(mem) || 0;
