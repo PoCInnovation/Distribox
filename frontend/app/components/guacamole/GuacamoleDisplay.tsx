@@ -70,8 +70,14 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
           containerRef,
         };
 
-  const { state, error, sendKeyEvent, requestFullscreen, exitFullscreen, isFullscreen } =
-    useGuacamoleClient(options);
+  const {
+    state,
+    error,
+    sendKeyEvent,
+    requestFullscreen,
+    exitFullscreen,
+    isFullscreen,
+  } = useGuacamoleClient(options);
 
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [initialOverlay, setInitialOverlay] = useState(true);
@@ -228,7 +234,9 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
       <div
         ref={overlayRef}
         className={`absolute top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out ${
-          showOverlay ? "translate-y-0" : "-translate-y-full pointer-events-none"
+          showOverlay
+            ? "translate-y-0"
+            : "-translate-y-full pointer-events-none"
         }`}
         onMouseEnter={handleOverlayEnter}
         onMouseLeave={handleOverlayLeave}

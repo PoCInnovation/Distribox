@@ -63,8 +63,7 @@ export function useGuacamoleClient(
           "Tab",
           "Escape",
         ]);
-      } catch {
-      }
+      } catch {}
     }
   }, [options.containerRef]);
 
@@ -214,5 +213,12 @@ export function useGuacamoleClient(
     };
   }, [connectKey, options.containerRef]);
 
-  return { state, error, sendKeyEvent, requestFullscreen, exitFullscreen, isFullscreen };
+  return {
+    state,
+    error,
+    sendKeyEvent,
+    requestFullscreen,
+    exitFullscreen,
+    isFullscreen,
+  };
 }
