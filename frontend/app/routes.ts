@@ -14,6 +14,7 @@ export default [
     route("settings", "routes/dashboard.settings.tsx"),
     route("events", "routes/dashboard.events.tsx"),
     route("events/:eventId", "routes/dashboard.events.$eventId.tsx"),
+    route("slaves", "routes/dashboard.slaves.tsx"),
   ]),
   route("*", "routes/404.tsx"),
 ] satisfies RouteConfig;

@@ -12,6 +12,7 @@ import {
   PanelLeftOpen,
   Calendar1Icon,
   Settings,
+  ServerIcon,
 } from "lucide-react";
 import { Image } from "@unpic/react";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,12 @@ const navItems = [
     label: "Users & Policies",
     icon: Users,
     requiredPolicies: [Policy.USERS_GET] as PolicyName[],
+  },
+  {
+    href: "/dashboard/slaves",
+    label: "Slaves",
+    icon: ServerIcon,
+    requiredPolicies: [Policy.SLAVES_GET] as PolicyName[],
   },
 ];
 
