@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Calendar, Cpu, HardDrive, MemoryStick, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DistroLogo } from "@/components/distro-logo";
+import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 
 interface EventInfoCardProps {
   name: string;
@@ -18,16 +19,6 @@ interface EventInfoCardProps {
   className?: string;
 }
 
-function formatDeadline(deadline: string): string {
-  return new Date(deadline).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export function EventInfoCard({
   name,
   vmOs,
@@ -42,6 +33,8 @@ export function EventInfoCard({
   children,
   className,
 }: EventInfoCardProps) {
+  const timeZone = useTimezone();
+
   return (
     <div className={cn("rounded-2xl border border-border bg-card", className)}>
       {/* Event header */}
@@ -84,7 +77,7 @@ export function EventInfoCard({
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Calendar className="h-3.5 w-3.5" />
-          {formatDeadline(deadline)}
+          {formatDateTime(deadline, timeZone)}
         </div>
       </div>
 
