@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGuacamoleClient } from "@/hooks/useGuacamoleClient";
+import { Image } from "@unpic/react";
 
 const KEYSYM = {
   CTRL_L: 0xffe3,
@@ -234,9 +235,18 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
       >
         <div className="mx-auto max-w-4xl mt-2 rounded-lg border border-white/20 bg-black/85 px-4 py-3 text-white backdrop-blur-md shadow-lg">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold tracking-wide opacity-80">
-              Distribox
-            </span>
+            <div className="flex items-center justify-center gap-3">
+              <Image
+                className=""
+                src="/favicon.ico"
+                width={20}
+                height={20}
+                alt="Distribox logo"
+              />
+              <span className="text-sm font-semibold tracking-wide opacity-80">
+                Distribox
+              </span>
+            </div>
             <div className="flex items-center gap-3">
               {initialOverlay && (
                 <span className="text-xs text-white/60">
