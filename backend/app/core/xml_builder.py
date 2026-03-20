@@ -1,9 +1,9 @@
 from lxml import etree
-from app.models.vm import VmRead
+from app.models.vm import VmCreateXML
 from app.core.constants import VMS_DIR
 
 
-def build_xml(vm_read):
+def build_xml(vm_read: VmCreateXML):
 
     domain = etree.Element("domain", type="kvm")
 

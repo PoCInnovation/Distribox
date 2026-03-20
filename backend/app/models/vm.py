@@ -22,8 +22,9 @@ class VmRead(VmBase):
 
 class VmCreate(VmBase):
     activate_at_start: bool
-    pass
 
+class VmCreateXML(VmBase):
+    id: UUID
 
 class VmCredentialCreateRequest(BaseModel):
     name: str = Field(min_length=1)
