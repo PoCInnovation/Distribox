@@ -30,6 +30,7 @@ import {
 } from "@/lib/api";
 import { Policy, VMState, type VirtualMachineMetadata } from "@/lib/types";
 import { getKeyboardLabel } from "@/lib/keyboard-layouts";
+import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { useAuthz } from "@/contexts/authz-context";
 
 interface VMDetailsDialogProps {
@@ -67,6 +68,7 @@ export function VMDetailsDialog({
 }: VMDetailsDialogProps) {
   const queryClient = useQueryClient();
   const authz = useAuthz();
+  const timeZone = useTimezone();
   const missingForConnect = authz.missingPolicies([Policy.VMS_CONNECT]);
   const [credentialName, setCredentialName] = useState("");
   const [credentialPassword, setCredentialPassword] = useState("");
@@ -304,7 +306,7 @@ export function VMDetailsDialog({
                       </p>
                       <p className="text-[11px] text-muted-foreground">
                         Created{" "}
-                        {new Date(credential.created_at).toLocaleString()}
+                        {formatDateTime(credential.created_at, timeZone)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 ml-2">

@@ -21,6 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useEvents, useDeleteEvent } from "@/hooks/useEvents";
 import { CreateEventDialog } from "./create-event-dialog";
+import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { useAuthz } from "@/contexts/authz-context";
 import { Policy } from "@/lib/types";
 import { PolicyGate } from "@/components/policy/policy-gate";
@@ -34,17 +35,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DistroLogo } from "../distro-logo";
-
-function formatDeadline(deadline: string): string {
-  const date = new Date(deadline);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function timeRemaining(deadline: string, now: Date): string {
   const end = new Date(deadline);
@@ -81,6 +71,7 @@ function EventCard({
   canDelete: boolean;
 }) {
   const now = useNow(10000);
+  const timeZone = useTimezone();
   const expired = new Date(event.deadline) < now;
 
   return (
@@ -172,7 +163,7 @@ function EventCard({
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Calendar className="h-3.5 w-3.5" />
-          <span>Deadline: {formatDeadline(event.deadline)}</span>
+          <span>Deadline: {formatDateTime(event.deadline, timeZone)}</span>
         </div>
       </CardContent>
     </Card>

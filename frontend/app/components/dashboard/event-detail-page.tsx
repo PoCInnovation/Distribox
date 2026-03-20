@@ -48,6 +48,7 @@ import {
   useDeleteEventVm,
 } from "@/hooks/useEvents";
 import { useHostInfo } from "@/hooks/useHostInfo";
+import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { useAuthz } from "@/contexts/authz-context";
 import { Policy } from "@/lib/types";
 import { getKeyboardLabel } from "@/lib/keyboard-layouts";
@@ -72,16 +73,6 @@ function useNow(intervalMs = 1000) {
   return now;
 }
 
-function formatDeadline(deadline: string): string {
-  return new Date(deadline).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
@@ -92,6 +83,8 @@ export function EventDetailPage() {
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
   const deleteEventVm = useDeleteEventVm();
+
+  const timeZone = useTimezone();
 
   const canUpdate = authz.hasPolicy(Policy.EVENTS_UPDATE);
   const canDelete = authz.hasPolicy(Policy.EVENTS_DELETE);
@@ -384,12 +377,12 @@ export function EventDetailPage() {
                   <InfoRow
                     icon={<Calendar className="h-4 w-4" />}
                     label="Deadline"
-                    value={formatDeadline(event.deadline)}
+                    value={formatDateTime(event.deadline, timeZone)}
                   />
                   <InfoRow
                     icon={<Clock className="h-4 w-4" />}
                     label="Created"
-                    value={formatDeadline(event.created_at)}
+                    value={formatDateTime(event.created_at, timeZone)}
                   />
                 </div>
               )}

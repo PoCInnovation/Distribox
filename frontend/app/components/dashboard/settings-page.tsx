@@ -25,6 +25,7 @@ import {
   Check,
 } from "lucide-react";
 import { useSettings, useUpdateSettings } from "@/hooks/useSettings";
+import { useTimezone, formatDateOnly } from "@/hooks/useTimezone";
 import { useAuthz } from "@/contexts/authz-context";
 import { VMImageSelect } from "@/components/dashboard/vm-image-picker";
 import { Policy } from "@/lib/types";
@@ -108,6 +109,7 @@ export default function SettingsPage() {
   const { user } = authz;
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
+  const effectiveTimezone = useTimezone();
 
   const [vcpus, setVcpus] = useState("");
   const [mem, setMem] = useState("");
@@ -287,11 +289,7 @@ export default function SettingsPage() {
                       Account created
                     </p>
                     <p className="text-sm">
-                      {new Date(user.created_at).toLocaleDateString(undefined, {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                      {formatDateOnly(user.created_at, effectiveTimezone)}
                     </p>
                   </div>
                   {user.created_by && (

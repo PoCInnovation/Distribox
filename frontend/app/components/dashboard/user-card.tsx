@@ -13,6 +13,7 @@ import {
 import { PolicyGate } from "../policy/policy-gate";
 import { Button } from "@/components/ui/button";
 import { PolicyBadge } from "./policy-badge";
+import { useTimezone, formatDateOnly } from "@/hooks/useTimezone";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,7 @@ export function UserCard({
   availablePolicies,
 }: UserCardProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const timeZone = useTimezone();
 
   const { setNodeRef, isOver } = useDroppable({
     id: `user-${user.id}`,
@@ -65,7 +67,7 @@ export function UserCard({
           <div className="flex-1">
             <CardTitle className="text-lg font-semibold">{user.user}</CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
-              Created {new Date(user.created_at).toLocaleDateString()}
+              Created {formatDateOnly(user.created_at, timeZone)}
             </p>
           </div>
           <div className="flex items-center gap-2">
