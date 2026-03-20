@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useHostInfo } from "@/hooks/useHostInfo";
 import { useCreateVM } from "@/hooks/useCreateVM";
+import { useSlaves } from "@/hooks/useSlaves";
 import {
   CompactCPUInfo,
   CompactMemoryInfo,
@@ -50,6 +51,8 @@ export default function ProvisionPage() {
   const { data: hostInfo } = useHostInfo(canReadHost);
   const { data: userSettings } = useSettings();
   const createVM = useCreateVM();
+  const { slaves } = useSlaves();
+  const onlineSlaves = slaves.filter((s) => s.status === "online");
 
   const [name, setName] = useState("");
   const [autoStart, setAutoStart] = useState(false);
@@ -59,6 +62,7 @@ export default function ProvisionPage() {
   const [diskSize, setDiskSize] = useState("20");
   const [keyboardLayout, setKeyboardLayout] = useState("");
   const [keyboardSearch, setKeyboardSearch] = useState("");
+  const [selectedSlaveId, setSelectedSlaveId] = useState<string | null>(null);
 
   useEffect(() => {
     if (userSettings) {
@@ -125,6 +129,7 @@ export default function ProvisionPage() {
         disk_size: diskNum,
         keyboard_layout: keyboardLayout || null,
         activate_at_start: autoStart,
+        slave_id: selectedSlaveId || null,
       });
 
       // Navigate back to dashboard on success
@@ -377,6 +382,60 @@ export default function ProvisionPage() {
               </div>
             </CardContent>
           </Card>
+          {onlineSlaves.length > 0 && (
+            <Card className="border-border bg-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Server className="h-5 w-5 text-primary" />
+                  Target Host
+                </CardTitle>
+                <CardDescription>
+                  Choose where to deploy this VM. Leave on "Local" to run on
+                  this master node, or select a slave.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSlaveId(null)}
+                    className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                      selectedSlaveId === null
+                        ? "border border-primary/40 bg-primary/10 text-foreground"
+                        : "border border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                    }`}
+                  >
+                    <span>Local (this node)</span>
+                    {selectedSlaveId === null && (
+                      <CheckIcon className="h-4 w-4 shrink-0 text-primary" />
+                    )}
+                  </button>
+                  {onlineSlaves.map((slave) => (
+                    <button
+                      key={slave.id}
+                      type="button"
+                      onClick={() => setSelectedSlaveId(slave.id)}
+                      className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                        selectedSlaveId === slave.id
+                          ? "border border-primary/40 bg-primary/10 text-foreground"
+                          : "border border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      }`}
+                    >
+                      <div>
+                        <span>{slave.name}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          ({slave.hostname}:{slave.port})
+                        </span>
+                      </div>
+                      {selectedSlaveId === slave.id && (
+                        <CheckIcon className="h-4 w-4 shrink-0 text-primary" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-6 sticky top-8 self-start">

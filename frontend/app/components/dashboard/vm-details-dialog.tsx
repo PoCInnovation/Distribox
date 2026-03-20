@@ -233,6 +233,15 @@ export function VMDetailsDialog({
                 </span>
               </div>
             )}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground flex items-center gap-2">
+                <Server className="h-4 w-4" />
+                Host
+              </span>
+              <span className="text-sm">
+                {vm.slave_name || "Local"}
+              </span>
+            </div>
           </div>
 
           <div className="space-y-3 border border-border p-4">
