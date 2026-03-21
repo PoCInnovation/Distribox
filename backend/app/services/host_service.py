@@ -71,7 +71,10 @@ class HostService:
             "used": round(disk_usage.used / 2**30, 2),
             "available": round(disk_usage.free / 2**30, 2),
             "percent_used": round((disk_usage.used / disk_usage.total) * 100, 2),
-            "distribox_used": sum([vm.disk_size for vm in VmService.get_vm_list()])
+            "distribox_used": sum([
+                vm.disk_size if hasattr(vm, "disk_size") else vm.get("disk_size", 0)
+                for vm in VmService.get_vm_list()
+            ])
         }
         mem = {
             "total": round(mem_usage.total / 2**30, 2),
