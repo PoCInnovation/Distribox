@@ -14,13 +14,13 @@ from app.core.config import engine
 router = APIRouter()
 
 
-@router.get(
-    "/{vm_id}/screenshot",
-    status_code=status.HTTP_200_OK,
-    responses={
-        200: {"content": {"image/jpeg": {}}, "description": "JPEG thumbnail of the VM screen"},
-    },
-)
+@router.get("/{vm_id}/screenshot",
+            status_code=status.HTTP_200_OK,
+            dependencies=[Depends(require_policy("vms:screenshot"))],
+            responses={200: {"content": {"image/jpeg": {}},
+                             "description": "JPEG thumbnail of the VM screen"},
+                       },
+            )
 async def get_vm_screenshot(vm_id: str, token: str = Query(...)):
     """Screenshot endpoint using query-param JWT auth (for <img src=> usage)."""
     payload = decode_access_token(token)
@@ -44,6 +44,17 @@ async def get_vm_screenshot(vm_id: str, token: str = Query(...)):
         media_type="image/jpeg",
         headers={"Cache-Control": "no-store"},
     )
+
+
+@router.post(
+    "/{vm_id}/duplicate",
+    status_code=status.HTTP_200_OK,
+    response_model=VmRead,
+    dependencies=[Depends(require_policy("vms:duplicate"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def duplicate_vm(vm_id: str):
+    return VmService.duplicate_vm(vm_id)
 
 
 @router.delete(
