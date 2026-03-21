@@ -2,10 +2,12 @@
 
 All endpoints require X-Slave-Token authentication.
 """
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from app.models.vm import VmCreate, VmRead
 from app.services.vm_service import VmService
 from app.services.host_service import HostService
+from app.services.vm_screenshot import capture_screenshot
+from app.utils.vnc import get_vnc_port
 from app.utils.slave_auth import require_slave_token
 
 router = APIRouter()
@@ -58,6 +60,30 @@ def stop_vm(vm_id: str):
 )
 def delete_vm(vm_id: str):
     VmService.remove_vm(vm_id)
+
+
+@router.get(
+    "/vms/{vm_id}/vnc-port",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_slave_token)],
+)
+def get_vm_vnc_port(vm_id: str):
+    port = get_vnc_port(vm_id)
+    return {"port": port}
+
+
+@router.get(
+    "/vms/{vm_id}/screenshot",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_slave_token)],
+)
+def get_vm_screenshot(vm_id: str):
+    jpeg_bytes = capture_screenshot(vm_id)
+    return Response(
+        content=jpeg_bytes,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.get(

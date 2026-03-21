@@ -61,6 +61,22 @@ def slave_delete_vm(slave: SlaveORM, vm_id: str) -> dict:
     return slave_request(slave, "DELETE", f"/vms/{vm_id}")
 
 
+def slave_get_vnc_port(slave: SlaveORM, vm_id: str) -> int:
+    """Get the VNC port for a VM on a slave node."""
+    data = slave_request(slave, "GET", f"/vms/{vm_id}/vnc-port")
+    return data["port"]
+
+
+def slave_get_screenshot(slave: SlaveORM, vm_id: str) -> bytes:
+    """Get a screenshot from a VM on a slave node."""
+    url = f"{_slave_base_url(slave)}/vms/{vm_id}/screenshot"
+    headers = _slave_headers(slave)
+    with httpx.Client(timeout=TIMEOUT) as client:
+        response = client.get(url, headers=headers)
+        response.raise_for_status()
+        return response.content
+
+
 def slave_get_host_info(slave: SlaveORM) -> dict:
     """Get host info from a slave node."""
     return slave_request(slave, "GET", "/host/info")
