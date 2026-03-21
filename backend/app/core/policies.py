@@ -129,6 +129,22 @@ POLICIES: list[dict[str, str]] = [
         "policy": "events:delete",
         "description": "Allows the user to delete events and their VMs.",
     },
+    {
+        "policy": "slaves:get",
+        "description": "Allows the user to list slave nodes.",
+    },
+    {
+        "policy": "slaves:getById",
+        "description": "Allows the user to fetch a slave node by id.",
+    },
+    {
+        "policy": "slaves:create",
+        "description": "Allows the user to register a new slave node.",
+    },
+    {
+        "policy": "slaves:delete",
+        "description": "Allows the user to unregister a slave node.",
+    },
 ]
 
 VALID_POLICIES = {entry["policy"] for entry in POLICIES}

@@ -72,6 +72,13 @@ def init_db():
                         "ALTER TABLE vms ADD COLUMN keyboard_layout VARCHAR"
                     )
                 )
+            if "slave_id" not in vm_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE vms ADD COLUMN slave_id UUID "
+                        "REFERENCES slaves(id)"
+                    )
+                )
 
         if "events" in inspector.get_table_names():
             event_columns = {
@@ -116,3 +123,11 @@ system_monitor = SystemMonitor(interval=3,
 GUACD_HOST = get_env_or_default("GUACD_HOST", "host.docker.internal")
 GUACD_PORT = int(get_env_or_default("GUACD_PORT", "4822"))
 VNC_HOST = get_env_or_default("VNC_HOST", "127.0.0.1")
+VNC_LISTEN = get_env_or_default("VNC_LISTEN", "127.0.0.1")
+
+# Master/Slave mode: "master" (default) or "slave"
+DISTRIBOX_MODE = get_env_or_default("DISTRIBOX_MODE", "master")
+
+# Slave-specific config (only used when DISTRIBOX_MODE=slave)
+MASTER_URL = get_env_or_default("MASTER_URL", "")
+SLAVE_API_KEY = get_env_or_default("SLAVE_API_KEY", "")

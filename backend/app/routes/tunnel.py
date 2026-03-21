@@ -2,6 +2,7 @@ from app.utils.vnc import get_vnc_port
 from app.utils.crypto import decrypt_secret
 from app.utils.auth import decode_access_token, user_has_policy
 from app.services.guacamole import build_instruction, guacd_handshake, read_instruction
+from app.services.vm_service import VmService
 from app.orm.vm_credential import VmCredentialORM
 from app.orm.user import UserORM
 from app.core.config import engine, GUACD_HOST, GUACD_PORT, VNC_HOST
@@ -144,26 +145,44 @@ async def vm_tunnel(
         await websocket.close(code=4001, reason="Provide credential or vm_id+token")
         return
 
-    try:
-        vnc_port = await asyncio.to_thread(get_vnc_port, resolved_vm_id)
-    except Exception as exc:
-        detail = getattr(exc, "detail", str(exc))
-        await websocket.close(code=4002, reason=detail)
-        return
+    slave = await asyncio.to_thread(VmService._get_slave_for_vm, resolved_vm_id)
+
+    if slave:
+        from app.services.slave_client import slave_get_vnc_port
+        try:
+            vnc_port = await asyncio.to_thread(slave_get_vnc_port, slave, resolved_vm_id)
+        except Exception as exc:
+            detail = getattr(exc, "detail", str(exc))
+            await websocket.close(code=4002, reason=detail)
+            return
+        guacd_host = GUACD_HOST
+        guacd_port = GUACD_PORT
+        vnc_host = slave.hostname
+    else:
+        try:
+            vnc_port = await asyncio.to_thread(get_vnc_port, resolved_vm_id)
+        except Exception as exc:
+            detail = getattr(exc, "detail", str(exc))
+            await websocket.close(code=4002, reason=detail)
+            return
+        guacd_host = GUACD_HOST
+        guacd_port = GUACD_PORT
+        vnc_host = VNC_HOST
 
     logger.warning(
-        "Tunnel: vm_id=%s vnc=%s:%s guacd=%s:%s",
-        resolved_vm_id, VNC_HOST, vnc_port, GUACD_HOST, GUACD_PORT,
+        "Tunnel: vm_id=%s vnc=%s:%s guacd=%s:%s slave=%s",
+        resolved_vm_id, vnc_host, vnc_port, guacd_host, guacd_port,
+        slave.hostname if slave else None,
     )
 
     await websocket.accept(subprotocol="guacamole")
 
     try:
-        reader, writer = await asyncio.open_connection(GUACD_HOST, GUACD_PORT)
+        reader, writer = await asyncio.open_connection(guacd_host, guacd_port)
     except Exception as exc:
         await websocket.close(
             code=1011,
-            reason=f"Cannot connect to guacd {GUACD_HOST}:{GUACD_PORT}: {exc}",
+            reason=f"Cannot connect to guacd {guacd_host}:{guacd_port}: {exc}",
         )
         return
 
@@ -171,20 +190,20 @@ async def vm_tunnel(
         first_instruction = await guacd_handshake(
             reader,
             writer,
-            vnc_host=VNC_HOST,
+            vnc_host=vnc_host,
             vnc_port=vnc_port,
             width=width,
             height=height,
         )
         logger.warning(
-            "Tunnel connected via configured vnc host=%s port=%s",
-            VNC_HOST,
+            "Tunnel connected via vnc host=%s port=%s",
+            vnc_host,
             vnc_port,
         )
     except Exception as exc:
         logger.warning(
-            "Tunnel VNC connect failed for configured host=%s port=%s: %s",
-            VNC_HOST,
+            "Tunnel VNC connect failed for host=%s port=%s: %s",
+            vnc_host,
             vnc_port,
             exc,
         )

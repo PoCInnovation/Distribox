@@ -8,6 +8,7 @@ export const CreateVMPayloadSchema = z.object({
   disk_size: z.number().int().positive(),
   keyboard_layout: z.string().nullable().optional(),
   activate_at_start: z.boolean(),
+  slave_id: z.string().uuid().nullable().optional(),
 });
 
 export type CreateVMPayload = z.infer<typeof CreateVMPayloadSchema>;

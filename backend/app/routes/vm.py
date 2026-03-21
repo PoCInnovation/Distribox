@@ -38,7 +38,12 @@ async def get_vm_screenshot(vm_id: str, token: str = Query(...)):
         if not user_has_policy(user, "vms:get"):
             raise HTTPException(status.HTTP_403_FORBIDDEN,
                                 "Missing vms:get policy")
-    jpeg_bytes = await asyncio.to_thread(capture_screenshot, vm_id)
+    slave = await asyncio.to_thread(VmService._get_slave_for_vm, vm_id)
+    if slave:
+        from app.services.slave_client import slave_get_screenshot
+        jpeg_bytes = await asyncio.to_thread(slave_get_screenshot, slave, vm_id)
+    else:
+        jpeg_bytes = await asyncio.to_thread(capture_screenshot, vm_id)
     return Response(
         content=jpeg_bytes,
         media_type="image/jpeg",

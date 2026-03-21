@@ -101,6 +101,17 @@ export function DashboardVMsTable({
         cellRenderer: ({ data }: ColumnProps) => <TableIPColumn data={data} />,
       },
       {
+        field: "slave_name",
+        headerName: "Host",
+        flex: 1,
+        cellStyle: { display: "flex", alignItems: "center" },
+        cellRenderer: ({ data }: ColumnProps) => (
+          <span className="text-sm text-muted-foreground">
+            {data?.slave_name || "Local"}
+          </span>
+        ),
+      },
+      {
         field: "credentials_count",
         headerName: "Credentials",
         flex: 1,
