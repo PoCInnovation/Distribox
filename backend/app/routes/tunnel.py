@@ -155,9 +155,9 @@ async def vm_tunnel(
             detail = getattr(exc, "detail", str(exc))
             await websocket.close(code=4002, reason=detail)
             return
-        guacd_host = slave.hostname
+        guacd_host = GUACD_HOST
         guacd_port = GUACD_PORT
-        vnc_host = "127.0.0.1"
+        vnc_host = slave.hostname
     else:
         try:
             vnc_port = await asyncio.to_thread(get_vnc_port, resolved_vm_id)

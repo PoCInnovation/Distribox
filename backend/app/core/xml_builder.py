@@ -86,11 +86,12 @@ def build_xml(vm_read: VmRead):
     etree.SubElement(iface, "source", network="default")
     etree.SubElement(iface, "model", type="virtio")
 
+    from app.core.config import VNC_LISTEN
     vnc_attrs = {
         "type": "vnc",
         "port": "-1",
         "autoport": "yes",
-        "listen": "127.0.0.1",
+        "listen": VNC_LISTEN,
     }
     if vm_read.keyboard_layout:
         keymap = LAYOUT_TO_KEYMAP.get(vm_read.keyboard_layout)
