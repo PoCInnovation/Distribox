@@ -89,7 +89,7 @@ services:
     # backend containers can reach it via host.docker.internal:4822.
     network_mode: host
     command: ["/opt/guacamole/sbin/guacd", "-f", "-b", "0.0.0.0", "-l", "4822", "-L", "debug"]
-    profiles: ["prod", "dev"]
+    profiles: ["prod", "dev", "slave"]
 
 
   slave:
