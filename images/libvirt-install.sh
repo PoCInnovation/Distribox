@@ -52,9 +52,6 @@ echo "Enabling libvirt daemon (libvirtd)..."
 
 sudo systemctl enable --now libvirtd
 
-echo "Enabling Guacamole proxy daemon (guacd)..."
-sudo systemctl enable --now guacd
-
 sudo mkdir /var/lib/distribox/
 sudo mkdir /var/lib/distribox/images
 sudo mkdir /var/lib/distribox/vms
