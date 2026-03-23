@@ -65,16 +65,16 @@ const navItems = [
     requiredPolicies: [Policy.EVENTS_GET] as PolicyName[],
   },
   {
-    href: "/dashboard/users-policies",
-    label: "Users & Policies",
-    icon: Users,
-    requiredPolicies: [Policy.USERS_GET] as PolicyName[],
-  },
-  {
     href: "/dashboard/slaves",
     label: "Slaves",
     icon: ServerIcon,
     requiredPolicies: [Policy.SLAVES_GET] as PolicyName[],
+  },
+  {
+    href: "/dashboard/users-policies",
+    label: "Users & Policies",
+    icon: Users,
+    requiredPolicies: [Policy.USERS_GET] as PolicyName[],
   },
 ];
 
@@ -231,67 +231,85 @@ export function DashboardSidenav() {
         </nav>
 
         <div className="space-y-2 border-t border-sidebar-border/75 p-3">
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  to="/dashboard/settings"
-                  className={cn(
-                    "flex h-12 w-full items-center rounded-lg text-sm font-medium transition-colors",
-                    pathname === "/dashboard/settings"
-                      ? "bg-sidebar-primary/15 text-sidebar-primary"
-                      : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-                    "justify-center px-0",
-                  )}
-                >
-                  <Settings className="h-4 w-4 shrink-0" />
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right" align="center">
-                Settings
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <Link
-              to="/dashboard/settings"
-              className={cn(
-                "flex h-12 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
-                pathname === "/dashboard/settings"
-                  ? "bg-sidebar-primary/15 text-sidebar-primary"
-                  : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-              )}
-            >
-              <Settings className="h-4 w-4 shrink-0" />
-              <span>Settings</span>
-            </Link>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
+          {(() => {
+            const content = (
+              <Link
+                to="/dashboard/settings"
                 className={cn(
-                  "h-12 w-full rounded-lg bg-transparent text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-                  collapsed
-                    ? "justify-center gap-0 px-0"
-                    : "justify-start gap-3 px-3",
+                  "flex h-12 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium transition-[padding,background-color,color] duration-200 ease-out",
+                  pathname === "/dashboard/settings"
+                    ? "bg-sidebar-primary/15 text-sidebar-primary"
+                    : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                  collapsed ? "justify-center gap-0 px-0" : "",
                 )}
-                aria-label="Open user menu"
               >
-                <User className="h-4 w-4 shrink-0" />
+                <Settings className="h-4 w-4 shrink-0" />
                 <span
                   className={cn(
-                    "min-w-0 flex-1 truncate text-left text-sm overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-150 ease-out",
+                    "min-w-0 flex-1 truncate",
+                    collapsingTextClass,
                     collapsed
-                      ? "max-w-0 opacity-0"
-                      : "max-w-[12rem] opacity-100",
+                      ? "max-w-0 -translate-x-1 opacity-0"
+                      : "max-w-[12rem] translate-x-0 opacity-100",
                   )}
                 >
-                  {user?.user || "Account"}
+                  Settings
                 </span>
-              </Button>
-            </DropdownMenuTrigger>
+              </Link>
+            );
+            if (collapsed) {
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>{content}</TooltipTrigger>
+                  <TooltipContent side="right" align="center">
+                    Settings
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
+            return content;
+          })()}
+
+          <DropdownMenu>
+            {(() => {
+              const trigger = (
+                <DropdownMenuTrigger asChild>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={cn(
+                      "flex h-12 w-full cursor-pointer items-center gap-3 rounded-lg px-3 text-sm font-medium text-sidebar-foreground/75 transition-[padding,background-color,color] duration-200 ease-out hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                      collapsed ? "justify-center gap-0 px-0" : "",
+                    )}
+                    aria-label="Open user menu"
+                  >
+                    <User className="h-4 w-4 shrink-0" />
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate text-left",
+                        collapsingTextClass,
+                        collapsed
+                          ? "max-w-0 -translate-x-1 opacity-0"
+                          : "max-w-[12rem] translate-x-0 opacity-100",
+                      )}
+                    >
+                      {user?.user || "Account"}
+                    </span>
+                  </div>
+                </DropdownMenuTrigger>
+              );
+              if (collapsed) {
+                return (
+                  <Tooltip>
+                    <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+                    <TooltipContent side="right" align="center">
+                      {user?.user || "Account"}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+              return trigger;
+            })()}
             <DropdownMenuContent
               align="end"
               className="w-56 border-sidebar-border bg-sidebar text-sidebar-foreground"
