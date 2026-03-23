@@ -22,6 +22,7 @@ services:
       - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
       - GUACD_PORT=${GUACD_PORT:-4822}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}
+      - VIRT_TYPE=${VIRT_TYPE:-kvm}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -60,6 +61,7 @@ services:
       - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
       - GUACD_PORT=${GUACD_PORT:-4822}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}
+      - VIRT_TYPE=${VIRT_TYPE:-kvm}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -115,6 +117,7 @@ services:
       - GUACD_PORT=${GUACD_PORT:-4822}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}
       - VNC_LISTEN=${VNC_LISTEN:-0.0.0.0} # FIXME: This is a security concern, and should only be temporary
+      - VIRT_TYPE=${VIRT_TYPE:-kvm}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

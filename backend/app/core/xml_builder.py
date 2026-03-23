@@ -32,8 +32,9 @@ LAYOUT_TO_KEYMAP = {
 
 
 def build_xml(vm_read: VmRead):
+    from app.core.config import VIRT_TYPE
 
-    domain = etree.Element("domain", type="kvm")
+    domain = etree.Element("domain", type=VIRT_TYPE)
 
     etree.SubElement(domain, "name").text = str(vm_read.id)
     # Frontend sends memory in GiB; libvirt XML expects MiB here.

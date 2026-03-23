@@ -172,7 +172,7 @@ export function SlavesPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Slave | null>(null);
-  const [form, setForm] = useState({ name: "", hostname: "", port: "8080" });
+  const [form, setForm] = useState({ name: "", hostname: "", port: "8081" });
 
   const handleCreate = async () => {
     try {
@@ -183,7 +183,7 @@ export function SlavesPage() {
       });
       toast.success(`Slave "${result.name}" registered. API key has been generated.`);
       setCreateOpen(false);
-      setForm({ name: "", hostname: "", port: "8080" });
+      setForm({ name: "", hostname: "", port: "8081" });
     } catch {
       toast.error("Failed to register slave");
     }
@@ -280,7 +280,7 @@ export function SlavesPage() {
               <Input
                 id="slave-port"
                 type="number"
-                placeholder="8080"
+                placeholder="8081"
                 value={form.port}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, port: e.target.value }))

@@ -131,3 +131,6 @@ DISTRIBOX_MODE = get_env_or_default("DISTRIBOX_MODE", "master")
 # Slave-specific config (only used when DISTRIBOX_MODE=slave)
 MASTER_URL = get_env_or_default("MASTER_URL", "")
 SLAVE_API_KEY = get_env_or_default("SLAVE_API_KEY", "")
+
+# Virtualization type: "kvm" (default, hardware accel) or "qemu" (software emulation)
+VIRT_TYPE = get_env_or_default("VIRT_TYPE", "kvm")
