@@ -51,7 +51,8 @@ def build_xml(vm_read: VmRead):
     for feature in ["acpi", "apic", "pae"]:
         etree.SubElement(features, feature)
 
-    etree.SubElement(domain, "cpu", mode="host-passthrough")
+    if VIRT_TYPE == "kvm":
+        etree.SubElement(domain, "cpu", mode="host-passthrough")
 
     etree.SubElement(domain, "clock", offset="utc")
 
