@@ -309,31 +309,34 @@ class VmService:
             if vm_record.slave_id:
                 # For slave-hosted VMs, build a lightweight response
                 # without hitting local libvirt
-                try:
-                    slave = None
-                    with Session(engine) as session:
-                        slave = session.get(SlaveORM, vm_record.slave_id)
-                    from app.services.slave_client import slave_get_vm
-                    data = slave_get_vm(slave, str(vm_record.id))
-                    data["slave_id"] = str(vm_record.slave_id)
-                    data["slave_name"] = slave.name if slave else None
-                    vm_list.append(data)
-                except Exception:
-                    # Slave unreachable — show VM with unknown state
-                    vm_list.append({
-                        "id": str(vm_record.id),
-                        "name": vm_record.name,
-                        "os": vm_record.os,
-                        "mem": vm_record.mem,
-                        "vcpus": vm_record.vcpus,
-                        "disk_size": vm_record.disk_size,
-                        "keyboard_layout": vm_record.keyboard_layout,
-                        "state": "Unknown",
-                        "ipv4": None,
-                        "credentials_count": 0,
-                        "slave_id": str(vm_record.slave_id),
-                        "slave_name": slave.name if slave else "Unknown",
-                    })
+                slave = None
+                with Session(engine) as session:
+                    slave = session.get(SlaveORM, vm_record.slave_id)
+                if slave and slave.status == "online":
+                    try:
+                        from app.services.slave_client import slave_get_vm
+                        data = slave_get_vm(slave, str(vm_record.id))
+                        data["slave_id"] = str(vm_record.slave_id)
+                        data["slave_name"] = slave.name
+                        vm_list.append(data)
+                        continue
+                    except Exception:
+                        pass
+                # Slave offline or unreachable — show VM with unknown state
+                vm_list.append({
+                    "id": str(vm_record.id),
+                    "name": vm_record.name,
+                    "os": vm_record.os,
+                    "mem": vm_record.mem,
+                    "vcpus": vm_record.vcpus,
+                    "disk_size": vm_record.disk_size,
+                    "keyboard_layout": vm_record.keyboard_layout,
+                    "state": "Unknown",
+                    "ipv4": None,
+                    "credentials_count": 0,
+                    "slave_id": str(vm_record.slave_id),
+                    "slave_name": slave.name if slave else "Unknown",
+                })
             else:
                 try:
                     vm_list.append(Vm.get(str(vm_record.id)))
@@ -344,6 +347,28 @@ class VmService:
     def get_vm(vm_id: str):
         slave = VmService._get_slave_for_vm(vm_id)
         if slave:
+            if slave.status != "online":
+                with Session(engine) as session:
+                    vm_record = session.get(VmORM, uuid.UUID(vm_id))
+                    if not vm_record:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Vm {vm_id} not found",
+                        )
+                    return {
+                        "id": str(vm_record.id),
+                        "name": vm_record.name,
+                        "os": vm_record.os,
+                        "mem": vm_record.mem,
+                        "vcpus": vm_record.vcpus,
+                        "disk_size": vm_record.disk_size,
+                        "keyboard_layout": vm_record.keyboard_layout,
+                        "state": "Unknown",
+                        "ipv4": None,
+                        "credentials_count": 0,
+                        "slave_id": str(slave.id),
+                        "slave_name": slave.name,
+                    }
             from app.services.slave_client import slave_get_vm
             data = slave_get_vm(slave, vm_id)
             data["slave_id"] = str(slave.id)
@@ -410,6 +435,11 @@ class VmService:
     def start_vm(vm_id: str):
         slave = VmService._get_slave_for_vm(vm_id)
         if slave:
+            if slave.status != "online":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Slave {slave.name} is offline",
+                )
             from app.services.slave_client import slave_start_vm
             data = slave_start_vm(slave, vm_id)
             data["slave_id"] = str(slave.id)
@@ -421,6 +451,11 @@ class VmService:
     def stop_vm(vm_id: str):
         slave = VmService._get_slave_for_vm(vm_id)
         if slave:
+            if slave.status != "online":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Slave {slave.name} is offline",
+                )
             from app.services.slave_client import slave_stop_vm
             data = slave_stop_vm(slave, vm_id)
             data["slave_id"] = str(slave.id)
@@ -432,6 +467,11 @@ class VmService:
     def remove_vm(vm_id: str):
         slave = VmService._get_slave_for_vm(vm_id)
         if slave:
+            if slave.status != "online":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Slave {slave.name} is offline",
+                )
             from app.services.slave_client import slave_delete_vm
             slave_delete_vm(slave, vm_id)
             # Remove the reference from master DB
@@ -452,6 +492,11 @@ class VmService:
     def restart_vm(vm_id):
         slave = VmService._get_slave_for_vm(vm_id)
         if slave:
+            if slave.status != "online":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Slave {slave.name} is offline",
+                )
             from app.services.slave_client import slave_stop_vm, slave_start_vm
             slave_stop_vm(slave, vm_id)
             data = slave_start_vm(slave, vm_id)
