@@ -7,7 +7,7 @@ from app.orm.slave import SlaveORM
 
 logger = logging.getLogger(__name__)
 
-TIMEOUT = httpx.Timeout(30.0, connect=10.0)
+TIMEOUT = httpx.Timeout(120.0, connect=10.0)
 VM_CREATE_TIMEOUT = httpx.Timeout(600.0, connect=10.0)
 
 
