@@ -9,6 +9,7 @@ export enum VMState {
   STOPPED = "Stopped",
   CRASHED = "Crashed",
   PMSUSPENDED = "Suspended (power management)",
+  UNKNOWN = "Unknown",
 }
 
 export const VMStateSchema = z.nativeEnum(VMState);
