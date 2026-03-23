@@ -2,6 +2,7 @@
 import logging
 from typing import Optional
 import httpx
+from fastapi import HTTPException
 from app.orm.slave import SlaveORM
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,15 @@ def slave_request(
     headers = _slave_headers(slave)
     with httpx.Client(timeout=timeout or TIMEOUT) as client:
         response = client.request(method, url, headers=headers, json=json)
-        response.raise_for_status()
+        if response.is_error:
+            try:
+                detail = response.json().get("detail", response.text)
+            except Exception:
+                detail = response.text
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Slave error: {detail}",
+            )
         if response.status_code == 204:
             return {}
         return response.json()
