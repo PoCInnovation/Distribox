@@ -60,7 +60,8 @@ echo "Creating distribox user group"
 echo "Please run \`newgrp distribox\` to apply changes temporarily or restart your user session."
 
 sudo groupadd -f distribox
-sudo usermod -aG distribox,kvm $(whoami)
+sudo groupadd -f libvirt
+sudo usermod -aG distribox,libvirt,kvm $(whoami)
 
 newgrp distribox
 
