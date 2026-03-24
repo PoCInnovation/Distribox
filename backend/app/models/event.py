@@ -12,6 +12,7 @@ class EventCreate(BaseModel):
     vm_mem: int = Field(gt=0)
     vm_vcpus: int = Field(gt=0)
     vm_disk_size: int = Field(gt=0)
+    keyboard_layout: Optional[str] = None
     deadline: datetime
     max_vms: int = Field(gt=0)
 
@@ -23,6 +24,7 @@ class EventUpdate(BaseModel):
     vm_mem: Optional[int] = Field(default=None, gt=0)
     vm_vcpus: Optional[int] = Field(default=None, gt=0)
     vm_disk_size: Optional[int] = Field(default=None, gt=0)
+    keyboard_layout: Optional[str] = None
     deadline: Optional[datetime] = None
     max_vms: Optional[int] = Field(default=None, gt=0)
 
@@ -43,6 +45,7 @@ class EventRead(BaseModel):
     vm_mem: int
     vm_vcpus: int
     vm_disk_size: int
+    keyboard_layout: Optional[str] = None
     deadline: datetime
     max_vms: int
     created_at: datetime

@@ -62,6 +62,28 @@ def init_db():
                 )
             )
 
+        if "vms" in inspector.get_table_names():
+            vm_columns = {
+                col["name"] for col in inspector.get_columns("vms")
+            }
+            if "keyboard_layout" not in vm_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE vms ADD COLUMN keyboard_layout VARCHAR"
+                    )
+                )
+
+        if "events" in inspector.get_table_names():
+            event_columns = {
+                col["name"] for col in inspector.get_columns("events")
+            }
+            if "keyboard_layout" not in event_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE events ADD COLUMN keyboard_layout VARCHAR"
+                    )
+                )
+
         if "vm_credentials" in inspector.get_table_names():
             cred_columns = {
                 col["name"] for col in inspector.get_columns("vm_credentials")

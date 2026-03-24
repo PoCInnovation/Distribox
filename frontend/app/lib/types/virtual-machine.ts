@@ -9,6 +9,7 @@ export const VirtualMachineMetadataSchema = z.object({
   mem: z.number().nonnegative(),
   disk_size: z.number().nonnegative(),
   os: z.string(),
+  keyboard_layout: z.string().nullable().optional(),
   ipv4: z.string().nullable(),
   credentials_count: z.number().int().nonnegative(),
 });

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Copy,
+  Keyboard,
   KeyRound,
   Server,
   Terminal,
@@ -28,6 +29,8 @@ import {
   revokeVMCredential,
 } from "@/lib/api";
 import { Policy, VMState, type VirtualMachineMetadata } from "@/lib/types";
+import { getKeyboardLabel } from "@/lib/keyboard-layouts";
+import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { useAuthz } from "@/contexts/authz-context";
 
 interface VMDetailsDialogProps {
@@ -65,6 +68,7 @@ export function VMDetailsDialog({
 }: VMDetailsDialogProps) {
   const queryClient = useQueryClient();
   const authz = useAuthz();
+  const timeZone = useTimezone();
   const missingForConnect = authz.missingPolicies([Policy.VMS_CONNECT]);
   const [credentialName, setCredentialName] = useState("");
   const [credentialPassword, setCredentialPassword] = useState("");
@@ -218,6 +222,17 @@ export function VMDetailsDialog({
               </span>
               <span className="font-mono text-sm">{vm.os}</span>
             </div>
+            {vm.keyboard_layout && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Keyboard className="h-4 w-4" />
+                  Keyboard Layout
+                </span>
+                <span className="text-sm">
+                  {getKeyboardLabel(vm.keyboard_layout)}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3 border border-border p-4">
@@ -291,7 +306,7 @@ export function VMDetailsDialog({
                       </p>
                       <p className="text-[11px] text-muted-foreground">
                         Created{" "}
-                        {new Date(credential.created_at).toLocaleString()}
+                        {formatDateTime(credential.created_at, timeZone)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 ml-2">

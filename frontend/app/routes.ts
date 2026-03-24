@@ -11,6 +11,7 @@ export default [
     route("monitor", "routes/dashboard.monitor.tsx"),
     route("provision", "routes/dashboard.provision.tsx"),
     route("users-policies", "routes/dashboard.users-policies.tsx"),
+    route("settings", "routes/dashboard.settings.tsx"),
     route("events", "routes/dashboard.events.tsx"),
     route("events/:eventId", "routes/dashboard.events.$eventId.tsx"),
   ]),

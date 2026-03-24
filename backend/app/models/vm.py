@@ -11,6 +11,7 @@ class VmBase(BaseModel):
     mem: int
     vcpus: int
     disk_size: int
+    keyboard_layout: Optional[str] = None
 
 
 class VmRead(VmBase):

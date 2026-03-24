@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type Guacamole from "guacamole-common-js";
 import { API_BASE_URL } from "~/lib/api";
@@ -25,6 +25,10 @@ type UseGuacamoleClientOptions =
 interface UseGuacamoleClientResult {
   state: GuacamoleConnectionState;
   error?: string;
+  sendKeyEvent: (pressed: boolean, keysym: number) => void;
+  requestFullscreen: () => Promise<void>;
+  exitFullscreen: () => Promise<void>;
+  isFullscreen: boolean;
 }
 
 export function useGuacamoleClient(
@@ -32,6 +36,45 @@ export function useGuacamoleClient(
 ): UseGuacamoleClientResult {
   const [state, setState] = useState<GuacamoleConnectionState>("connecting");
   const [error, setError] = useState<string | undefined>();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const clientRef = useRef<Guacamole.Client | null>(null);
+
+  const sendKeyEvent = useCallback((pressed: boolean, keysym: number) => {
+    clientRef.current?.sendKeyEvent(pressed ? 1 : 0, keysym);
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  const requestFullscreen = useCallback(async () => {
+    const container = options.containerRef.current;
+    if (!container) return;
+    await container.requestFullscreen();
+    if ("keyboard" in navigator && "lock" in (navigator as any).keyboard) {
+      try {
+        await (navigator as any).keyboard.lock([
+          "MetaLeft",
+          "MetaRight",
+          "AltLeft",
+          "AltRight",
+          "Tab",
+          "Escape",
+        ]);
+      } catch {}
+    }
+  }, [options.containerRef]);
+
+  const exitFullscreen = useCallback(async () => {
+    if (document.fullscreenElement) {
+      if ("keyboard" in navigator && "unlock" in (navigator as any).keyboard) {
+        (navigator as any).keyboard.unlock();
+      }
+      await document.exitFullscreen();
+    }
+  }, []);
 
   const connectKey =
     options.mode === "credential" ? options.credential : options.vmId;
@@ -67,6 +110,7 @@ export function useGuacamoleClient(
 
       const tunnel = new Guacamole.WebSocketTunnel(tunnelUrl);
       client = new Guacamole.Client(tunnel);
+      clientRef.current = client;
 
       const display = client.getDisplay();
 
@@ -94,7 +138,6 @@ export function useGuacamoleClient(
       client.onrequired = () => {};
 
       client.onstatechange = (newState: number) => {
-        // guacamole-common-js state: 3 = CONNECTED, 5 = DISCONNECTED
         if (newState === 3) {
           killCursor();
           setState("connected");
@@ -120,12 +163,22 @@ export function useGuacamoleClient(
         }
       };
 
-      // Keyboard
-      keyboard = new Guacamole.Keyboard(document);
-      keyboard.onkeydown = (keysym: number) => client!.sendKeyEvent(1, keysym);
-      keyboard.onkeyup = (keysym: number) => client!.sendKeyEvent(0, keysym);
+      const remapKeysym = (keysym: number): number => {
+        if (keysym === 0xffe7) return 0xffeb;
+        if (keysym === 0xffe8) return 0xffec;
+        return keysym;
+      };
 
-      // Mouse
+      keyboard = new Guacamole.Keyboard(document);
+      keyboard.onkeydown = (keysym: number) => {
+        client!.sendKeyEvent(1, remapKeysym(keysym));
+        return false;
+      };
+      keyboard.onkeyup = (keysym: number) => {
+        client!.sendKeyEvent(0, remapKeysym(keysym));
+        return false;
+      };
+
       const mouse: Guacamole.Mouse = new Guacamole.Mouse(displayEl);
       const sendMouse = (mouseState: Guacamole.Mouse.State) =>
         client!.sendMouseState(mouseState, true);
@@ -145,7 +198,11 @@ export function useGuacamoleClient(
 
     return () => {
       cancelled = true;
+      clientRef.current = null;
       keyboard?.reset();
+      if ("keyboard" in navigator && "unlock" in (navigator as any).keyboard) {
+        (navigator as any).keyboard.unlock();
+      }
       client?.disconnect();
       const container = options.containerRef.current;
       if (container) {
@@ -156,5 +213,12 @@ export function useGuacamoleClient(
     };
   }, [connectKey, options.containerRef]);
 
-  return { state, error };
+  return {
+    state,
+    error,
+    sendKeyEvent,
+    requestFullscreen,
+    exitFullscreen,
+    isFullscreen,
+  };
 }

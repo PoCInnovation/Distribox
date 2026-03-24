@@ -52,6 +52,7 @@ def _event_to_read(event: EventORM, participants: list[EventParticipantORM] | No
         vm_mem=event.vm_mem,
         vm_vcpus=event.vm_vcpus,
         vm_disk_size=event.vm_disk_size,
+        keyboard_layout=event.keyboard_layout,
         deadline=event.deadline,
         max_vms=event.max_vms,
         created_at=event.created_at,
@@ -151,6 +152,7 @@ class EventService:
                 vm_mem=payload.vm_mem,
                 vm_vcpus=payload.vm_vcpus,
                 vm_disk_size=payload.vm_disk_size,
+                keyboard_layout=payload.keyboard_layout,
                 deadline=payload.deadline,
                 max_vms=payload.max_vms,
                 created_by=created_by,
@@ -214,15 +216,19 @@ class EventService:
                 .where(EventParticipantORM.event_id == event.id)
             ).all()
 
+            vm_ids = [str(p.vm_id) for p in participants]
+
             for participant in participants:
-                try:
-                    VmService.remove_vm(str(participant.vm_id))
-                except Exception:
-                    pass
                 session.delete(participant)
 
             session.delete(event)
             session.commit()
+
+        for vm_id in vm_ids:
+            try:
+                VmService.remove_vm(vm_id)
+            except Exception:
+                pass
 
     @staticmethod
     def delete_event_vm(event_id: str, vm_id: str) -> None:
@@ -245,13 +251,13 @@ class EventService:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
                                     "Participant VM not found in this event")
 
-            try:
-                VmService.remove_vm(str(parsed_vm_id))
-            except Exception:
-                pass
-
             session.delete(participant)
             session.commit()
+
+        try:
+            VmService.remove_vm(str(parsed_vm_id))
+        except Exception:
+            pass
 
     @staticmethod
     def join_event(slug: str, payload: EventJoinRequest) -> EventJoinResponse:
@@ -309,6 +315,7 @@ class EventService:
             mem=event.vm_mem,
             vcpus=event.vm_vcpus,
             disk_size=event.vm_disk_size,
+            keyboard_layout=event.keyboard_layout,
             activate_at_start=True,
         )
         vm = VmService.create_vm(vm_create)

@@ -6,6 +6,8 @@ from app.core.config import engine
 from app.core.policies import expand_policies
 from app.models.user_management import MissingPoliciesResponse, UserResponse
 from app.orm.user import UserORM
+from app.orm.user_settings import UserSettingsORM
+from app.models.user_settings import UserSettingsResponse, UpdateUserSettingsRequest
 from app.utils.auth import (
     hash_password,
     verify_password,
@@ -122,3 +124,83 @@ async def change_password(
         session.commit()
 
         return {"message": "Password changed successfully"}
+
+
+@router.get(
+    "/settings",
+    response_model=UserSettingsResponse,
+    dependencies=[Depends(require_policy("auth:me:get"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+async def get_user_settings(
+    current_user: UserORM = Depends(get_current_user),
+):
+    """Get the current user's settings."""
+    with Session(engine) as session:
+        settings = session.exec(
+            select(UserSettingsORM).where(
+                UserSettingsORM.user_id == current_user.id
+            )
+        ).first()
+
+        if not settings:
+            return UserSettingsResponse()
+
+        return UserSettingsResponse(
+            default_vcpus=settings.default_vcpus,
+            default_mem=settings.default_mem,
+            default_disk_size=settings.default_disk_size,
+            default_os=settings.default_os,
+            default_keyboard_layout=settings.default_keyboard_layout,
+            timezone=settings.timezone,
+        )
+
+
+@router.put(
+    "/settings",
+    response_model=UserSettingsResponse,
+    dependencies=[Depends(require_policy("auth:me:get"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+async def update_user_settings(
+    data: UpdateUserSettingsRequest,
+    current_user: UserORM = Depends(get_current_user),
+):
+    """Update the current user's settings."""
+    with Session(engine) as session:
+        settings = session.exec(
+            select(UserSettingsORM).where(
+                UserSettingsORM.user_id == current_user.id
+            )
+        ).first()
+
+        if not settings:
+            settings = UserSettingsORM(user_id=current_user.id)
+
+        if data.default_vcpus is not None:
+            settings.default_vcpus = data.default_vcpus if data.default_vcpus > 0 else None
+        if data.default_mem is not None:
+            settings.default_mem = data.default_mem if data.default_mem > 0 else None
+        if data.default_disk_size is not None:
+            settings.default_disk_size = data.default_disk_size if data.default_disk_size > 0 else None
+        if data.default_os is not None:
+            settings.default_os = data.default_os if data.default_os else None
+        if data.default_keyboard_layout is not None:
+            settings.default_keyboard_layout = (
+                data.default_keyboard_layout if data.default_keyboard_layout else None
+            )
+        if data.timezone is not None:
+            settings.timezone = data.timezone if data.timezone else "auto"
+
+        session.add(settings)
+        session.commit()
+        session.refresh(settings)
+
+        return UserSettingsResponse(
+            default_vcpus=settings.default_vcpus,
+            default_mem=settings.default_mem,
+            default_disk_size=settings.default_disk_size,
+            default_os=settings.default_os,
+            default_keyboard_layout=settings.default_keyboard_layout,
+            timezone=settings.timezone,
+        )
