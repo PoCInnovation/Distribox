@@ -56,8 +56,8 @@ sudo mkdir /var/lib/distribox/
 sudo mkdir /var/lib/distribox/images
 sudo mkdir /var/lib/distribox/vms
 
-echo "Creating distribox user group"
-echo "Please run \`newgrp distribox\` to apply changes temporarily or restart your user session."
+echo "Creating distribox and libvirt user group"
+echo "Please run \`newgrp distribox libvirt\` to apply changes temporarily or restart your user session."
 
 sudo groupadd -f distribox
 sudo groupadd -f libvirt
