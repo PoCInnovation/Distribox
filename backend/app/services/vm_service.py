@@ -274,6 +274,20 @@ class VmService:
             )
         return vm_record
 
+    @staticmethod
+    def _get_duplicate_name(session: Session, vm_name: str) -> str:
+        base_name = f"Duplicate of {vm_name}"
+        search_pattern = f"{base_name}%"
+
+        statement = select(
+            func.count(
+                VmORM.id)).where(
+            VmORM.name.like(search_pattern))
+        count = session.exec(statement).one()
+        if count == 0:
+            return base_name
+        return f"{base_name}({count})"
+
     def get_vm_list():
         vm = Vm.get_all()
         return vm
@@ -485,21 +499,23 @@ class VmService:
     def duplicate_vm(vm_id: str):
         with Session(engine) as session:
             vm_to_duplicate = VmService._get_vm_or_404(session, vm_id)
-            duplicate_of_vm = VmORM(**vm_to_duplicate.model_dump())
-            duplicate_of_vm.id = uuid.uuid4()
+            duplicate_vm = VmORM(**vm_to_duplicate.model_dump())
+            duplicate_vm.id = uuid.uuid4()
+            duplicate_vm.name = VmService._get_duplicate_name(
+                session, duplicate_vm.name)
 
-            src_path = VMS_DIR / vm_id / duplicate_of_vm.os
-            dest_path = VMS_DIR / str(duplicate_of_vm.id)
+            src_path = VMS_DIR / vm_id / duplicate_vm.os
+            dest_path = VMS_DIR / str(duplicate_vm.id)
 
             dest_path.mkdir(parents=True, exist_ok=True)
-            copy(src_path, dest_path / duplicate_of_vm.os)
+            copy(src_path, dest_path / duplicate_vm.os)
 
-            vm_xml = build_xml(VmCreateXML(**duplicate_of_vm.model_dump()))
+            vm_xml = build_xml(VmCreateXML(**duplicate_vm.model_dump()))
 
             try:
                 conn = QEMUConfig.get_connection()
                 conn.defineXML(vm_xml)
-                session.add(duplicate_of_vm)
+                session.add(duplicate_vm)
                 session.commit()
             except Exception as e:
                 if dest_path.exists():
@@ -509,4 +525,4 @@ class VmService:
                     detail=f"Failed to duplicate VM: {str(e)}"
                 )
 
-            return Vm.get(str(duplicate_of_vm.id))
+            return Vm.get(str(duplicate_vm.id))
