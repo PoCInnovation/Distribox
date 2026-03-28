@@ -128,8 +128,10 @@ def ensure_seed_iso(
     keyboard_layout: Optional[str] = None,
     vm_dir: Optional[Path] = None,
 ) -> Path:
-    if keyboard_layout and vm_dir:
+    if vm_dir:
         seed_iso_path = vm_dir / "seed.iso"
+        if seed_iso_path.exists() and not keyboard_layout:
+            return seed_iso_path
         return _generate_seed_iso(seed_iso_path, keyboard_layout)
 
     seed_iso_path = IMAGES_DIR / "seed.iso"
