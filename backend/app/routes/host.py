@@ -24,7 +24,7 @@ def get_host_info():
             dependencies=[Depends(require_policy("host:get"))],
             responses={403: {"model": MissingPoliciesResponse}})
 def get_slave_host_info(slave_id: UUID):
-    slave = SlaveService.get_slave(slave_id)
+    slave = SlaveService.get_slave(str(slave_id))
     if not slave:
         raise HTTPException(status_code=404, detail="Slave not found")
     if slave.status != "online":
