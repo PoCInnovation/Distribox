@@ -92,10 +92,13 @@ export function DashboardVMsTableContainer() {
     setVmToDelete(null);
   };
 
-  const handleDuplicateVM = (vm: VirtualMachineMetadata, e?: React.MouseEvent) => {
+  const handleDuplicateVM = (
+    vm: VirtualMachineMetadata,
+    e?: React.MouseEvent,
+  ) => {
     e?.stopPropagation();
     duplicateVM(vm.id);
-  }
+  };
 
   const handleConnectVM = (
     vm: VirtualMachineMetadata,

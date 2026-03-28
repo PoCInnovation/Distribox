@@ -1,5 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getVMs, startVM, stopVM, restartVM, deleteVM, duplicateVM } from "@/lib/api";
+import {
+  getVMs,
+  startVM,
+  stopVM,
+  restartVM,
+  deleteVM,
+  duplicateVM,
+} from "@/lib/api";
 import type { VirtualMachineMetadata } from "@/lib/types/virtual-machine";
 import { toast } from "sonner";
 
