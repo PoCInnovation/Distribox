@@ -13,4 +13,5 @@ class VmORM(SQLModel, table=True, ):
     vcpus: int
     disk_size: int
     keyboard_layout: Optional[str] = Field(default=None)
-    slave_id: Optional[uuid.UUID] = Field(default=None, foreign_key="slaves.id")
+    slave_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="slaves.id")

@@ -300,7 +300,6 @@ class VmService:
             )
         return vm_record
 
-
     @staticmethod
     def _get_slave_for_vm(vm_id: str) -> Optional[SlaveORM]:
         """Check if a VM is hosted on a slave node."""
@@ -309,7 +308,6 @@ class VmService:
             if vm_record and vm_record.slave_id:
                 return session.get(SlaveORM, vm_record.slave_id)
         return None
-
 
     @staticmethod
     def _get_duplicate_name(session: Session, vm_name: str) -> str:
@@ -365,7 +363,8 @@ class VmService:
                 try:
                     vm_list.append(Vm.get(str(vm_record.id)))
                 except Exception:
-                    logger.warning("Failed to get VM %s from libvirt", vm_record.id)
+                    logger.warning(
+                        "Failed to get VM %s from libvirt", vm_record.id)
         return vm_list
 
     def get_vm(vm_id: str):

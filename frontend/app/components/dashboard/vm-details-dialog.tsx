@@ -238,9 +238,7 @@ export function VMDetailsDialog({
                 <Server className="h-4 w-4" />
                 Host
               </span>
-              <span className="text-sm">
-                {vm.slave_name || "Local"}
-              </span>
+              <span className="text-sm">{vm.slave_name || "Local"}</span>
             </div>
           </div>
 

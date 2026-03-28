@@ -43,9 +43,13 @@ function SlaveStatusBadge({ status }: { status: string }) {
       : status === "maintenance"
         ? "secondary"
         : "destructive";
-  const className = status === "online" ? "bg-chart-3" : undefined
+  const className = status === "online" ? "bg-chart-3" : undefined;
 
-  return <Badge variant={variant} className={className}>{status}</Badge>;
+  return (
+    <Badge variant={variant} className={className}>
+      {status}
+    </Badge>
+  );
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -252,7 +256,9 @@ export function SlavesPage() {
         hostname: form.hostname,
         port: parseInt(form.port, 10),
       });
-      toast.success(`Slave "${result.name}" registered. API key has been generated.`);
+      toast.success(
+        `Slave "${result.name}" registered. API key has been generated.`,
+      );
       setCreateOpen(false);
       setForm({ name: "", hostname: "", port: "8081" });
     } catch {
@@ -320,7 +326,8 @@ export function SlavesPage() {
             <DialogTitle>Register Slave Node</DialogTitle>
             <DialogDescription>
               Add a new slave node to your Distribox cluster. The slave must be
-              running Distribox in slave mode and reachable at the given address.
+              running Distribox in slave mode and reachable at the given
+              address.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -360,10 +367,7 @@ export function SlavesPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setCreateOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>
               Cancel
             </Button>
             <Button

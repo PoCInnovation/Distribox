@@ -127,7 +127,8 @@ class SlaveService:
             slave.status = "offline"
             session.add(slave)
             session.commit()
-            logger.info("Slave %s (%s) reported graceful shutdown", slave.name, slave.id)
+            logger.info("Slave %s (%s) reported graceful shutdown",
+                        slave.name, slave.id)
 
     @staticmethod
     def get_online_slaves() -> list[SlaveORM]:

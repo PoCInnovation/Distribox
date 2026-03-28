@@ -25,7 +25,9 @@ export function SecretField({
   };
 
   return (
-    <div className={`flex items-center justify-between gap-2 ${className ?? ""}`}>
+    <div
+      className={`flex items-center justify-between gap-2 ${className ?? ""}`}
+    >
       <div
         className="group relative cursor-pointer rounded-full px-3 py-1 font-mono text-sm"
         onClick={() => setVisible((v) => !v)}
