@@ -519,22 +519,32 @@ class VmService:
             duplicate_vm.name = VmService._get_duplicate_name(
                 session, duplicate_vm.name)
 
-            src_path = VMS_DIR / vm_id / duplicate_vm.os
+            src_dir = VMS_DIR / vm_id
             dest_path = VMS_DIR / str(duplicate_vm.id)
-
-            dest_path.mkdir(parents=True, exist_ok=True)
-            copy(src_path, dest_path / duplicate_vm.os)
 
             vm_xml = build_xml(VmCreateXML(**duplicate_vm.model_dump()))
 
             try:
-                conn = QEMUConfig.get_connection()
-                conn.defineXML(vm_xml)
                 session.add(duplicate_vm)
                 session.commit()
+
+                dest_path.mkdir(parents=True, exist_ok=True)
+                copy(src_dir / duplicate_vm.os, dest_path / duplicate_vm.os)
+                seed_src = src_dir / "seed.iso"
+                if seed_src.exists():
+                    copy(seed_src, dest_path / "seed.iso")
+
+                conn = QEMUConfig.get_connection()
+                conn.defineXML(vm_xml)
             except Exception as e:
                 if dest_path.exists():
                     rmtree(dest_path)
+                with Session(engine) as cleanup_session:
+                    db_vm = cleanup_session.get(
+                        VmORM, duplicate_vm.id)
+                    if db_vm:
+                        cleanup_session.delete(db_vm)
+                        cleanup_session.commit()
                 raise HTTPException(
                     status_code=500,
                     detail=f"Failed to duplicate VM: {str(e)}"
