@@ -6,8 +6,7 @@ import {
   Cpu,
   MemoryStick,
   HardDrive,
-  Copy,
-  Check,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { SecretField } from "@/components/ui/secret-field";
 import { useSlaves } from "@/hooks/useSlaves";
 import { useAuthz } from "@/contexts/authz-context";
 import { Policy } from "@/lib/types";
@@ -42,7 +43,74 @@ function SlaveStatusBadge({ status }: { status: string }) {
       : status === "maintenance"
         ? "secondary"
         : "destructive";
-  return <Badge variant={variant}>{status}</Badge>;
+  const className = status === "online" ? "bg-chart-3" : undefined
+
+  return <Badge variant={variant} className={className}>{status}</Badge>;
+}
+
+function formatRelativeTime(dateString: string): string {
+  const now = Date.now();
+  const then = new Date(dateString).getTime();
+  const diffMs = now - then;
+
+  if (diffMs < 0) return "just now";
+
+  const seconds = Math.floor(diffMs / 1000);
+  if (seconds < 60) return "just now";
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+}
+
+function ResourceBar({
+  icon: Icon,
+  label,
+  total,
+  availablePercent,
+  unit,
+  online,
+  iconColor,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  total: number;
+  availablePercent: number;
+  unit: string;
+  online: boolean;
+  iconColor: string;
+}) {
+  const usedPercent = 100 - availablePercent;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <div className={`flex items-center gap-1.5 ${iconColor}`}>
+          <Icon className="h-3.5 w-3.5" />
+          <span className="font-medium text-foreground">
+            {label}{" "}
+            <span className="font-normal text-muted-foreground">
+              ({total} {unit})
+            </span>
+          </span>
+        </div>
+        {online && (
+          <span className="font-mono text-muted-foreground">
+            {usedPercent.toFixed(0)}%
+          </span>
+        )}
+      </div>
+      {online && <Progress value={usedPercent} className="h-1.5" />}
+    </div>
+  );
 }
 
 function SlaveCard({
@@ -54,17 +122,10 @@ function SlaveCard({
   onDelete: () => void;
   canDelete: boolean;
 }) {
-  const [copied, setCopied] = useState(false);
-
-  const copyApiKey = async () => {
-    await navigator.clipboard.writeText(slave.api_key);
-    setCopied(true);
-    toast.success("API key copied to clipboard");
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const isOnline = slave.status === "online";
 
   return (
-    <Card className="group relative border-border bg-card transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
+    <Card className="relative border-border bg-card transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -73,9 +134,6 @@ function SlaveCard({
             </div>
             <div>
               <CardTitle className="text-lg">{slave.name}</CardTitle>
-              <CardDescription>
-                {slave.hostname}:{slave.port}
-              </CardDescription>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -84,7 +142,7 @@ function SlaveCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 onClick={onDelete}
               >
                 <Trash2 className="h-4 w-4" />
@@ -94,64 +152,77 @@ function SlaveCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-3">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Cpu className="h-4 w-4" />
-            <span>
-              {slave.total_cpu} vCPUs
-              {slave.status === "online" && (
-                <span className="ml-1 text-xs text-green-500">
-                  ({slave.available_cpu.toFixed(0)}% free)
-                </span>
-              )}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MemoryStick className="h-4 w-4" />
-            <span>
-              {slave.total_mem} GB
-              {slave.status === "online" && (
-                <span className="ml-1 text-xs text-green-500">
-                  ({slave.available_mem.toFixed(1)} GB free)
-                </span>
-              )}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <HardDrive className="h-4 w-4" />
-            <span>
-              {slave.total_disk} GB
-              {slave.status === "online" && (
-                <span className="ml-1 text-xs text-green-500">
-                  ({slave.available_disk.toFixed(1)} GB free)
-                </span>
-              )}
-            </span>
-          </div>
+        {/* Address */}
+        <div className="space-y-1">
+          <span className="text-xs font-medium text-muted-foreground">
+            Address
+          </span>
+          <SecretField
+            value={`${slave.hostname}:${slave.port}`}
+            placeholder="•••.•••.•••.•••:••••"
+            toastMessage="Address copied to clipboard"
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 truncate rounded bg-muted px-2 py-1 text-xs">
-            {slave.api_key}
-          </code>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0"
-            onClick={copyApiKey}
-          >
-            {copied ? (
-              <Check className="h-3.5 w-3.5 text-green-500" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
-            )}
-          </Button>
+
+        {/* Resources */}
+        <div className="space-y-3">
+          <ResourceBar
+            icon={Cpu}
+            label="CPU"
+            total={slave.total_cpu}
+            availablePercent={slave.available_cpu}
+            unit="vCPUs"
+            online={isOnline}
+            iconColor="text-primary"
+          />
+          <ResourceBar
+            icon={MemoryStick}
+            label="Memory"
+            total={slave.total_mem}
+            availablePercent={slave.available_mem}
+            unit="GB"
+            online={isOnline}
+            iconColor="text-chart-2"
+          />
+          <ResourceBar
+            icon={HardDrive}
+            label="Disk"
+            total={slave.total_disk}
+            availablePercent={slave.available_disk}
+            unit="GB"
+            online={isOnline}
+            iconColor="text-chart-4"
+          />
         </div>
-        {slave.last_heartbeat && (
-          <p className="text-xs text-muted-foreground">
-            Last heartbeat:{" "}
-            {new Date(slave.last_heartbeat).toLocaleString()}
-          </p>
-        )}
+
+        {/* API Key */}
+        <div className="space-y-1">
+          <span className="text-xs font-medium text-muted-foreground">
+            API Key
+          </span>
+          <SecretField
+            value={slave.api_key}
+            toastMessage="API key copied to clipboard"
+          />
+        </div>
+
+        {/* Timestamps */}
+        <div className="flex flex-col gap-1 border-t border-border pt-3">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Clock className="h-3.5 w-3.5" />
+            <span title={new Date(slave.created_at).toLocaleString()}>
+              Registered {formatRelativeTime(slave.created_at)}
+            </span>
+          </div>
+          {slave.last_heartbeat && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" />
+              <span title={new Date(slave.last_heartbeat).toLocaleString()}>
+                Last heartbeat {formatRelativeTime(slave.last_heartbeat)}
+              </span>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

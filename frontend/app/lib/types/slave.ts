@@ -7,6 +7,7 @@ export const SlaveSchema = z.object({
   port: z.number(),
   api_key: z.string(),
   status: z.string(),
+  created_at: z.string(),
   last_heartbeat: z.string().nullable(),
   total_cpu: z.number(),
   total_mem: z.number(),
