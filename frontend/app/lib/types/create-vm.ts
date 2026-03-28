@@ -9,6 +9,7 @@ export const CreateVMPayloadSchema = z.object({
   keyboard_layout: z.string().nullable().optional(),
   activate_at_start: z.boolean(),
   slave_id: z.string().uuid().nullable().optional(),
+  auto_place: z.boolean().optional(),
 });
 
 export type CreateVMPayload = z.infer<typeof CreateVMPayloadSchema>;

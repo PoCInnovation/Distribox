@@ -20,7 +20,7 @@ import {
   CheckIcon,
 } from "lucide-react";
 import { useCreateEvent } from "@/hooks/useEvents";
-import { useHostInfo } from "@/hooks/useHostInfo";
+import { useClusterHostInfo } from "@/hooks/useHostInfo";
 import { VMImageSelect } from "./vm-image-picker";
 import {
   DateTimePicker,
@@ -52,7 +52,7 @@ export function CreateEventDialog({
   const canReadHost = authz.hasPolicy(Policy.HOST_GET);
   const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
 
-  const { data: hostInfo } = useHostInfo(canReadHost && open, 2000);
+  const { data: clusterInfo } = useClusterHostInfo(canReadHost && open);
   const { data: userSettings } = useSettings();
   const createEvent = useCreateEvent();
 
@@ -217,7 +217,7 @@ export function CreateEventDialog({
             onMemChange={setMem}
             diskSize={diskSize}
             onDiskChange={setDiskSize}
-            maxCpus={hostInfo?.cpu.cpu_count}
+            maxCpus={clusterInfo?.totals.cpu_count}
           />
 
           <div className="space-y-2">
@@ -283,15 +283,15 @@ export function CreateEventDialog({
             </div>
           </div>
 
-          {hostInfo && <HostResourcesBar hostInfo={hostInfo} />}
+          {clusterInfo && <HostResourcesBar totals={clusterInfo.totals} />}
 
-          {hostInfo && (
+          {clusterInfo && (
             <ResourceWarnings
               vcpus={vcpusNum}
               mem={memNum}
               diskSize={diskNum}
               maxVms={maxVmsNum}
-              hostInfo={hostInfo}
+              totals={clusterInfo.totals}
             />
           )}
 

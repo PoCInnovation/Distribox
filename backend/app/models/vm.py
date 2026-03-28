@@ -26,6 +26,7 @@ class VmRead(VmBase):
 class VmCreate(VmBase):
     activate_at_start: bool
     slave_id: Optional[UUID] = None
+    auto_place: bool = False
 
 
 class VmCreateXML(VmBase):

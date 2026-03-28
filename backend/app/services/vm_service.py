@@ -408,8 +408,50 @@ class VmService:
     def create_vm(vm_create: VmCreate):
         if vm_create.slave_id:
             return VmService._create_vm_on_slave(vm_create)
+        if vm_create.auto_place:
+            slave_id = VmService._auto_pick_node(
+                vm_create.mem, vm_create.vcpus, vm_create.disk_size
+            )
+            if slave_id:
+                vm_create.slave_id = slave_id
+                return VmService._create_vm_on_slave(vm_create)
         vm = Vm(vm_create)
         return vm
+
+    @staticmethod
+    def _auto_pick_node(required_mem: int, required_vcpus: int, required_disk: int):
+        """Pick the best node, prioritizing master. Returns slave UUID or None for master."""
+        from app.services.host_service import HostService
+        from app.services.slave_service import SlaveService
+        from app.services.slave_client import slave_get_host_info as _slave_get_host_info
+
+        try:
+            master = HostService.get_host_info()
+            if (master.mem.available >= required_mem
+                    and master.cpu.cpu_count >= required_vcpus
+                    and master.disk.available >= required_disk):
+                return None
+        except Exception:
+            pass
+
+        best_slave = None
+        best_mem = -1
+        for slave in SlaveService.get_online_slaves():
+            try:
+                info = _slave_get_host_info(slave)
+                slave_mem = info.get("mem", {}).get("available", 0)
+                slave_cpu = info.get("cpu", {}).get("cpu_count", 0)
+                slave_disk = info.get("disk", {}).get("available", 0)
+                if (slave_mem >= required_mem
+                        and slave_cpu >= required_vcpus
+                        and slave_disk >= required_disk
+                        and slave_mem > best_mem):
+                    best_slave = slave
+                    best_mem = slave_mem
+            except Exception:
+                continue
+
+        return best_slave.id if best_slave else None
 
     @staticmethod
     def _create_vm_on_slave(vm_create: VmCreate):
