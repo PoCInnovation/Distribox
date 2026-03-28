@@ -28,7 +28,7 @@ arch() {
     blue "\nArch system detected"
     init
     set -x
-    sudo pacman -Sy libvirt qemu-desktop virt-manager virt-viewer guacamole-server
+    sudo pacman -Sy libvirt qemu-desktop virt-manager virt-viewer
     set +x
 }
 
@@ -37,39 +37,56 @@ ubuntu() {
     init
     set -x
     sudo apt update
-    sudo apt install -y qemu-kvm libvirt-daemon-system genisoimage libvirt-clients bridge-utils virtinst pkg-config libvirt-dev python3-dev libguestfs-tools libguac-client-vnc0 guacd
+    sudo apt install -y qemu-kvm libvirt-daemon-system genisoimage libvirt-clients bridge-utils virtinst pkg-config libvirt-dev python3-dev libguestfs-tools
     set +x
 }
 
-if [ -f "/etc/pacman.conf" ]; then
+macos() {
+    blue "\nmacOS detected"
+    init
+    set -x
+    brew install qemu libvirt
+    set +x
+}
+
+if [[ "$(uname)" == "Darwin" ]]; then
+    macos
+elif [ -f "/etc/pacman.conf" ]; then
     arch
-else if dpkg -l | grep -q git; then
+elif dpkg -l 2>/dev/null | grep -q git; then
     ubuntu
 fi
+
+if [[ "$(uname)" == "Darwin" ]]; then
+    echo "Enabling libvirt daemon (libvirtd)..."
+    brew services start libvirt
+else
+    echo "Enabling libvirt daemon (libvirtd)..."
+    sudo systemctl enable --now libvirtd
 fi
 
-echo "Enabling libvirt daemon (libvirtd)..."
-
-sudo systemctl enable --now libvirtd
-
-echo "Enabling Guacamole proxy daemon (guacd)..."
-sudo systemctl enable --now guacd
-
-sudo mkdir /var/lib/distribox/
-sudo mkdir /var/lib/distribox/images
-sudo mkdir /var/lib/distribox/vms
+sudo mkdir -p /var/lib/distribox/images
+sudo mkdir -p /var/lib/distribox/vms
 
 echo "Creating distribox user group"
-echo "Please run \`newgrp distribox\` to apply changes temporarily or restart your user session."
 
-sudo groupadd -f distribox
-sudo usermod -aG distribox,kvm $(whoami)
-
-newgrp distribox
+if [[ "$(uname)" == "Darwin" ]]; then
+    sudo dseditgroup -o create distribox 2>/dev/null || true
+    sudo dseditgroup -o edit -a $(whoami) -t user distribox
+    echo "Please restart your terminal session to apply group changes."
+else
+    echo "Please run \`newgrp distribox\` to apply changes temporarily or restart your user session."
+    sudo groupadd -f distribox
+    sudo usermod -aG distribox,kvm $(whoami)
+    newgrp distribox
+fi
 
 sudo chown -R root:distribox /var/lib/distribox
 sudo chown -R root:distribox /var/lib/distribox/images
-sudo chown -R libvirt-qemu:kvm /var/lib/distribox/vms
+
+if [[ "$(uname)" != "Darwin" ]]; then
+    sudo chown -R libvirt-qemu:kvm /var/lib/distribox/vms
+fi
 
 sudo chmod 2775 /var/lib/distribox
 sudo chmod 2775 /var/lib/distribox/images
