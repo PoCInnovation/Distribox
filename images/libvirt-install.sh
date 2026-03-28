@@ -41,33 +41,56 @@ ubuntu() {
     set +x
 }
 
-if [ -f "/etc/pacman.conf" ]; then
+macos() {
+    blue "\nmacOS detected"
+    init
+    set -x
+    brew install qemu libvirt
+    set +x
+}
+
+if [[ "$(uname)" == "Darwin" ]]; then
+    macos
+elif [ -f "/etc/pacman.conf" ]; then
     arch
-else if dpkg -l | grep -q git; then
+elif dpkg -l 2>/dev/null | grep -q git; then
     ubuntu
-fi
 fi
 
 echo "Enabling libvirt daemon (libvirtd)..."
 
-sudo systemctl enable --now libvirtd
+if [[ "$(uname)" == "Darwin" ]]; then
+    brew services start libvirt
+else
+    sudo systemctl enable --now libvirtd
+fi
 
-sudo mkdir /var/lib/distribox/
-sudo mkdir /var/lib/distribox/images
-sudo mkdir /var/lib/distribox/vms
+sudo mkdir -p /var/lib/distribox/
+sudo mkdir -p /var/lib/distribox/images
+sudo mkdir -p /var/lib/distribox/vms
 
 echo "Creating distribox and libvirt user group"
-echo "Please run \`newgrp distribox libvirt\` to apply changes temporarily or restart your user session."
 
-sudo groupadd -f distribox
-sudo groupadd -f libvirt
-sudo usermod -aG distribox,libvirt,kvm $(whoami)
-
-newgrp distribox
+if [[ "$(uname)" == "Darwin" ]]; then
+    sudo dseditgroup -o create distribox 2>/dev/null || true
+    sudo dseditgroup -o create libvirt 2>/dev/null || true
+    sudo dseditgroup -o edit -a $(whoami) -t user distribox
+    sudo dseditgroup -o edit -a $(whoami) -t user libvirt
+    echo "Please restart your terminal session to apply group changes."
+else
+    echo "Please run \`newgrp distribox libvirt\` to apply changes temporarily or restart your user session."
+    sudo groupadd -f distribox
+    sudo groupadd -f libvirt
+    sudo usermod -aG distribox,libvirt,kvm $(whoami)
+    newgrp distribox
+fi
 
 sudo chown -R root:distribox /var/lib/distribox
 sudo chown -R root:distribox /var/lib/distribox/images
-sudo chown -R libvirt-qemu:kvm /var/lib/distribox/vms
+
+if [[ "$(uname)" != "Darwin" ]]; then
+    sudo chown -R libvirt-qemu:kvm /var/lib/distribox/vms
+fi
 
 sudo chmod 2775 /var/lib/distribox
 sudo chmod 2775 /var/lib/distribox/images
