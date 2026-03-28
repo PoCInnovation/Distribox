@@ -190,7 +190,10 @@ class Vm:
         vm_dir = VMS_DIR / str(self.id)
         per_vm_seed = vm_dir / "seed.iso"
         if not per_vm_seed.exists():
-            ensure_seed_iso()
+            ensure_seed_iso(
+                keyboard_layout=self.keyboard_layout,
+                vm_dir=vm_dir if self.keyboard_layout else None,
+            )
         try:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
