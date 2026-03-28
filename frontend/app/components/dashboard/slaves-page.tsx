@@ -47,15 +47,12 @@ function SlaveSetupTutorial() {
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
             1
           </span>
-          <span className="font-medium">
-            Register the slave on this master
-          </span>
+          <span className="font-medium">Register the slave on this master</span>
         </div>
         <p className="ml-8 text-muted-foreground">
-          Click <strong>Register Slave</strong> above and enter a
-          name, the hostname or IP of the remote machine, and its API
-          port. An API key will be generated. Copy it, you will need
-          it next.
+          Click <strong>Register Slave</strong> above and enter a name, the
+          hostname or IP of the remote machine, and its API port. An API key
+          will be generated. Copy it, you will need it next.
         </p>
       </li>
 
@@ -64,16 +61,14 @@ function SlaveSetupTutorial() {
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
             2
           </span>
-          <span className="font-medium">
-            Configure the slave machine
-          </span>
+          <span className="font-medium">Configure the slave machine</span>
         </div>
         <p className="ml-8 text-muted-foreground">
-          On the remote machine, clone Distribox and set the following environment
-          variables in your <code>.env</code> file:
+          On the remote machine, clone Distribox and set the following
+          environment variables in your <code>.env</code> file:
         </p>
         <pre className="ml-8 overflow-x-auto rounded-md bg-muted px-4 py-3 font-mono text-xs leading-relaxed">
-{`DISTRIBOX_MODE=slave
+          {`DISTRIBOX_MODE=slave
 MASTER_URL=http://<master-ip>:8080
 SLAVE_API_KEY=<key-from-step-1>
 SLAVE_PORT=8081`}
@@ -81,8 +76,8 @@ SLAVE_PORT=8081`}
         <div className="ml-8 flex items-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-foreground">
           <TriangleAlert className="h-4 w-4 shrink-0 text-accent" />
           <span>
-            The <code>MASTER_URL</code> needs to be reachable by the
-            slave and point to the Distribox backend.
+            The <code>MASTER_URL</code> needs to be reachable by the slave and
+            point to the Distribox backend.
           </span>
         </div>
       </li>
@@ -95,13 +90,17 @@ SLAVE_PORT=8081`}
           <span className="font-medium">Run the setup script</span>
         </div>
         <p className="ml-8 text-muted-foreground">
-          At the root of the Distribox repository, run the setup. This will install the necessary dependencies, create the necessary user groups, add them to your user and create the necessary files on your host. Make sure that you are not running this as root, but rather the user that is going to run Distribox.
+          At the root of the Distribox repository, run the setup. This will
+          install the necessary dependencies, create the necessary user groups,
+          add them to your user and create the necessary files on your host.
+          Make sure that you are not running this as root, but rather the user
+          that is going to run Distribox.
         </p>
         <div className="ml-8 flex items-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-foreground">
           <TriangleAlert className="h-4 w-4 shrink-0 text-accent" />
           <span>
-            Make sure that you are not running this as root, but
-            rather the user that is going to run Distribox.
+            Make sure that you are not running this as root, but rather the user
+            that is going to run Distribox.
           </span>
         </div>
         <pre className="ml-8 overflow-x-auto rounded-md bg-muted px-4 py-3 font-mono text-xs">
@@ -109,12 +108,20 @@ SLAVE_PORT=8081`}
         </pre>
         <div className="ml-8 flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-foreground">
           <Info className="h-4 w-4 shrink-0 text-primary" />
-          <span>
-            The setup script will ask for your password if necessary.
-          </span>
+          <span>The setup script will ask for your password if necessary.</span>
         </div>
         <p className="ml-8 text-muted-foreground">
-          If your system is not supported, we are probably working on it, but please open an issue on <a href="https://github.com/PoCInnovation/Distribox/issues/new" target="_blank" rel="noopener noreferrer" className="underline text-primary">GitHub</a> so we can help you.
+          If your system is not supported, we are probably working on it, but
+          please open an issue on{" "}
+          <a
+            href="https://github.com/PoCInnovation/Distribox/issues/new"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline text-primary"
+          >
+            GitHub
+          </a>{" "}
+          so we can help you.
         </p>
       </li>
 
@@ -126,13 +133,20 @@ SLAVE_PORT=8081`}
           <span className="font-medium">Apply user group changes</span>
         </div>
         <p className="ml-8 text-muted-foreground">
-          If you are using a macOS system, <span className="font-bold text-accent">close your current terminal session</span> and open a new one, this will be enough to apply the new user groups.
+          If you are using a macOS system,{" "}
+          <span className="font-bold text-accent">
+            close your current terminal session
+          </span>{" "}
+          and open a new one, this will be enough to apply the new user groups.
         </p>
         <p className="ml-8 text-muted-foreground">
-          If you are using Linux, you will need to <span className="font-bold text-accent">log out and log back in</span> to apply the changes.
+          If you are using Linux, you will need to{" "}
+          <span className="font-bold text-accent">log out and log back in</span>{" "}
+          to apply the changes.
         </p>
         <p className="ml-8 text-muted-foreground">
-          Alternatively, you can run the following command to apply the changes <span className="font-bold">in your current session only.</span>
+          Alternatively, you can run the following command to apply the changes{" "}
+          <span className="font-bold">in your current session only.</span>
         </p>
         <pre className="ml-8 overflow-x-auto rounded-md bg-muted px-4 py-3 font-mono text-xs">
           newgrp distribox libvirt
@@ -153,8 +167,8 @@ SLAVE_PORT=8081`}
           docker compose --profile slave up -d
         </pre>
         <p className="ml-8 text-muted-foreground">
-          The slave will send a heartbeat every 30 seconds. Once
-          received, the slave will appear here as{" "}
+          The slave will send a heartbeat every 30 seconds. Once received, the
+          slave will appear here as{" "}
           <Badge variant="default" className="bg-chart-3">
             online
           </Badge>{" "}
@@ -170,7 +184,8 @@ SLAVE_PORT=8081`}
           <span className="font-medium">Stopping the slave</span>
         </div>
         <p className="ml-8 text-muted-foreground">
-          We recommend that you always stop the slave gracefully with the following command in order to avoid ghost VMs.
+          We recommend that you always stop the slave gracefully with the
+          following command in order to avoid ghost VMs.
         </p>
         <pre className="ml-8 overflow-x-auto rounded-md bg-muted px-4 py-3 font-mono text-xs">
           docker compose --profile slave down
@@ -453,9 +468,7 @@ export function SlavesPage() {
             <div className="mx-auto max-w-2xl space-y-8">
               <div className="flex flex-col items-center text-center">
                 <Server className="mb-4 h-12 w-12 text-muted-foreground/50" />
-                <p className="mb-1 text-lg font-medium">
-                  No slaves registered
-                </p>
+                <p className="mb-1 text-lg font-medium">No slaves registered</p>
                 <p className="text-sm text-muted-foreground">
                   Slave nodes let you distribute VMs across multiple machines.
                   Follow the steps below to get started.

@@ -40,7 +40,8 @@ def get_slave_host_info(slave_id: UUID):
             responses={403: {"model": MissingPoliciesResponse}})
 def get_cluster_host_info():
     master_info = HostService.get_host_info()
-    nodes = [NodeHostInfo(node_id=None, node_name="Master", host_info=master_info)]
+    nodes = [NodeHostInfo(node_id=None, node_name="Master",
+                          host_info=master_info)]
 
     totals_cpu = master_info.cpu.cpu_count
     totals_mem_total = master_info.mem.total

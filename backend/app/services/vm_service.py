@@ -427,9 +427,9 @@ class VmService:
 
         try:
             master = HostService.get_host_info()
-            if (master.mem.available >= required_mem
-                    and master.cpu.cpu_count >= required_vcpus
-                    and master.disk.available >= required_disk):
+            if (master.mem.available >= required_mem and
+                    master.cpu.cpu_count >= required_vcpus and
+                    master.disk.available >= required_disk):
                 return None
         except Exception:
             pass
@@ -442,10 +442,10 @@ class VmService:
                 slave_mem = info.get("mem", {}).get("available", 0)
                 slave_cpu = info.get("cpu", {}).get("cpu_count", 0)
                 slave_disk = info.get("disk", {}).get("available", 0)
-                if (slave_mem >= required_mem
-                        and slave_cpu >= required_vcpus
-                        and slave_disk >= required_disk
-                        and slave_mem > best_mem):
+                if (slave_mem >= required_mem and
+                        slave_cpu >= required_vcpus and
+                        slave_disk >= required_disk and
+                        slave_mem > best_mem):
                     best_slave = slave
                     best_mem = slave_mem
             except Exception:

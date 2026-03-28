@@ -303,7 +303,9 @@ export function EventDetailPage() {
                       side="bottom"
                     />
                   </div>
-                  {clusterInfo && <HostResourcesBar totals={clusterInfo.totals} />}
+                  {clusterInfo && (
+                    <HostResourcesBar totals={clusterInfo.totals} />
+                  )}
                   {clusterInfo && (
                     <ResourceWarnings
                       vcpus={Number.parseInt(editVcpus) || 0}

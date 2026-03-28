@@ -118,7 +118,7 @@ export default function ProvisionPage() {
 
   // Resource limits depend on mode
   const availableMemGB = isAutoMode
-    ? clusterInfo?.totals.mem_available ?? 0
+    ? (clusterInfo?.totals.mem_available ?? 0)
     : targetHostInfo
       ? targetHostInfo.mem.available > 0
         ? targetHostInfo.mem.available
@@ -126,7 +126,7 @@ export default function ProvisionPage() {
       : 0;
 
   const availableDiskGB = isAutoMode
-    ? clusterInfo?.totals.disk_available ?? 0
+    ? (clusterInfo?.totals.disk_available ?? 0)
     : targetHostInfo
       ? targetHostInfo.disk.available > 0
         ? targetHostInfo.disk.available
@@ -134,8 +134,8 @@ export default function ProvisionPage() {
       : 0;
 
   const totalCPUs = isAutoMode
-    ? clusterInfo?.totals.cpu_count ?? 0
-    : targetHostInfo?.cpu.cpu_count ?? 0;
+    ? (clusterInfo?.totals.cpu_count ?? 0)
+    : (targetHostInfo?.cpu.cpu_count ?? 0);
 
   // Validation
   const memExceedsAvailable = memNum > availableMemGB;
@@ -200,7 +200,7 @@ export default function ProvisionPage() {
       ? hasSlaves
         ? "Master"
         : undefined
-      : onlineSlaves.find((s) => s.id === selectedTarget)?.name ?? "slave";
+      : (onlineSlaves.find((s) => s.id === selectedTarget)?.name ?? "slave");
 
   return (
     <div className="h-full p-8">
@@ -290,10 +290,15 @@ export default function ProvisionPage() {
             </h2>
             <div className="grid gap-4 md:grid-cols-3">
               {clusterInfo.nodes.map((node) => (
-                <Card key={node.node_id ?? "master"} className="border-border bg-card p-4">
+                <Card
+                  key={node.node_id ?? "master"}
+                  className="border-border bg-card p-4"
+                >
                   <div className="flex items-center gap-2 mb-3">
                     <Server className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">{node.node_name}</span>
+                    <span className="text-sm font-medium">
+                      {node.node_name}
+                    </span>
                   </div>
                   <div className="space-y-1.5 text-xs text-muted-foreground">
                     <div className="flex justify-between">
@@ -581,8 +586,8 @@ export default function ProvisionPage() {
                         ? "Auto (master-first)"
                         : selectedTarget === null
                           ? "Master"
-                          : onlineSlaves.find((s) => s.id === selectedTarget)
-                              ?.name ?? "Slave"}
+                          : (onlineSlaves.find((s) => s.id === selectedTarget)
+                              ?.name ?? "Slave")}
                     </span>
                   </div>
                 )}

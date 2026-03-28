@@ -118,7 +118,8 @@ class EventService:
                 info = slave_get_host_info(slave)
                 total_cpu += info.get("cpu", {}).get("cpu_count", 0)
                 total_mem_available += info.get("mem", {}).get("available", 0)
-                total_disk_available += info.get("disk", {}).get("available", 0)
+                total_disk_available += info.get("disk",
+                                                 {}).get("available", 0)
                 node_cpus = info.get("cpu", {}).get("cpu_count", 0)
                 if node_cpus > max_cpu_per_node:
                     max_cpu_per_node = node_cpus
@@ -171,9 +172,9 @@ class EventService:
         # Check master first
         try:
             master = HostService.get_host_info()
-            if (master.mem.available >= required_mem
-                    and master.cpu.cpu_count >= required_vcpus
-                    and master.disk.available >= required_disk):
+            if (master.mem.available >= required_mem and
+                    master.cpu.cpu_count >= required_vcpus and
+                    master.disk.available >= required_disk):
                 return None  # Use master
         except Exception:
             logger.warning("Failed to check master resources")
@@ -189,10 +190,10 @@ class EventService:
                 slave_mem = info.get("mem", {}).get("available", 0)
                 slave_cpu = info.get("cpu", {}).get("cpu_count", 0)
                 slave_disk = info.get("disk", {}).get("available", 0)
-                if (slave_mem >= required_mem
-                        and slave_cpu >= required_vcpus
-                        and slave_disk >= required_disk
-                        and slave_mem > best_mem):
+                if (slave_mem >= required_mem and
+                        slave_cpu >= required_vcpus and
+                        slave_disk >= required_disk and
+                        slave_mem > best_mem):
                     best_slave = slave
                     best_mem = slave_mem
             except Exception:
@@ -383,7 +384,8 @@ class EventService:
                     f"A VM with name '{vm_name}' already exists",
                 )
 
-        slave_id = EventService._pick_node_for_vm(event.vm_mem, event.vm_vcpus, event.vm_disk_size)
+        slave_id = EventService._pick_node_for_vm(
+            event.vm_mem, event.vm_vcpus, event.vm_disk_size)
         vm_create = VmCreate(
             name=vm_name,
             os=event.vm_os,

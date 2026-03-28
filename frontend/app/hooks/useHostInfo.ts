@@ -18,8 +18,7 @@ export function useTargetHostInfo(
 ) {
   return useQuery({
     queryKey: ["host", "info", slaveId ?? "master"],
-    queryFn: () =>
-      slaveId ? getSlaveHostInfo(slaveId) : getHostInfo(),
+    queryFn: () => (slaveId ? getSlaveHostInfo(slaveId) : getHostInfo()),
     refetchInterval,
     enabled,
     retry: false,
