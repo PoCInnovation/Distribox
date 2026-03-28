@@ -161,6 +161,21 @@ SLAVE_PORT=8081`}
           and you can start creating VMs on it. Good to go!
         </p>
       </li>
+
+      <li className="space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+            6
+          </span>
+          <span className="font-medium">Stopping the slave</span>
+        </div>
+        <p className="ml-8 text-muted-foreground">
+          We recommend that you always stop the slave gracefully with the following command in order to avoid ghost VMs.
+        </p>
+        <pre className="ml-8 overflow-x-auto rounded-md bg-muted px-4 py-3 font-mono text-xs">
+          docker compose --profile slave down
+        </pre>
+      </li>
     </ol>
   );
 }
