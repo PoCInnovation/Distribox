@@ -35,6 +35,27 @@ app.add_middleware(
 )
 
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Notify master of graceful shutdown when running as slave."""
+    if DISTRIBOX_MODE != "slave":
+        return
+    import httpx
+    from app.core.config import MASTER_URL, SLAVE_API_KEY
+
+    if not MASTER_URL or not SLAVE_API_KEY:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                f"{MASTER_URL}/slaves/shutdown",
+                headers={"X-Slave-Token": SLAVE_API_KEY},
+            )
+        logger.info("Shutdown notification sent to master")
+    except Exception:
+        logger.warning("Failed to notify master of shutdown")
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize database and create default admin user if it doesn't exist."""

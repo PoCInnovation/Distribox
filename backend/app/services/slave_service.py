@@ -109,6 +109,27 @@ class SlaveService:
             return slave
 
     @staticmethod
+    def mark_slave_offline(slave_id: str) -> None:
+        try:
+            parsed_id = uuid.UUID(slave_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid slave id",
+            ) from exc
+        with Session(engine) as session:
+            slave = session.get(SlaveORM, parsed_id)
+            if not slave:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Slave {slave_id} not found",
+                )
+            slave.status = "offline"
+            session.add(slave)
+            session.commit()
+            logger.info("Slave %s (%s) reported graceful shutdown", slave.name, slave.id)
+
+    @staticmethod
     def get_online_slaves() -> list[SlaveORM]:
         with Session(engine) as session:
             slaves = session.exec(

@@ -81,3 +81,15 @@ def slave_heartbeat(
 ):
     """Receive a heartbeat from a slave node (authenticated via X-Slave-Token)."""
     return SlaveService.handle_heartbeat(str(slave.id), heartbeat)
+
+
+@router.post(
+    "/shutdown",
+    status_code=status.HTTP_200_OK,
+)
+def slave_shutdown(
+    slave: SlaveORM = Depends(_verify_slave_token),
+):
+    """Receive a graceful shutdown notification from a slave node."""
+    SlaveService.mark_slave_offline(str(slave.id))
+    return {"detail": "Slave marked offline"}
