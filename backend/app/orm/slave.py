@@ -1,5 +1,5 @@
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import SQLModel, Field
 import uuid
 
@@ -13,6 +13,7 @@ class SlaveORM(SQLModel, table=True):
     port: int = Field(default=8080)
     api_key: str
     status: str = Field(default="offline")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_heartbeat: Optional[datetime] = Field(default=None)
     total_cpu: int = Field(default=0)
     total_mem: int = Field(default=0)

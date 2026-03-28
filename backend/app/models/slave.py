@@ -17,6 +17,7 @@ class SlaveRead(BaseModel):
     port: int
     api_key: str
     status: str
+    created_at: datetime
     last_heartbeat: Optional[datetime] = None
     total_cpu: int
     total_mem: int

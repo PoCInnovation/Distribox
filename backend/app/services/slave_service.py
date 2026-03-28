@@ -24,7 +24,7 @@ class SlaveService:
     @staticmethod
     def list_slaves() -> list[SlaveORM]:
         with Session(engine) as session:
-            return list(session.exec(select(SlaveORM)).all())
+            return list(session.exec(select(SlaveORM).order_by(SlaveORM.created_at)).all())
 
     @staticmethod
     def get_slave(slave_id: str) -> SlaveORM:
