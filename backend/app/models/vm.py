@@ -28,6 +28,10 @@ class VmCreate(VmBase):
     slave_id: Optional[UUID] = None
 
 
+class VmCreateXML(VmBase):
+    id: UUID
+
+
 class VmCredentialCreateRequest(BaseModel):
     name: str = Field(min_length=1)
     password: Optional[str] = None

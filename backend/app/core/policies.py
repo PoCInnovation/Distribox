@@ -82,6 +82,14 @@ POLICIES: list[dict[str, str]] = [
         "description": "Allows the user to remove virtual machines.",
     },
     {
+        "policy": "vms:screenshot",
+        "description": "Allows the user to make virtual machine screenshots.",
+    },
+    {
+        "policy": "vms:duplicate",
+        "description": "Allows the user to duplicate a virtual machine.",
+    },
+    {
         "policy": "vms:credentials:revoke",
         "description": "Allows the user to revoke virtual machine credentials.",
     },

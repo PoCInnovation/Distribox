@@ -6,7 +6,7 @@ import libvirt
 from app.utils.vm import wait_for_state
 from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
-from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate
+from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML
 from app.models.image import ImageRead
 from app.core.xml_builder import build_xml
 from app.core.config import QEMUConfig, engine
@@ -24,6 +24,7 @@ from os import path
 from app.services.image_service import ImageService
 import yaml
 from pathlib import Path
+from sqlalchemy.orm import make_transient
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,14 @@ class Vm:
                 ["qemu-img", "resize", vm_path, f"+{self.disk_size}G"],
                 check=True,
             )
-            vm_xml = build_xml(self)
+            vm_xml = build_xml(VmCreateXML(
+                id=self.id,
+                os=self.os,
+                name=self.name,
+                mem=self.mem,
+                vcpus=self.vcpus,
+                disk_size=self.disk_size
+            ))
             conn = QEMUConfig.get_connection()
             conn.defineXML(vm_xml)
             with Session(engine) as session:
@@ -292,6 +300,7 @@ class VmService:
             )
         return vm_record
 
+
     @staticmethod
     def _get_slave_for_vm(vm_id: str) -> Optional[SlaveORM]:
         """Check if a VM is hosted on a slave node."""
@@ -300,6 +309,21 @@ class VmService:
             if vm_record and vm_record.slave_id:
                 return session.get(SlaveORM, vm_record.slave_id)
         return None
+
+
+    @staticmethod
+    def _get_duplicate_name(session: Session, vm_name: str) -> str:
+        base_name = f"Duplicate of {vm_name}"
+        search_pattern = f"{base_name}%"
+
+        statement = select(
+            func.count(
+                VmORM.id)).where(
+            VmORM.name.like(search_pattern))
+        count = session.exec(statement).one()
+        if count == 0:
+            return base_name
+        return f"{base_name}({count})"
 
     def get_vm_list():
         with Session(engine) as session:
@@ -678,3 +702,35 @@ class VmService:
                     rmtree(VMS_DIR / v.name)
                     break
         return
+
+    @staticmethod
+    def duplicate_vm(vm_id: str):
+        with Session(engine) as session:
+            vm_to_duplicate = VmService._get_vm_or_404(session, vm_id)
+            duplicate_vm = VmORM(**vm_to_duplicate.model_dump())
+            duplicate_vm.id = uuid.uuid4()
+            duplicate_vm.name = VmService._get_duplicate_name(
+                session, duplicate_vm.name)
+
+            src_path = VMS_DIR / vm_id / duplicate_vm.os
+            dest_path = VMS_DIR / str(duplicate_vm.id)
+
+            dest_path.mkdir(parents=True, exist_ok=True)
+            copy(src_path, dest_path / duplicate_vm.os)
+
+            vm_xml = build_xml(VmCreateXML(**duplicate_vm.model_dump()))
+
+            try:
+                conn = QEMUConfig.get_connection()
+                conn.defineXML(vm_xml)
+                session.add(duplicate_vm)
+                session.commit()
+            except Exception as e:
+                if dest_path.exists():
+                    rmtree(dest_path)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to duplicate VM: {str(e)}"
+                )
+
+            return Vm.get(str(duplicate_vm.id))
