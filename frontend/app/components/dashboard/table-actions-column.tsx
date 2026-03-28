@@ -16,6 +16,7 @@ import {
   Settings,
   Terminal,
   RotateCw,
+  Copy,
 } from "lucide-react";
 import { useAuthz } from "@/contexts/authz-context";
 import { Policy } from "@/lib/types";
@@ -28,6 +29,7 @@ export const TableActionsColumn = ({
   onStopVM,
   onRestartVM,
   onDeleteVM,
+  onDuplicateVM,
   onConnectVM,
   onConfigureVM,
 }: {
@@ -37,6 +39,7 @@ export const TableActionsColumn = ({
   onStopVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onRestartVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onDeleteVM?: (vm: VirtualMachineMetadata) => void;
+  onDuplicateVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onConnectVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onConfigureVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
 }) => {
@@ -51,6 +54,7 @@ export const TableActionsColumn = ({
     Policy.VMS_START,
     Policy.VMS_STOP,
   ]);
+  const missingForDuplicate = authz.missingPolicies([Policy.VMS_DUPLICATE]);
 
   const hiddenActions = [
     ...(missingForConnect.length > 0 ? ["Connect"] : []),
@@ -142,6 +146,21 @@ export const TableActionsColumn = ({
               Restart
               {missingForRestart.length > 0
                 ? ` (missing: ${missingForRestart.join(", ")})`
+                : ""}
+            </DropdownMenuItem>
+          )}
+          {onDuplicateVM && (
+            <DropdownMenuItem
+              className="focus:bg-primary/10 focus:text-primary"
+              disabled={
+                vm.state === VMState.RUNNING || missingForDuplicate.length > 0
+              }
+              onClick={(e) => onDuplicateVM(vm, e)}
+            >
+              <Copy className="mr-2 h-4 w-4 text-inherit" />
+              Duplicate
+              {missingForDuplicate.length > 0
+                ? ` (missing: ${missingForDuplicate.join(", ")})`
                 : ""}
             </DropdownMenuItem>
           )}
