@@ -1,6 +1,6 @@
 from lxml import etree
 from app.models.vm import VmCreateXML
-from app.core.constants import VMS_DIR
+from app.core.constants import VMS_DIR, IMAGES_DIR
 from app.core.config import VIRT_TYPE
 
 LAYOUT_TO_KEYMAP = {
@@ -75,10 +75,11 @@ def build_xml(vm_read: VmCreateXML):
 
     disk_seed = etree.SubElement(devices, "disk", type="file", device="cdrom")
     etree.SubElement(disk_seed, "driver", name="qemu", type="raw")
+    per_vm_seed = VMS_DIR / str(vm_read.id) / "seed.iso"
     seed_iso_path = (
-        str(VMS_DIR / str(vm_read.id) / "seed.iso")
-        if vm_read.keyboard_layout
-        else "/var/lib/distribox/images/seed.iso"
+        str(per_vm_seed)
+        if per_vm_seed.exists()
+        else str(IMAGES_DIR / "seed.iso")
     )
     etree.SubElement(disk_seed, "source", file=seed_iso_path)
     etree.SubElement(disk_seed, "target", dev="hdb", bus="ide")
