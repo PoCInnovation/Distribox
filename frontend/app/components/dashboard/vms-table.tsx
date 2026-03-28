@@ -26,6 +26,7 @@ interface DashboardVMsTableProps {
   onStopVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onRestartVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onDeleteVM?: (vm: VirtualMachineMetadata) => void;
+  onDuplicateVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onConnectVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onConfigureVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
 }
@@ -38,6 +39,7 @@ export function DashboardVMsTable({
   onStopVM,
   onRestartVM,
   onDeleteVM,
+  onDuplicateVM,
   onConnectVM,
   onConfigureVM,
 }: DashboardVMsTableProps) {
@@ -122,6 +124,7 @@ export function DashboardVMsTable({
             onStopVM={onStopVM}
             onRestartVM={onRestartVM}
             onDeleteVM={onDeleteVM}
+            onDuplicateVM={onDuplicateVM}
             onConnectVM={onConnectVM}
             onConfigureVM={onConfigureVM}
           />

@@ -33,10 +33,12 @@ export function DashboardVMsTableContainer() {
     stopVM,
     restartVM,
     deleteVM,
+    duplicateVM,
     isStartingVM,
     isStoppingVM,
     isRestartingVM,
     isDeletingVM,
+    isDuplicatingVM,
   } = useVMs();
 
   const operatingVMs = useMemo(() => {
@@ -48,6 +50,7 @@ export function DashboardVMsTableContainer() {
     if (isStoppingVM && selectedVM) operating.add(selectedVM.id);
     if (isRestartingVM && selectedVM) operating.add(selectedVM.id);
     if (isDeletingVM && vmToDelete) operating.add(vmToDelete.id);
+    if (isDuplicatingVM && selectedVM) operating.add(selectedVM.id);
     return operating;
   }, [
     isStartingVM,
@@ -56,6 +59,7 @@ export function DashboardVMsTableContainer() {
     isDeletingVM,
     selectedVM,
     vmToDelete,
+    isDuplicatingVM,
   ]);
 
   const handleStartVM = (vm: VirtualMachineMetadata, e?: React.MouseEvent) => {
@@ -86,6 +90,14 @@ export function DashboardVMsTableContainer() {
     deleteVM(vmToDelete.id);
     setDeleteDialogOpen(false);
     setVmToDelete(null);
+  };
+
+  const handleDuplicateVM = (
+    vm: VirtualMachineMetadata,
+    e?: React.MouseEvent,
+  ) => {
+    e?.stopPropagation();
+    duplicateVM(vm.id);
   };
 
   const handleConnectVM = (
@@ -130,6 +142,7 @@ export function DashboardVMsTableContainer() {
                 onStopVM={handleStopVM}
                 onRestartVM={handleRestartVM}
                 onDeleteVM={handleDeleteVM}
+                onDuplicateVM={handleDuplicateVM}
                 onConnectVM={handleConnectVM}
                 onConfigureVM={handleConfigureVM}
               />

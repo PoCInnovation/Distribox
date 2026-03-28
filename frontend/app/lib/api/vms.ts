@@ -58,3 +58,9 @@ export async function deleteVM(id: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+export async function duplicateVM(id: string): Promise<void> {
+  return apiRequest<void>(`/vms/${id}/duplicate`, {
+    method: "POST",
+  });
+}

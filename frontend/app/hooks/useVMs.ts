@@ -1,6 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getVMs, startVM, stopVM, restartVM, deleteVM } from "@/lib/api";
+import {
+  getVMs,
+  startVM,
+  stopVM,
+  restartVM,
+  deleteVM,
+  duplicateVM,
+} from "@/lib/api";
 import type { VirtualMachineMetadata } from "@/lib/types/virtual-machine";
+import { toast } from "sonner";
 
 export function useVMs() {
   const queryClient = useQueryClient();
@@ -23,6 +31,19 @@ export function useVMs() {
   >({
     mutationFn: async ({ vmId }) => {
       await startVM(vmId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vms"] });
+    },
+  });
+
+  const duplicateVMMutation = useMutation<
+    void, // Change return type to void
+    Error,
+    { vmId: string }
+  >({
+    mutationFn: async ({ vmId }) => {
+      await duplicateVM(vmId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vms"] });
@@ -68,6 +89,12 @@ export function useVMs() {
   const handleStopVM = (vmId: string) => stopVMMutation.mutate({ vmId });
   const handleRestartVM = (vmId: string) => restartVMMutation.mutate({ vmId });
   const handleDeleteVM = (vmId: string) => deleteVMMutation.mutate({ vmId });
+  const handleDuplicateVM = (vmId: string) =>
+    toast.promise(duplicateVMMutation.mutateAsync({ vmId }), {
+      loading: "Duplicating VM...",
+      success: "VM duplicated successfully",
+      error: "Failed to duplicate VM",
+    });
 
   const isMutating =
     startVMMutation.isPending ||
@@ -84,10 +111,12 @@ export function useVMs() {
     stopVM: handleStopVM,
     restartVM: handleRestartVM,
     deleteVM: handleDeleteVM,
+    duplicateVM: handleDuplicateVM,
     isMutating,
     isStartingVM: startVMMutation.isPending,
     isStoppingVM: stopVMMutation.isPending,
     isRestartingVM: restartVMMutation.isPending,
     isDeletingVM: deleteVMMutation.isPending,
+    isDuplicatingVM: duplicateVMMutation.isPending,
   };
 }
