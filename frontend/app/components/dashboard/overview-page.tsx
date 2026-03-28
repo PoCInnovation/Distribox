@@ -1,10 +1,17 @@
+import { useState } from "react";
 import { HostInfoPanel } from "./host-info";
 import { DashboardVMsTableContainer } from "./vms-table-container";
 import { Policy } from "@/lib/types";
 import { PolicyGate } from "@/components/policy/policy-gate";
 import { RecoveryContainer } from "@/components/recovery/recovery-container";
+import { useSlaves } from "@/hooks/useSlaves";
+import { Server } from "lucide-react";
 
 export default function OverviewPage() {
+  const { slaves } = useSlaves();
+  const onlineSlaves = slaves.filter((s) => s.status === "online");
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
   return (
     <div className="h-full p-8">
       <div className="mb-8">
@@ -22,7 +29,38 @@ export default function OverviewPage() {
         requiredPolicies={[Policy.HOST_GET]}
         title="Host Resources Hidden"
       >
-        <HostInfoPanel />
+        {onlineSlaves.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedNodeId(null)}
+              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm transition-colors ${
+                selectedNodeId === null
+                  ? "border border-primary/40 bg-primary/10 text-foreground"
+                  : "border border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              <Server className="h-4 w-4" />
+              Master
+            </button>
+            {onlineSlaves.map((slave) => (
+              <button
+                key={slave.id}
+                type="button"
+                onClick={() => setSelectedNodeId(slave.id)}
+                className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm transition-colors ${
+                  selectedNodeId === slave.id
+                    ? "border border-primary/40 bg-primary/10 text-foreground"
+                    : "border border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                }`}
+              >
+                <Server className="h-4 w-4" />
+                {slave.name}
+              </button>
+            ))}
+          </div>
+        )}
+        <HostInfoPanel slaveId={selectedNodeId} />
       </PolicyGate>
 
       <PolicyGate

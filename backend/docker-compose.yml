@@ -6,6 +6,7 @@ services:
       target: production-stage
     container_name: distribox-backend
     environment:
+      - DISTRIBOX_MODE=${DISTRIBOX_MODE:-master}
       - POSTGRES_HOST=${POSTGRES_HOST:-database}
       - POSTGRES_PORT=${POSTGRES_PORT:-5432}
       - POSTGRES_NAME=${POSTGRES_NAME:-distribox}
@@ -21,6 +22,7 @@ services:
       - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
       - GUACD_PORT=${GUACD_PORT:-4822}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}
+      - VIRT_TYPE=${VIRT_TYPE:-kvm}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -59,6 +61,7 @@ services:
       - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
       - GUACD_PORT=${GUACD_PORT:-4822}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}
+      - VIRT_TYPE=${VIRT_TYPE:-kvm}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -88,7 +91,48 @@ services:
     # backend containers can reach it via host.docker.internal:4822.
     network_mode: host
     command: ["/opt/guacamole/sbin/guacd", "-f", "-b", "0.0.0.0", "-l", "4822", "-L", "debug"]
-    profiles: ["prod", "dev"]
+    profiles: ["prod", "dev", "slave"]
+
+
+  slave:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production-stage
+    container_name: distribox-slave
+    environment:
+      - DISTRIBOX_MODE=slave
+      - POSTGRES_HOST=${POSTGRES_HOST:-database}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_NAME=${POSTGRES_NAME:-distribox}
+      - POSTGRES_USER=${POSTGRES_USER:-distribox_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-distribox_password}
+      - BACKEND_PORT=${SLAVE_PORT:-8081}
+      - MASTER_URL=${MASTER_URL:-http://distribox-backend:8080}
+      - SLAVE_API_KEY=${SLAVE_API_KEY:-}
+      - DISTRIBOX_SECRET=${DISTRIBOX_SECRET:-secret}
+      - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-images}
+      - AWS_REGION=${AWS_REGION:-eu-west-3}
+      - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
+      - GUACD_PORT=${GUACD_PORT:-4822}
+      - VNC_HOST=${VNC_HOST:-127.0.0.1}
+      - VNC_LISTEN=${VNC_LISTEN:-127.0.0.1}
+      - VIRT_TYPE=${VIRT_TYPE:-kvm}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${SLAVE_PORT:-8081}:${SLAVE_PORT:-8081}"
+    volumes:
+      - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock
+      - /var/lib/distribox:/var/lib/distribox
+    depends_on:
+      database:
+        condition: service_healthy
+      guacd:
+        condition: service_started
+    networks:
+      - distribox-network
+    profiles: ["slave"]
 
 
 volumes:

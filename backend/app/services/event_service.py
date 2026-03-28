@@ -16,6 +16,8 @@ from app.orm.vm import VmORM
 from app.orm.vm_credential import VmCredentialORM
 from app.services.host_service import HostService
 from app.services.vm_service import VmService
+from app.services.slave_service import SlaveService
+from app.services.slave_client import slave_get_host_info
 
 
 def _sanitize_name(name: str) -> str:
@@ -103,32 +105,105 @@ class EventService:
             return _event_to_read(event, list(participants))
 
     @staticmethod
-    def _check_host_resources(payload: EventCreate) -> None:
-        host = HostService.get_host_info()
+    def _get_cluster_resources() -> dict:
+        """Get aggregated resources across master and all online slaves."""
+        master = HostService.get_host_info()
+        total_cpu = master.cpu.cpu_count
+        total_mem_available = master.mem.available
+        total_disk_available = master.disk.available
+        max_cpu_per_node = master.cpu.cpu_count
 
-        if payload.vm_vcpus > host.cpu.cpu_count:
+        for slave in SlaveService.get_online_slaves():
+            try:
+                info = slave_get_host_info(slave)
+                total_cpu += info.get("cpu", {}).get("cpu_count", 0)
+                total_mem_available += info.get("mem", {}).get("available", 0)
+                total_disk_available += info.get("disk",
+                                                 {}).get("available", 0)
+                node_cpus = info.get("cpu", {}).get("cpu_count", 0)
+                if node_cpus > max_cpu_per_node:
+                    max_cpu_per_node = node_cpus
+            except Exception:
+                pass
+
+        return {
+            "total_cpu": total_cpu,
+            "max_cpu_per_node": max_cpu_per_node,
+            "mem_available": round(total_mem_available, 2),
+            "disk_available": round(total_disk_available, 2),
+        }
+
+    @staticmethod
+    def _check_host_resources(payload: EventCreate) -> None:
+        cluster = EventService._get_cluster_resources()
+
+        if payload.vm_vcpus > cluster["max_cpu_per_node"]:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
-                f"Requested {payload.vm_vcpus} vCPUs per VM but host only has {host.cpu.cpu_count} CPU cores",
+                f"Requested {payload.vm_vcpus} vCPUs per VM but no node has more than "
+                f"{cluster['max_cpu_per_node']} CPU cores",
             )
 
         total_mem = payload.max_vms * payload.vm_mem
-        available_mem = host.mem.available
-        if total_mem > available_mem:
+        if total_mem > cluster["mem_available"]:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 f"Event requires up to {total_mem} GB RAM ({payload.max_vms} VMs x {payload.vm_mem} GB) "
-                f"but only {available_mem} GB is available",
+                f"but only {cluster['mem_available']} GB is available across the cluster",
             )
 
         total_disk = payload.max_vms * payload.vm_disk_size
-        available_disk = host.disk.available
-        if total_disk > available_disk:
+        if total_disk > cluster["disk_available"]:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 f"Event requires up to {total_disk} GB disk ({payload.max_vms} VMs x {payload.vm_disk_size} GB) "
-                f"but only {available_disk} GB is available",
+                f"but only {cluster['disk_available']} GB is available across the cluster",
             )
+
+    @staticmethod
+    def _pick_node_for_vm(required_mem: int, required_vcpus: int, required_disk: int):
+        """Pick the best node for a new VM, prioritizing master.
+
+        Returns None for master, or slave UUID for a slave node.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Check master first
+        try:
+            master = HostService.get_host_info()
+            if (master.mem.available >= required_mem and
+                    master.cpu.cpu_count >= required_vcpus and
+                    master.disk.available >= required_disk):
+                return None  # Use master
+        except Exception:
+            logger.warning("Failed to check master resources")
+
+        # Fall back to slaves, pick the one with most available memory
+        online_slaves = SlaveService.get_online_slaves()
+        best_slave = None
+        best_mem = -1
+
+        for slave in online_slaves:
+            try:
+                info = slave_get_host_info(slave)
+                slave_mem = info.get("mem", {}).get("available", 0)
+                slave_cpu = info.get("cpu", {}).get("cpu_count", 0)
+                slave_disk = info.get("disk", {}).get("available", 0)
+                if (slave_mem >= required_mem and
+                        slave_cpu >= required_vcpus and
+                        slave_disk >= required_disk and
+                        slave_mem > best_mem):
+                    best_slave = slave
+                    best_mem = slave_mem
+            except Exception:
+                continue
+
+        if best_slave:
+            return best_slave.id
+
+        # No node has enough resources; let master handle it (will fail naturally)
+        return None
 
     @staticmethod
     def create_event(payload: EventCreate, created_by: str) -> EventRead:
@@ -309,6 +384,8 @@ class EventService:
                     f"A VM with name '{vm_name}' already exists",
                 )
 
+        slave_id = EventService._pick_node_for_vm(
+            event.vm_mem, event.vm_vcpus, event.vm_disk_size)
         vm_create = VmCreate(
             name=vm_name,
             os=event.vm_os,
@@ -317,12 +394,16 @@ class EventService:
             disk_size=event.vm_disk_size,
             keyboard_layout=event.keyboard_layout,
             activate_at_start=True,
+            slave_id=slave_id,
         )
         vm = VmService.create_vm(vm_create)
 
+        # create_vm returns a Vm object (local) or a dict (slave)
+        vm_id = vm["id"] if isinstance(vm, dict) else vm.id
+
         credential_password = str(uuid.uuid4())[:12]
         credential = VmService.create_vm_credential(
-            str(vm.id),
+            str(vm_id),
             VmCredentialCreateRequest(
                 name=sanitized,
                 password=credential_password,
@@ -334,13 +415,13 @@ class EventService:
             participant = EventParticipantORM(
                 event_id=event.id,
                 participant_name=payload.participant_name,
-                vm_id=vm.id,
+                vm_id=vm_id,
             )
             session.add(participant)
             session.commit()
 
         return EventJoinResponse(
-            vm_id=vm.id,
+            vm_id=vm_id,
             vm_name=vm_name,
             credential_name=credential["name"],
             credential_password=credential["password"],

@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { format, setHours, setMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
-import type { HostInfo } from "@/lib/types/host-info";
+import type { ClusterTotals } from "@/lib/types/host-info";
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTES = Array.from({ length: 12 }, (_, i) => i * 5);
@@ -190,28 +190,25 @@ export function VmSpecFields({
   );
 }
 
-export function HostResourcesBar({ hostInfo }: { hostInfo: HostInfo }) {
+export function HostResourcesBar({ totals }: { totals: ClusterTotals }) {
   return (
     <div className="rounded-md border bg-muted/50 px-4 py-3">
       <p className="mb-2 text-xs font-medium text-muted-foreground">
-        Host Resources
+        Cluster Resources
       </p>
       <div className="grid grid-cols-3 gap-4 text-sm">
         <div className="flex items-center gap-2">
           <Cpu className="h-3.5 w-3.5 text-primary" />
           <span>
-            <span className="font-medium">{hostInfo.cpu.cpu_count}</span>{" "}
+            <span className="font-medium">{totals.cpu_count}</span>{" "}
             <span className="text-muted-foreground">cores</span>
-            <span className="ml-1 text-muted-foreground">
-              ({hostInfo.cpu.percent_used_total.toFixed(0)}% used)
-            </span>
           </span>
         </div>
         <div className="flex items-center gap-2">
           <MemoryStick className="h-3.5 w-3.5 text-accent" />
           <span>
             <span className="font-medium">
-              {hostInfo.mem.available.toFixed(1)}
+              {totals.mem_available.toFixed(1)}
             </span>{" "}
             <span className="text-muted-foreground">GB free</span>
           </span>
@@ -220,7 +217,7 @@ export function HostResourcesBar({ hostInfo }: { hostInfo: HostInfo }) {
           <HardDrive className="h-3.5 w-3.5 text-chart-4" />
           <span>
             <span className="font-medium">
-              {hostInfo.disk.available.toFixed(1)}
+              {totals.disk_available.toFixed(1)}
             </span>{" "}
             <span className="text-muted-foreground">GB free</span>
           </span>
@@ -235,17 +232,17 @@ export function ResourceWarnings({
   mem,
   diskSize,
   maxVms,
-  hostInfo,
+  totals,
 }: {
   vcpus: number;
   mem: number;
   diskSize: number;
   maxVms: number;
-  hostInfo: HostInfo;
+  totals: ClusterTotals;
 }) {
-  const totalCPUs = hostInfo.cpu.cpu_count;
-  const availableMem = hostInfo.mem.available;
-  const availableDisk = hostInfo.disk.available;
+  const totalCPUs = totals.cpu_count;
+  const availableMem = totals.mem_available;
+  const availableDisk = totals.disk_available;
 
   const totalMemNeeded = maxVms * mem;
   const totalDiskNeeded = maxVms * diskSize;
@@ -261,7 +258,7 @@ export function ResourceWarnings({
       <div className="text-sm text-yellow-700 dark:text-yellow-300">
         {exceedsCpu && (
           <p>
-            vCPUs per VM ({vcpus}) exceeds host cores ({totalCPUs}).
+            vCPUs per VM ({vcpus}) exceeds cluster cores ({totalCPUs}).
           </p>
         )}
         {exceedsMem && (

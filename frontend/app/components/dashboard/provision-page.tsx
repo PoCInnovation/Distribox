@@ -21,9 +21,11 @@ import {
   Keyboard,
   CheckIcon,
   SearchIcon,
+  Sparkles,
 } from "lucide-react";
-import { useHostInfo } from "@/hooks/useHostInfo";
+import { useTargetHostInfo, useClusterHostInfo } from "@/hooks/useHostInfo";
 import { useCreateVM } from "@/hooks/useCreateVM";
+import { useSlaves } from "@/hooks/useSlaves";
 import {
   CompactCPUInfo,
   CompactMemoryInfo,
@@ -40,6 +42,13 @@ import { useSettings } from "@/hooks/useSettings";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { KEYBOARD_LAYOUTS, getKeyboardLabel } from "@/lib/keyboard-layouts";
 
+// "auto" = auto-place (master-first), null = master only, string = specific slave
+type TargetSelection = "auto" | null | string;
+
+function isSlaveId(target: TargetSelection): target is string {
+  return target !== null && target !== "auto";
+}
+
 export default function ProvisionPage() {
   const navigate = useNavigate();
   const authz = useAuthz();
@@ -47,7 +56,33 @@ export default function ProvisionPage() {
   const canReadHost = authz.hasPolicy(Policy.HOST_GET);
   const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
 
-  const { data: hostInfo } = useHostInfo(canReadHost);
+  const { slaves } = useSlaves();
+  const onlineSlaves = slaves.filter((s) => s.status === "online");
+  const hasSlaves = onlineSlaves.length > 0;
+
+  const [selectedTarget, setSelectedTarget] = useState<TargetSelection>(
+    hasSlaves ? "auto" : null,
+  );
+  const [hasInitializedTarget, setHasInitializedTarget] = useState(hasSlaves);
+
+  // Default to auto when slaves first come online (but don't override user choice)
+  useEffect(() => {
+    if (hasSlaves && !hasInitializedTarget) {
+      setSelectedTarget("auto");
+      setHasInitializedTarget(true);
+    }
+  }, [hasSlaves, hasInitializedTarget]);
+
+  const isAutoMode = selectedTarget === "auto";
+  const targetSlaveId = isSlaveId(selectedTarget) ? selectedTarget : null;
+
+  // For auto mode, use cluster info; for specific node, use that node's info
+  const { data: clusterInfo } = useClusterHostInfo(canReadHost && isAutoMode);
+  const { data: targetHostInfo } = useTargetHostInfo(
+    targetSlaveId,
+    canReadHost && !isAutoMode,
+  );
+
   const { data: userSettings } = useSettings();
   const createVM = useCreateVM();
 
@@ -81,21 +116,26 @@ export default function ProvisionPage() {
   const memNum = Number.parseInt(mem) || 0;
   const diskNum = Number.parseInt(diskSize) || 0;
 
-  // Calculate available resources (in GB)
-  // Backend returns values already in GB
-  const availableMemGB = hostInfo
-    ? hostInfo.mem.available > 0
-      ? hostInfo.mem.available
-      : hostInfo.mem.total - hostInfo.mem.used
-    : 0;
+  // Resource limits depend on mode
+  const availableMemGB = isAutoMode
+    ? (clusterInfo?.totals.mem_available ?? 0)
+    : targetHostInfo
+      ? targetHostInfo.mem.available > 0
+        ? targetHostInfo.mem.available
+        : targetHostInfo.mem.total - targetHostInfo.mem.used
+      : 0;
 
-  const availableDiskGB = hostInfo
-    ? hostInfo.disk.available > 0
-      ? hostInfo.disk.available
-      : hostInfo.disk.total - hostInfo.disk.used
-    : 0;
+  const availableDiskGB = isAutoMode
+    ? (clusterInfo?.totals.disk_available ?? 0)
+    : targetHostInfo
+      ? targetHostInfo.disk.available > 0
+        ? targetHostInfo.disk.available
+        : targetHostInfo.disk.total - targetHostInfo.disk.used
+      : 0;
 
-  const totalCPUs = hostInfo?.cpu.cpu_count || 0;
+  const totalCPUs = isAutoMode
+    ? (clusterInfo?.totals.cpu_count ?? 0)
+    : (targetHostInfo?.cpu.cpu_count ?? 0);
 
   // Validation
   const memExceedsAvailable = memNum > availableMemGB;
@@ -125,9 +165,10 @@ export default function ProvisionPage() {
         disk_size: diskNum,
         keyboard_layout: keyboardLayout || null,
         activate_at_start: autoStart,
+        slave_id: targetSlaveId || null,
+        auto_place: isAutoMode,
       });
 
-      // Navigate back to dashboard on success
       navigate("/dashboard");
     } catch (error) {
       console.error("Failed to provision VM:", error);
@@ -153,6 +194,14 @@ export default function ProvisionPage() {
     );
   }
 
+  const targetLabel = isAutoMode
+    ? "Cluster"
+    : selectedTarget === null
+      ? hasSlaves
+        ? "Master"
+        : undefined
+      : (onlineSlaves.find((s) => s.id === selectedTarget)?.name ?? "slave");
+
   return (
     <div className="h-full p-8">
       <div className="mb-8">
@@ -164,19 +213,132 @@ export default function ProvisionPage() {
         </p>
       </div>
 
+      {hasSlaves && (
+        <div className="mb-8">
+          <h2 className="mb-4 font-mono text-lg font-bold">Target Host</h2>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedTarget("auto")}
+              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm transition-colors ${
+                isAutoMode
+                  ? "border border-primary/40 bg-primary/10 text-foreground"
+                  : "border border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>Auto</span>
+              {isAutoMode && (
+                <CheckIcon className="h-4 w-4 shrink-0 text-primary" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedTarget(null)}
+              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm transition-colors ${
+                selectedTarget === null
+                  ? "border border-primary/40 bg-primary/10 text-foreground"
+                  : "border border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              <Server className="h-4 w-4" />
+              <span>Master</span>
+              {selectedTarget === null && (
+                <CheckIcon className="h-4 w-4 shrink-0 text-primary" />
+              )}
+            </button>
+            {onlineSlaves.map((slave) => (
+              <button
+                key={slave.id}
+                type="button"
+                onClick={() => setSelectedTarget(slave.id)}
+                className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm transition-colors ${
+                  selectedTarget === slave.id
+                    ? "border border-primary/40 bg-primary/10 text-foreground"
+                    : "border border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                }`}
+              >
+                <Server className="h-4 w-4" />
+                <span>{slave.name}</span>
+                {selectedTarget === slave.id && (
+                  <CheckIcon className="h-4 w-4 shrink-0 text-primary" />
+                )}
+              </button>
+            ))}
+          </div>
+          {isAutoMode && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              The master node is prioritized. If it lacks resources, a slave
+              with capacity will be selected automatically.
+            </p>
+          )}
+        </div>
+      )}
+
       <PolicyGate
         requiredPolicies={[Policy.HOST_GET]}
         title="Host Resources Hidden"
       >
-        {hostInfo && (
+        {isAutoMode && clusterInfo && (
           <div className="mb-8">
             <h2 className="mb-4 font-mono text-lg font-bold">
               Available Resources
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                across {clusterInfo.nodes.length} node
+                {clusterInfo.nodes.length > 1 ? "s" : ""}
+              </span>
             </h2>
             <div className="grid gap-4 md:grid-cols-3">
-              <CompactCPUInfo cpu={hostInfo.cpu} />
-              <CompactMemoryInfo mem={hostInfo.mem} />
-              <CompactDiskInfo disk={hostInfo.disk} />
+              {clusterInfo.nodes.map((node) => (
+                <Card
+                  key={node.node_id ?? "master"}
+                  className="border-border bg-card p-4"
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <Server className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">
+                      {node.node_name}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 text-xs text-muted-foreground">
+                    <div className="flex justify-between">
+                      <span>CPU</span>
+                      <span className="font-mono">
+                        {node.host_info.cpu.cpu_count} cores
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Memory</span>
+                      <span className="font-mono">
+                        {node.host_info.mem.available.toFixed(1)} GB free
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Disk</span>
+                      <span className="font-mono">
+                        {node.host_info.disk.available.toFixed(1)} GB free
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+        {!isAutoMode && targetHostInfo && (
+          <div className="mb-8">
+            <h2 className="mb-4 font-mono text-lg font-bold">
+              Available Resources
+              {targetLabel && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  on {targetLabel}
+                </span>
+              )}
+            </h2>
+            <div className="grid gap-4 md:grid-cols-3">
+              <CompactCPUInfo cpu={targetHostInfo.cpu} />
+              <CompactMemoryInfo mem={targetHostInfo.mem} />
+              <CompactDiskInfo disk={targetHostInfo.disk} />
             </div>
           </div>
         )}
@@ -263,6 +425,7 @@ export default function ProvisionPage() {
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
                     Available: {totalCPUs} cores
+                    {isAutoMode ? " (cluster)" : ""}
                   </span>
                   {cpuExceedsAvailable && (
                     <span className="text-accent flex items-center gap-1">
@@ -289,6 +452,7 @@ export default function ProvisionPage() {
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
                     Available: {availableMemGB.toFixed(2)} GB
+                    {isAutoMode ? " (cluster)" : ""}
                   </span>
                   {memExceedsAvailable && (
                     <span className="text-accent flex items-center gap-1">
@@ -315,6 +479,7 @@ export default function ProvisionPage() {
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
                     Available: {availableDiskGB.toFixed(2)} GB
+                    {isAutoMode ? " (cluster)" : ""}
                   </span>
                   {diskExceedsAvailable && (
                     <span className="text-accent flex items-center gap-1">
@@ -411,6 +576,21 @@ export default function ProvisionPage() {
                       : "Default"}
                   </span>
                 </div>
+                {hasSlaves && (
+                  <div className="flex items-start justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Target
+                    </span>
+                    <span className="text-sm text-right max-w-[60%] break-words">
+                      {isAutoMode
+                        ? "Auto (master-first)"
+                        : selectedTarget === null
+                          ? "Master"
+                          : (onlineSlaves.find((s) => s.id === selectedTarget)
+                              ?.name ?? "Slave")}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <Separator />

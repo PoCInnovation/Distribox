@@ -33,6 +33,10 @@ export enum Policy {
   EVENTS_CREATE = "events:create",
   EVENTS_UPDATE = "events:update",
   EVENTS_DELETE = "events:delete",
+  SLAVES_GET = "slaves:get",
+  SLAVES_GET_BY_ID = "slaves:getById",
+  SLAVES_CREATE = "slaves:create",
+  SLAVES_DELETE = "slaves:delete",
 }
 
 export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
@@ -78,6 +82,10 @@ export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
   [Policy.EVENTS_CREATE]: "Allows the user to create events.",
   [Policy.EVENTS_UPDATE]: "Allows the user to update events.",
   [Policy.EVENTS_DELETE]: "Allows the user to delete events and their VMs.",
+  [Policy.SLAVES_GET]: "Allows the user to list slave nodes.",
+  [Policy.SLAVES_GET_BY_ID]: "Allows the user to fetch a slave node by id.",
+  [Policy.SLAVES_CREATE]: "Allows the user to register a new slave node.",
+  [Policy.SLAVES_DELETE]: "Allows the user to unregister a slave node.",
 };
 
 export const PolicySchema = z.string().min(1);
@@ -269,6 +277,30 @@ export const POLICY_COLORS = {
     border: "border-rose-500",
     hover: "hover:bg-rose-500/30",
     text: "text-rose-600 dark:text-rose-400",
+  },
+  [Policy.SLAVES_GET]: {
+    bg: "bg-teal-500/20",
+    border: "border-teal-500",
+    hover: "hover:bg-teal-500/30",
+    text: "text-teal-600 dark:text-teal-400",
+  },
+  [Policy.SLAVES_GET_BY_ID]: {
+    bg: "bg-teal-600/20",
+    border: "border-teal-600",
+    hover: "hover:bg-teal-600/30",
+    text: "text-teal-700 dark:text-teal-400",
+  },
+  [Policy.SLAVES_CREATE]: {
+    bg: "bg-emerald-500/20",
+    border: "border-emerald-500",
+    hover: "hover:bg-emerald-500/30",
+    text: "text-emerald-600 dark:text-emerald-400",
+  },
+  [Policy.SLAVES_DELETE]: {
+    bg: "bg-red-500/20",
+    border: "border-red-500",
+    hover: "hover:bg-red-500/30",
+    text: "text-red-600 dark:text-red-400",
   },
   default: {
     bg: "bg-gray-500/20",

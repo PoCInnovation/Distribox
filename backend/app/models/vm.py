@@ -19,10 +19,14 @@ class VmRead(VmBase):
     state: str
     ipv4: Optional[str]
     credentials_count: int = 0
+    slave_id: Optional[UUID] = None
+    slave_name: Optional[str] = None
 
 
 class VmCreate(VmBase):
     activate_at_start: bool
+    slave_id: Optional[UUID] = None
+    auto_place: bool = False
 
 
 class VmCreateXML(VmBase):

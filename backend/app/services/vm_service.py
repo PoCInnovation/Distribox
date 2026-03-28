@@ -1,5 +1,6 @@
 import uuid
 import subprocess
+import logging
 from shutil import copy, rmtree
 import libvirt
 from app.utils.vm import wait_for_state
@@ -13,6 +14,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select, delete
 from app.orm.vm import VmORM
 from app.orm.vm_credential import VmCredentialORM
+from app.orm.slave import SlaveORM
 from fastapi import status, HTTPException
 from app.utils.vm import get_vm_ip
 from app.utils.crypto import decrypt_secret, encrypt_secret
@@ -23,6 +25,8 @@ from app.services.image_service import ImageService
 import yaml
 from pathlib import Path
 from sqlalchemy.orm import make_transient
+
+logger = logging.getLogger(__name__)
 
 
 class Vm:
@@ -117,6 +121,7 @@ class Vm:
                     vcpus=self.vcpus,
                     disk_size=self.disk_size,
                     keyboard_layout=self.keyboard_layout,
+                    slave_id=getattr(vm_create, 'slave_id', None),
                 )
                 session.add(vm_record)
                 session.commit()
@@ -148,6 +153,12 @@ class Vm:
                 vm_instance.keyboard_layout = vm_record.keyboard_layout
                 vm_instance.state = VM_STATE_NAMES.get(vm_state, 'None')
                 vm_instance.ipv4 = get_vm_ip(str(vm_instance.id))
+                vm_instance.slave_id = vm_record.slave_id
+                vm_instance.slave_name = None
+                if vm_record.slave_id:
+                    slave = session.get(SlaveORM, vm_record.slave_id)
+                    if slave:
+                        vm_instance.slave_name = slave.name
                 credentials_count_statement = select(func.count()).where(
                     VmCredentialORM.vm_id == vm_record.id
                 )
@@ -290,6 +301,15 @@ class VmService:
         return vm_record
 
     @staticmethod
+    def _get_slave_for_vm(vm_id: str) -> Optional[SlaveORM]:
+        """Check if a VM is hosted on a slave node."""
+        with Session(engine) as session:
+            vm_record = session.get(VmORM, uuid.UUID(vm_id))
+            if vm_record and vm_record.slave_id:
+                return session.get(SlaveORM, vm_record.slave_id)
+        return None
+
+    @staticmethod
     def _get_duplicate_name(session: Session, vm_name: str) -> str:
         base_name = f"Duplicate of {vm_name}"
         search_pattern = f"{base_name}%"
@@ -304,10 +324,79 @@ class VmService:
         return f"{base_name}({count})"
 
     def get_vm_list():
-        vm = Vm.get_all()
-        return vm
+        with Session(engine) as session:
+            vm_records = session.scalars(select(VmORM)).all()
+        vm_list = []
+        for vm_record in vm_records:
+            if vm_record.slave_id:
+                # For slave-hosted VMs, build a lightweight response
+                # without hitting local libvirt
+                slave = None
+                with Session(engine) as session:
+                    slave = session.get(SlaveORM, vm_record.slave_id)
+                if slave and slave.status == "online":
+                    try:
+                        from app.services.slave_client import slave_get_vm
+                        data = slave_get_vm(slave, str(vm_record.id))
+                        data["slave_id"] = str(vm_record.slave_id)
+                        data["slave_name"] = slave.name
+                        vm_list.append(data)
+                        continue
+                    except Exception:
+                        pass
+                # Slave offline or unreachable — show VM with unknown state
+                vm_list.append({
+                    "id": str(vm_record.id),
+                    "name": vm_record.name,
+                    "os": vm_record.os,
+                    "mem": vm_record.mem,
+                    "vcpus": vm_record.vcpus,
+                    "disk_size": vm_record.disk_size,
+                    "keyboard_layout": vm_record.keyboard_layout,
+                    "state": "Unknown",
+                    "ipv4": None,
+                    "credentials_count": 0,
+                    "slave_id": str(vm_record.slave_id),
+                    "slave_name": slave.name if slave else "Unknown",
+                })
+            else:
+                try:
+                    vm_list.append(Vm.get(str(vm_record.id)))
+                except Exception:
+                    logger.warning(
+                        "Failed to get VM %s from libvirt", vm_record.id)
+        return vm_list
 
     def get_vm(vm_id: str):
+        slave = VmService._get_slave_for_vm(vm_id)
+        if slave:
+            if slave.status != "online":
+                with Session(engine) as session:
+                    vm_record = session.get(VmORM, uuid.UUID(vm_id))
+                    if not vm_record:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Vm {vm_id} not found",
+                        )
+                    return {
+                        "id": str(vm_record.id),
+                        "name": vm_record.name,
+                        "os": vm_record.os,
+                        "mem": vm_record.mem,
+                        "vcpus": vm_record.vcpus,
+                        "disk_size": vm_record.disk_size,
+                        "keyboard_layout": vm_record.keyboard_layout,
+                        "state": "Unknown",
+                        "ipv4": None,
+                        "credentials_count": 0,
+                        "slave_id": str(slave.id),
+                        "slave_name": slave.name,
+                    }
+            from app.services.slave_client import slave_get_vm
+            data = slave_get_vm(slave, vm_id)
+            data["slave_id"] = str(slave.id)
+            data["slave_name"] = slave.name
+            return data
         vm = Vm.get(vm_id)
         return vm
 
@@ -317,23 +406,168 @@ class VmService:
         return state
 
     def create_vm(vm_create: VmCreate):
+        if vm_create.slave_id:
+            return VmService._create_vm_on_slave(vm_create)
+        if vm_create.auto_place:
+            slave_id = VmService._auto_pick_node(
+                vm_create.mem, vm_create.vcpus, vm_create.disk_size
+            )
+            if slave_id:
+                vm_create.slave_id = slave_id
+                return VmService._create_vm_on_slave(vm_create)
         vm = Vm(vm_create)
-        # vm.create()
         return vm
 
+    @staticmethod
+    def _auto_pick_node(required_mem: int, required_vcpus: int, required_disk: int):
+        """Pick the best node, prioritizing master. Returns slave UUID or None for master."""
+        from app.services.host_service import HostService
+        from app.services.slave_service import SlaveService
+        from app.services.slave_client import slave_get_host_info as _slave_get_host_info
+
+        try:
+            master = HostService.get_host_info()
+            if (master.mem.available >= required_mem and
+                    master.cpu.cpu_count >= required_vcpus and
+                    master.disk.available >= required_disk):
+                return None
+        except Exception:
+            pass
+
+        best_slave = None
+        best_mem = -1
+        for slave in SlaveService.get_online_slaves():
+            try:
+                info = _slave_get_host_info(slave)
+                slave_mem = info.get("mem", {}).get("available", 0)
+                slave_cpu = info.get("cpu", {}).get("cpu_count", 0)
+                slave_disk = info.get("disk", {}).get("available", 0)
+                if (slave_mem >= required_mem and
+                        slave_cpu >= required_vcpus and
+                        slave_disk >= required_disk and
+                        slave_mem > best_mem):
+                    best_slave = slave
+                    best_mem = slave_mem
+            except Exception:
+                continue
+
+        return best_slave.id if best_slave else None
+
+    @staticmethod
+    def _create_vm_on_slave(vm_create: VmCreate):
+        """Create a VM on a slave node."""
+        from app.services.slave_client import slave_create_vm
+        from app.services.slave_service import SlaveService
+
+        slave = SlaveService.get_slave(str(vm_create.slave_id))
+        if slave.status != "online":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Slave {slave.name} is not online",
+            )
+
+        payload = {
+            "os": vm_create.os,
+            "name": vm_create.name,
+            "mem": vm_create.mem,
+            "vcpus": vm_create.vcpus,
+            "disk_size": vm_create.disk_size,
+            "keyboard_layout": vm_create.keyboard_layout,
+            "activate_at_start": vm_create.activate_at_start,
+        }
+        result = slave_create_vm(slave, payload)
+        vm_id = result["id"]
+
+        # Store a reference in the master DB
+        with Session(engine) as session:
+            vm_record = VmORM(
+                id=uuid.UUID(vm_id) if isinstance(vm_id, str) else vm_id,
+                name=vm_create.name,
+                os=vm_create.os,
+                mem=vm_create.mem,
+                vcpus=vm_create.vcpus,
+                disk_size=vm_create.disk_size,
+                keyboard_layout=vm_create.keyboard_layout,
+                slave_id=slave.id,
+            )
+            session.add(vm_record)
+            session.commit()
+
+        result["slave_id"] = str(slave.id)
+        result["slave_name"] = slave.name
+        return result
+
     def start_vm(vm_id: str):
+        slave = VmService._get_slave_for_vm(vm_id)
+        if slave:
+            if slave.status != "online":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Slave {slave.name} is offline",
+                )
+            from app.services.slave_client import slave_start_vm
+            data = slave_start_vm(slave, vm_id)
+            data["slave_id"] = str(slave.id)
+            data["slave_name"] = slave.name
+            return data
         vm = Vm.get(vm_id)
         return vm.start()
 
     def stop_vm(vm_id: str):
+        slave = VmService._get_slave_for_vm(vm_id)
+        if slave:
+            if slave.status != "online":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Slave {slave.name} is offline",
+                )
+            from app.services.slave_client import slave_stop_vm
+            data = slave_stop_vm(slave, vm_id)
+            data["slave_id"] = str(slave.id)
+            data["slave_name"] = slave.name
+            return data
         vm = Vm.get(vm_id)
         return vm.stop()
 
     def remove_vm(vm_id: str):
+        slave = VmService._get_slave_for_vm(vm_id)
+        if slave:
+            if slave.status != "online":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Slave {slave.name} is offline",
+                )
+            from app.services.slave_client import slave_delete_vm
+            slave_delete_vm(slave, vm_id)
+            # Remove the reference from master DB
+            with Session(engine) as session:
+                session.exec(
+                    delete(VmCredentialORM).where(
+                        VmCredentialORM.vm_id == uuid.UUID(vm_id)
+                    )
+                )
+                session.exec(
+                    delete(VmORM).where(VmORM.id == uuid.UUID(vm_id))
+                )
+                session.commit()
+            return
         vm = Vm.get(vm_id)
         vm.remove()
 
     def restart_vm(vm_id):
+        slave = VmService._get_slave_for_vm(vm_id)
+        if slave:
+            if slave.status != "online":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Slave {slave.name} is offline",
+                )
+            from app.services.slave_client import slave_stop_vm, slave_start_vm
+            slave_stop_vm(slave, vm_id)
+            data = slave_start_vm(slave, vm_id)
+            data["slave_id"] = str(slave.id)
+            data["slave_name"] = slave.name
+            return data
         vm = Vm.get(vm_id)
         vm.stop()
         return vm.start()

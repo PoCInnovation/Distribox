@@ -16,7 +16,6 @@ router = APIRouter()
 
 @router.get("/{vm_id}/screenshot",
             status_code=status.HTTP_200_OK,
-            dependencies=[Depends(require_policy("vms:screenshot"))],
             responses={200: {"content": {"image/jpeg": {}},
                              "description": "JPEG thumbnail of the VM screen"},
                        },
@@ -35,10 +34,15 @@ async def get_vm_screenshot(vm_id: str, token: str = Query(...)):
         user = session.get(UserORM, user_id)
         if user is None:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
-        if not user_has_policy(user, "vms:get"):
+        if not user_has_policy(user, "vms:screenshot"):
             raise HTTPException(status.HTTP_403_FORBIDDEN,
-                                "Missing vms:get policy")
-    jpeg_bytes = await asyncio.to_thread(capture_screenshot, vm_id)
+                                "Missing vms:screenshot policy")
+    slave = await asyncio.to_thread(VmService._get_slave_for_vm, vm_id)
+    if slave:
+        from app.services.slave_client import slave_get_screenshot
+        jpeg_bytes = await asyncio.to_thread(slave_get_screenshot, slave, vm_id)
+    else:
+        jpeg_bytes = await asyncio.to_thread(capture_screenshot, vm_id)
     return Response(
         content=jpeg_bytes,
         media_type="image/jpeg",

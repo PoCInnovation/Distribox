@@ -47,7 +47,7 @@ import {
   useDeleteEvent,
   useDeleteEventVm,
 } from "@/hooks/useEvents";
-import { useHostInfo } from "@/hooks/useHostInfo";
+import { useClusterHostInfo } from "@/hooks/useHostInfo";
 import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { useAuthz } from "@/contexts/authz-context";
 import { Policy } from "@/lib/types";
@@ -92,7 +92,7 @@ export function EventDetailPage() {
   const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
 
   const [editing, setEditing] = useState(false);
-  const { data: hostInfo } = useHostInfo(canReadHost && editing, 2000);
+  const { data: clusterInfo } = useClusterHostInfo(canReadHost && editing);
 
   const [editName, setEditName] = useState("");
   const [editOS, setEditOS] = useState("");
@@ -284,7 +284,7 @@ export function EventDetailPage() {
                     onMemChange={setEditMem}
                     diskSize={editDisk}
                     onDiskChange={setEditDisk}
-                    maxCpus={hostInfo?.cpu.cpu_count}
+                    maxCpus={clusterInfo?.totals.cpu_count}
                   />
                   <div className="space-y-2">
                     <Label>Max Participants</Label>
@@ -303,14 +303,16 @@ export function EventDetailPage() {
                       side="bottom"
                     />
                   </div>
-                  {hostInfo && <HostResourcesBar hostInfo={hostInfo} />}
-                  {hostInfo && (
+                  {clusterInfo && (
+                    <HostResourcesBar totals={clusterInfo.totals} />
+                  )}
+                  {clusterInfo && (
                     <ResourceWarnings
                       vcpus={Number.parseInt(editVcpus) || 0}
                       mem={Number.parseInt(editMem) || 0}
                       diskSize={Number.parseInt(editDisk) || 0}
                       maxVms={Number.parseInt(editMaxVms) || 0}
-                      hostInfo={hostInfo}
+                      totals={clusterInfo.totals}
                     />
                   )}
 

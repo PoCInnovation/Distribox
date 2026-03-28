@@ -57,27 +57,31 @@ elif dpkg -l 2>/dev/null | grep -q git; then
     ubuntu
 fi
 
+echo "Enabling libvirt daemon (libvirtd)..."
+
 if [[ "$(uname)" == "Darwin" ]]; then
-    echo "Enabling libvirt daemon (libvirtd)..."
     brew services start libvirt
 else
-    echo "Enabling libvirt daemon (libvirtd)..."
     sudo systemctl enable --now libvirtd
 fi
 
+sudo mkdir -p /var/lib/distribox/
 sudo mkdir -p /var/lib/distribox/images
 sudo mkdir -p /var/lib/distribox/vms
 
-echo "Creating distribox user group"
+echo "Creating distribox and libvirt user group"
 
 if [[ "$(uname)" == "Darwin" ]]; then
     sudo dseditgroup -o create distribox 2>/dev/null || true
+    sudo dseditgroup -o create libvirt 2>/dev/null || true
     sudo dseditgroup -o edit -a $(whoami) -t user distribox
+    sudo dseditgroup -o edit -a $(whoami) -t user libvirt
     echo "Please restart your terminal session to apply group changes."
 else
-    echo "Please run \`newgrp distribox\` to apply changes temporarily or restart your user session."
+    echo "Please run \`newgrp distribox libvirt\` to apply changes temporarily or restart your user session."
     sudo groupadd -f distribox
-    sudo usermod -aG distribox,kvm $(whoami)
+    sudo groupadd -f libvirt
+    sudo usermod -aG distribox,libvirt,kvm $(whoami)
     newgrp distribox
 fi
 

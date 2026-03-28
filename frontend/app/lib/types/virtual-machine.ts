@@ -12,6 +12,8 @@ export const VirtualMachineMetadataSchema = z.object({
   keyboard_layout: z.string().nullable().optional(),
   ipv4: z.string().nullable(),
   credentials_count: z.number().int().nonnegative(),
+  slave_id: z.string().nullable().optional(),
+  slave_name: z.string().nullable().optional(),
 });
 
 export type VirtualMachineMetadata = z.infer<

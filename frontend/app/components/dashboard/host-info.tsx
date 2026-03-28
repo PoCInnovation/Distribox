@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { HostInfo } from "@/lib/types";
 import { formatGB } from "@/lib/utils";
-import { useHostInfo } from "@/hooks/useHostInfo";
+import { useTargetHostInfo } from "@/hooks/useHostInfo";
 import { isForbiddenError } from "@/lib/api";
 import { PolicyNotice } from "@/components/policy/policy-notice";
 
@@ -263,8 +263,8 @@ export function HostInfoHeader({ hostInfo }: { hostInfo?: HostInfo }) {
   );
 }
 
-export function HostInfoPanel() {
-  const { data: hostInfo, isError, error } = useHostInfo();
+export function HostInfoPanel({ slaveId = null }: { slaveId?: string | null }) {
+  const { data: hostInfo, isError, error } = useTargetHostInfo(slaveId);
 
   if (isError && isForbiddenError(error)) {
     return (

@@ -1,6 +1,7 @@
 from lxml import etree
 from app.models.vm import VmCreateXML
 from app.core.constants import VMS_DIR
+from app.core.config import VIRT_TYPE
 
 LAYOUT_TO_KEYMAP = {
     "en-us-qwerty": "en-us",
@@ -33,7 +34,7 @@ LAYOUT_TO_KEYMAP = {
 
 def build_xml(vm_read: VmCreateXML):
 
-    domain = etree.Element("domain", type="kvm")
+    domain = etree.Element("domain", type=VIRT_TYPE)
 
     etree.SubElement(domain, "name").text = str(vm_read.id)
     # Frontend sends memory in GiB; libvirt XML expects MiB here.
@@ -50,7 +51,8 @@ def build_xml(vm_read: VmCreateXML):
     for feature in ["acpi", "apic", "pae"]:
         etree.SubElement(features, feature)
 
-    etree.SubElement(domain, "cpu", mode="host-passthrough")
+    if VIRT_TYPE == "kvm":
+        etree.SubElement(domain, "cpu", mode="host-passthrough")
 
     etree.SubElement(domain, "clock", offset="utc")
 
@@ -86,11 +88,12 @@ def build_xml(vm_read: VmCreateXML):
     etree.SubElement(iface, "source", network="default")
     etree.SubElement(iface, "model", type="virtio")
 
+    from app.core.config import VNC_LISTEN
     vnc_attrs = {
         "type": "vnc",
         "port": "-1",
         "autoport": "yes",
-        "listen": "127.0.0.1",
+        "listen": VNC_LISTEN,
     }
     if vm_read.keyboard_layout:
         keymap = LAYOUT_TO_KEYMAP.get(vm_read.keyboard_layout)
