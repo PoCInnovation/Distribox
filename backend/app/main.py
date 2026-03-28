@@ -15,7 +15,7 @@ from app.orm.event import EventORM, EventParticipantORM  # noqa: F401
 from app.orm.user_settings import UserSettingsORM  # noqa: F401
 from app.orm.slave import SlaveORM  # noqa: F401
 from app.utils.auth import hash_password
-from app.core.config import engine, get_env_or_default, init_db, DISTRIBOX_MODE
+from app.core.config import engine, get_env_or_default, init_db, DISTRIBOX_MODE, QEMUConfig
 from app.utils.crypto import encrypt_secret, is_encrypted_secret
 from app.services.vm_service import VmService
 
@@ -25,7 +25,6 @@ app = FastAPI()
 
 frontend_url = get_env_or_default("FRONTEND_URL", "http://localhost:3000")
 
-# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[frontend_url],
@@ -37,9 +36,11 @@ app.add_middleware(
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Notify master of graceful shutdown when running as slave."""
     if DISTRIBOX_MODE != "slave":
         return
+
+    _stop_all_local_vms()
+
     import httpx
     from app.core.config import MASTER_URL, SLAVE_API_KEY
 
@@ -56,27 +57,38 @@ async def shutdown_event():
         logger.warning("Failed to notify master of shutdown")
 
 
+def _stop_all_local_vms():
+    try:
+        conn = QEMUConfig.get_connection()
+        domains = conn.listAllDomains(0)
+        for domain in domains:
+            if domain.isActive():
+                try:
+                    domain.destroy()
+                    logger.info("Destroyed VM %s", domain.name())
+                except Exception:
+                    logger.warning("Failed to destroy VM %s", domain.name())
+    except Exception:
+        logger.warning("Failed to stop local VMs during shutdown")
+
+
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database and create default admin user if it doesn't exist."""
-    init_db()  # This might be temporary
+    init_db()
 
     if DISTRIBOX_MODE == "slave":
         print(f"✓ Starting in SLAVE mode")
         asyncio.create_task(_slave_heartbeat_loop())
         return
 
-    # Master-only initialization below
     admin_username = get_env_or_default("ADMIN_USERNAME", "admin")
     admin_password = get_env_or_default("ADMIN_PASSWORD", "admin")
 
     with Session(engine) as session:
-        # Check if admin exists
         statement = select(UserORM).where(UserORM.username == admin_username)
         admin = session.exec(statement).first()
 
         if not admin:
-            # Create admin user
             admin = UserORM(
                 username=admin_username,
                 hashed_password=hash_password(admin_password),
@@ -165,7 +177,6 @@ async def _enforce_event_deadlines():
 
 
 async def _check_stale_slaves():
-    """Periodically check for slaves that haven't sent a heartbeat."""
     while True:
         try:
             from app.services.slave_service import SlaveService
@@ -176,7 +187,6 @@ async def _check_stale_slaves():
 
 
 async def _slave_heartbeat_loop():
-    """Periodically send heartbeat to master (when running as slave)."""
     import httpx
     from app.core.config import MASTER_URL, SLAVE_API_KEY
     from app.services.host_service import HostService
@@ -230,10 +240,8 @@ async def general_exception_handler(_, exc: Exception):
     )
 
 if DISTRIBOX_MODE == "slave":
-    # Slave mode: only expose slave agent endpoints + host info
     app.include_router(slave_agent.router, tags=["slave-agent"])
 else:
-    # Master mode: full API
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(user_management.router, tags=["users"])
     app.include_router(vm.router, prefix="/vms", tags=["vms"])
