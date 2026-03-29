@@ -25,6 +25,7 @@ export enum Policy {
   VMS_CREDENTIALS_GET_BY_ID = "vms:credentials:getById",
   VMS_GET_RECOVERABLE = "vms:getRecoverableVms",
   VMS_DUPLICATE = "vms:duplicate",
+  VMS_RENAME = "vms:rename",
   VMS_RECOVER = "vms:recoverVmById",
   VMS_CLEAN_RECOVERABLE = "vms:cleanRecoverableVmById",
   VMS_CLEAN_ALL_RECOVERABLE = "vms:cleanAllRecoverableVms",
@@ -72,6 +73,7 @@ export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
     "Allows the user to fetch a virtual machine credential by id.",
   [Policy.VMS_GET_RECOVERABLE]: "Allows the user to get all recoverable vms.",
   [Policy.VMS_DUPLICATE]: "Allows the user to duplicate a virtual machine.",
+  [Policy.VMS_RENAME]: "Allows the user to rename a virtual machine.",
   [Policy.VMS_RECOVER]: "Allows the user to recover a vm by id.",
   [Policy.VMS_CLEAN_RECOVERABLE]:
     "Allows the user to clean a recoverable vm by id.",

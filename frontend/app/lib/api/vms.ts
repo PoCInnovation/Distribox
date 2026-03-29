@@ -64,3 +64,10 @@ export async function duplicateVM(id: string): Promise<void> {
     method: "POST",
   });
 }
+
+export async function renameVM(id: string, name: string): Promise<void> {
+  return apiRequest<void>(`/vms/${id}/rename`, {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}

@@ -17,6 +17,7 @@ import {
   Terminal,
   RotateCw,
   Copy,
+  Pencil,
 } from "lucide-react";
 import { useAuthz } from "@/contexts/authz-context";
 import { Policy } from "@/lib/types";
@@ -32,6 +33,7 @@ export const TableActionsColumn = ({
   onDuplicateVM,
   onConnectVM,
   onConfigureVM,
+  onRenameVM,
 }: {
   data?: VirtualMachineMetadata;
   operatingVMs: Set<string>;
@@ -42,6 +44,7 @@ export const TableActionsColumn = ({
   onDuplicateVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onConnectVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onConfigureVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
+  onRenameVM?: (vm: VirtualMachineMetadata) => void;
 }) => {
   if (!vm) return null;
   const authz = useAuthz();
@@ -55,12 +58,15 @@ export const TableActionsColumn = ({
     Policy.VMS_STOP,
   ]);
   const missingForDuplicate = authz.missingPolicies([Policy.VMS_DUPLICATE]);
+  const missingForRename = authz.missingPolicies([Policy.VMS_RENAME]);
 
   const hiddenActions = [
     ...(missingForConnect.length > 0 ? ["Connect"] : []),
     ...(missingForStart.length > 0 ? ["Start"] : []),
     ...(missingForStop.length > 0 ? ["Stop"] : []),
     ...(missingForRestart.length > 0 ? ["Restart"] : []),
+    ...(missingForDuplicate.length > 0 ? ["Duplicate"] : []),
+    ...(missingForRename.length > 0 ? ["Rename"] : []),
     ...(missingForDelete.length > 0 ? ["Delete"] : []),
   ];
 
@@ -163,6 +169,22 @@ export const TableActionsColumn = ({
               Duplicate
               {missingForDuplicate.length > 0
                 ? ` (missing: ${missingForDuplicate.join(", ")})`
+                : ""}
+            </DropdownMenuItem>
+          )}
+          {onRenameVM && (
+            <DropdownMenuItem
+              className="focus:bg-primary/10 focus:text-primary"
+              disabled={missingForRename.length > 0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRenameVM(vm);
+              }}
+            >
+              <Pencil className="mr-2 h-4 w-4 text-inherit" />
+              Rename
+              {missingForRename.length > 0
+                ? ` (missing: ${missingForRename.join(", ")})`
                 : ""}
             </DropdownMenuItem>
           )}

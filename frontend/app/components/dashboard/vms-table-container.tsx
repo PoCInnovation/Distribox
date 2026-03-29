@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { DashboardVMsTable } from "@/components/dashboard/vms-table";
 import { VMDetailsDialog } from "@/components/dashboard/vm-details-dialog";
+import { RenameVMDialog } from "@/components/dashboard/RenameVMDialog";
 import { useVMs } from "~/hooks/useVMs";
 import { isForbiddenError } from "@/lib/api";
 import { PolicyNotice } from "@/components/policy/policy-notice";
@@ -25,6 +26,10 @@ export function DashboardVMsTableContainer() {
   const [vmToDelete, setVmToDelete] = useState<VirtualMachineMetadata | null>(
     null,
   );
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(
+    null,
+  );
   const {
     vms,
     isError,
@@ -34,6 +39,7 @@ export function DashboardVMsTableContainer() {
     restartVM,
     deleteVM,
     duplicateVM,
+    renameVM,
     isStartingVM,
     isStoppingVM,
     isRestartingVM,
@@ -115,6 +121,11 @@ export function DashboardVMsTableContainer() {
     e?.stopPropagation();
   };
 
+  const handleRenameVM = (vm: VirtualMachineMetadata) => {
+    setVmToRename(vm);
+    setRenameDialogOpen(true);
+  };
+
   return (
     <>
       <div className="pb-10">
@@ -145,6 +156,7 @@ export function DashboardVMsTableContainer() {
                 onDuplicateVM={handleDuplicateVM}
                 onConnectVM={handleConnectVM}
                 onConfigureVM={handleConfigureVM}
+                onRenameVM={handleRenameVM}
               />
             ) : null}
           </div>
@@ -160,6 +172,18 @@ export function DashboardVMsTableContainer() {
           }
         }}
         onConnectVM={handleConnectVM}
+      />
+
+      <RenameVMDialog
+        open={renameDialogOpen}
+        onOpenChange={(open) => {
+          setRenameDialogOpen(open);
+          if (!open) {
+            setVmToRename(null);
+          }
+        }}
+        vm={vmToRename}
+        onRename={renameVM}
       />
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
