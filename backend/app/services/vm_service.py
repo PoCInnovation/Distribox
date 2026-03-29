@@ -108,7 +108,8 @@ class Vm:
                 name=self.name,
                 mem=self.mem,
                 vcpus=self.vcpus,
-                disk_size=self.disk_size
+                disk_size=self.disk_size,
+                keyboard_layout=self.keyboard_layout,
             ))
             conn = QEMUConfig.get_connection()
             conn.defineXML(vm_xml)
