@@ -71,6 +71,34 @@ Monitor CPU, memory, and disk usage for the master node, individual slave nodes,
   <img src=".github/assets/provision-target-node.png" alt="Provision Target Node" width="700"/>
 </div>
 
+### VM Monitor
+The monitor view displays periodical screenshots of all virtual machines on the instance. Running VMs show a live preview, and you can click on any of them to connect directly.
+
+<div align="center">
+  <img src=".github/assets/monitor-view.png" alt="VM Monitor" width="700"/>
+</div>
+
+### Events
+Events let you distribute a fixed number of VMs with a predefined spec to participants for a set duration. Create an event by choosing an OS, resource allocation, participant limit, and deadline. A shareable link is generated that participants can use to claim their VM.
+
+<div align="center">
+  <img src=".github/assets/distribox-events.png" alt="Events Overview" width="700"/>
+</div>
+
+Each event page shows its details, the provisioned VMs with live previews, and the list of participants.
+
+<div align="center">
+  <img src=".github/assets/distribox-event-page.png" alt="Event Page" width="700"/>
+</div>
+
+The share link can be previewed and copied directly from the dashboard.
+
+<div align="center">
+  <img src=".github/assets/distribox-event-share-participant-link.png" alt="Event Share Link" width="700"/>
+</div>
+
+When an event reaches its deadline, the share link stops working, all VM credentials are revoked, and every virtual machine linked to the event is stopped automatically.
+
 ## Quickstart
 
 ```bash
@@ -120,6 +148,13 @@ Copy `.env.example` to `.env` and adjust as needed. Key variables:
 Check out the [contributing guide](./CONTRIBUTING.md).
 
 If you're interested in how the project is organized at a higher level, contact the current project manager.
+
+### Further Documentation
+
+- [Backend](./backend/README.md) -- environment setup and standalone backend configuration
+- [Frontend](./frontend/README.md) -- environment setup and standalone frontend configuration
+- [Images](./images/README.md) -- guide for building and customizing OS images
+- [Atlas](./atlas/README.md) -- syncing tool to upload images to the Distribox registry
 
 ## Our PoC team ❤️
 
