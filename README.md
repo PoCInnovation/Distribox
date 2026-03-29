@@ -4,99 +4,96 @@
   <img src=".github/assets/distribox.png" alt="Distribox Logo" width="200"/>
 </div>
 
-> This project is currently undergoing development, and is not functional as of yet.
+Distribox is a self-hosted platform for creating, managing, and sharing virtual machines through a web interface. It uses KVM/QEMU for near-native VM performance and streams graphical access directly to the browser.
 
-Distribox is a self-hosted solution designed to simplify sharing virtual machine (VM) instances with a broader audience. Its main goal is to provide an intuitive web interface that caters to both hosts and users.
+<div align="center">
+  <a href="https://youtu.be/eH6qJUTcxvI">
+    <img src=".github/assets/demo-thumbnail.png" alt="Distribox Demo" width="600"/>
+  </a>
+</div>
 
-In Distribox, the host is the person who deploys the platform on their own machine. The user is anyone who accesses and utilizes the designated VMs provided by the host.
+## Features
 
-Distribox offers two main interfaces:
+### VM Creation and Management
+Create virtual machines with custom specs: CPU cores, RAM, disk size, and operating system. Control VMs with start, stop, restart, duplicate, rename, and delete. Connect to any VM directly from your browser.
 
-1. **User Web Client:** Allows users to connect to a VM directly through their browser, using credentials provided by the host. No additional software is required on the user's end.
-2. **Admin Dashboard:** Enables hosts to easily create, manage, and configure VM instances and user credentials. Additional administrative features empower hosts to control access, monitor usage, and handle VM lifecycle operations.
+### Graphical VM Streaming
+Distribox uses Apache Guacamole to stream VM desktops over WebSocket. The browser connects to the backend, which proxies the Guacamole protocol to guacd, which in turn connects to the VM's VNC server. No client-side software required.
 
-This dual-interface approach ensures both hosts and users have a straightforward, secure, and effective experience with VM sharing.
+### Authentication and Authorization
+VM streaming is secured through authenticated WebSocket tunnels. Access requires either a JWT token with the appropriate policy, or a credential-based token generated per VM. All traffic between the browser and the VM is mediated by the backend.
 
-## How does it work?
+### Policy-Based Access Control
+Distribox uses a policy-based permission system similar to RBAC. Each user is assigned one or more policies that grant access to specific actions (creating VMs, managing users, connecting to VMs, viewing metrics, etc.). If a user lacks a policy, the corresponding feature is hidden and access is denied. Admins have full access by default.
 
-Distribox uses the standard Python libvirt API in its backend. The backend runs inside a Docker container, but all virtualization is performed directly on the host machine by sharing the libvirt UNIX socket with the container. For added security, Distribox creates its own user group (similar to how Docker manages its own group for virtualization tasks). This user group is responsible for running the platform and managing virtual machines, which limits permissions and helps prevent unauthorized access.
+### Wide Range of Operating Systems
+Supported out of the box:
+- Ubuntu 22.04
+- Debian 12
+- Fedora 43
+- CentOS 10
+- AlmaLinux 9
+- Alpine Linux 3.21
+- Arch Linux (rolling)
 
-The virtual machines managed by Distribox are complete, fully isolated VMs—not lightweight or process-isolated Docker containers. This means users can run a wide variety of operating systems and configurations on different VMs, making Distribox suitable for many scenarios.
+### Distribox Image Registry
+OS images are hosted in a remote S3-based registry. When a VM is created, the backend downloads the corresponding image on demand and caches it locally. This keeps the installation lightweight -- no need to bundle large disk images. Image metadata includes revision tracking so updates are fetched automatically.
 
-Libvirt interfaces with KVM (Kernel-based Virtual Machine) as its primary virtualization technology on Linux. KVM is a type-1 hypervisor built directly into the Linux kernel, enabling near-native performance and advanced isolation for VMs. This integration means that Distribox can offer virtual machines that are both performant and secure, leveraging the strengths of KVM for reliable virtualization.
+### Master / Slave Architecture
+Distribox supports a distributed setup where additional machines act as slave nodes. The master coordinates VM placement and proxies operations to slaves. Slaves report resource availability via periodic heartbeats, and the master routes new VMs to the node with the most available memory. The frontend includes a guided tutorial for registering slave nodes.
 
-All communication between the user's web client and the virtual machines happens exclusively through the Distribox backend. Users never connect directly to the VM instances themselves; access is strictly managed and mediated by the backend for security and control. This approach maintains a clear separation between the management interface and the actual VMs, helping hosts strictly regulate who can access which resources.
+### Realtime Host Metrics
+Monitor CPU, memory, and disk usage for the master node, individual slave nodes, or the entire cluster from the dashboard.
 
-## How to run the application
-
-To start the application in production mode, you can use the `prod` profile:
+## Quickstart
 
 ```bash
-docker compose --profile prod up -d --build
+bash setup.sh
+docker compose --profile master up -d --build
 ```
 
-This will:
-*   Build the `backend` service using the `production-stage` in `backend/Dockerfile`.
-*   Build the `frontend` service using the `production-stage` in `frontend/Dockerfile`.
-*   Start the `database` service.
+The application will be available at `localhost:3000`.
 
-To start the development environment with automatic rebuilds for both backend and frontend:
+For development with hot-reloading:
 
 ```bash
 docker compose --profile dev up --build
 ```
 
-This command will:
-*   Build the `backend-dev` service using the `dev-stage` in `backend/Dockerfile`, with `uvicorn --reload`.
-*   Mount your local `backend/app` and `backend/.env` directories into the container for hot-reloading.
-*   Build the `frontend-dev` service using the `dev-stage` in `frontend/Dockerfile`, with `pnpm dev`.
-*   Mount your local `frontend` directory into the container for hot-reloading.
-*   Start the `database` service.
+To run a slave node on another machine:
 
-## Getting Started
-
-
-### Installation
-
-An installation script is provided, compatible with multiple Linux distributions. For the skeptics among us, here is a short, non-exhaustive list of dependencies:
-- python3
-- genisoimage
-- qemu-kvm
-- libvirt-daemon-system
-- libvirt-clients
-- bridge-utils
-- virtinst
-- pkg-config
-- libvirt-dev
-
-We recommend running the script to initialize user privileges for the distribox user group.
-
-### Quickstart
-
-It's that easy 🚀
 ```bash
-bash install.sh
-docker compose up -d
+bash setup.sh
+docker compose --profile slave up -d --build
 ```
 
-### Usage
+## Configuration
 
-Once the application started, you will find your application portal at `localhost:3000`. For further use and deployment we recommend applying a reverse proxy for convenience of your users.
+Copy `.env.example` to `.env` and adjust as needed. Key variables:
 
-## Permissions
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DISTRIBOX_MODE` | `master` | `master` or `slave` |
+| `MASTER_URL` | - | URL of the master (slave mode only) |
+| `SLAVE_API_KEY` | - | API key for slave authentication |
+| `ADMIN_USERNAME` | `admin` | Default admin username |
+| `ADMIN_PASSWORD` | `admin` | Default admin password |
+| `DISTRIBOX_SECRET` | `secret` | Encryption key for sensitive data |
+| `BACKEND_PORT` | `8080` | Backend API port |
+| `VITE_PORT` | `3000` | Frontend port |
 
-Distribox uses a simple permission system to control what each user can see and do.
+## Tech Stack
 
-- Every account has one or more policies.
-- Policies grant access to specific areas or actions (for example viewing hosts, listing VMs, or managing users).
-- If a policy is missing, the related feature is hidden or access is refused.
-- The default admin account has full access.
+- **Backend:** FastAPI, SQLModel, PostgreSQL, libvirt, KVM/QEMU
+- **Frontend:** React Router v7, TypeScript, TailwindCSS v4, shadcn/ui
+- **Streaming:** Apache Guacamole (guacd) over WebSocket
+- **Containerization:** Docker Compose
 
-## Get involved
+## Get Involved
 
-You're invited to join this project ! Check out the [contributing guide](./CONTRIBUTING.md).
+Check out the [contributing guide](./CONTRIBUTING.md).
 
-If you're interested in how the project is organized at a higher level, please contact the current project manager.
+If you're interested in how the project is organized at a higher level, contact the current project manager.
 
 ## Our PoC team ❤️
 
