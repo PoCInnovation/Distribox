@@ -351,7 +351,9 @@ export function VMDetailsDialog({
           <Button
             variant="outline"
             disabled={
-              vm.state !== VMState.RUNNING || missingForConnect.length > 0
+              (vm.state !== VMState.RUNNING &&
+                vm.state !== VMState.PMSUSPENDED) ||
+              missingForConnect.length > 0
             }
             onClick={(e) => onConnectVM?.(vm, e)}
           >
