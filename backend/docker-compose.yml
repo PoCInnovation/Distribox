@@ -37,7 +37,7 @@ services:
         condition: service_started
     networks:
       - distribox-network
-    profiles: ["prod"]
+    profiles: ["master"]
 
 
   backend-dev:
@@ -91,7 +91,7 @@ services:
     # backend containers can reach it via host.docker.internal:4822.
     network_mode: host
     command: ["/opt/guacamole/sbin/guacd", "-f", "-b", "0.0.0.0", "-l", "4822", "-L", "debug"]
-    profiles: ["prod", "dev", "slave"]
+    profiles: ["master", "dev", "slave"]
 
 
   slave:
