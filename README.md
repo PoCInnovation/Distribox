@@ -4,10 +4,10 @@
   <img src=".github/assets/distribox.png" alt="Distribox Logo" width="200"/>
 </div>
 
-Distribox is a self-hosted platform for creating, managing, and sharing virtual machines through a web interface. It uses KVM/QEMU for near-native VM performance and streams graphical access directly to the browser.
+Distribox is a self-hosted platform for creating, managing, and sharing virtual machines through a simple web interface.
 
 <div align="center">
-  <a href="https://youtu.be/eH6qJUTcxvI">
+  <a href="https://youtu.be/eH6qJUTcxvI" target="_blank">
     <img src=".github/assets/demo-thumbnail.png" alt="Distribox Demo" width="600"/>
   </a>
 </div>
@@ -17,14 +17,26 @@ Distribox is a self-hosted platform for creating, managing, and sharing virtual 
 ### VM Creation and Management
 Create virtual machines with custom specs: CPU cores, RAM, disk size, and operating system. Control VMs with start, stop, restart, duplicate, rename, and delete. Connect to any VM directly from your browser.
 
+<div align="center">
+  <img src=".github/assets/create-vm.png" alt="VM Creation" width="700"/>
+</div>
+
 ### Graphical VM Streaming
 Distribox uses Apache Guacamole to stream VM desktops over WebSocket. The browser connects to the backend, which proxies the Guacamole protocol to guacd, which in turn connects to the VM's VNC server. No client-side software required.
+
+<div align="center">
+  <img src=".github/assets/vm-streaming.png" alt="VM Streaming" width="700"/>
+</div>
 
 ### Authentication and Authorization
 VM streaming is secured through authenticated WebSocket tunnels. Access requires either a JWT token with the appropriate policy, or a credential-based token generated per VM. All traffic between the browser and the VM is mediated by the backend.
 
 ### Policy-Based Access Control
 Distribox uses a policy-based permission system similar to RBAC. Each user is assigned one or more policies that grant access to specific actions (creating VMs, managing users, connecting to VMs, viewing metrics, etc.). If a user lacks a policy, the corresponding feature is hidden and access is denied. Admins have full access by default.
+
+<div align="center">
+  <img src=".github/assets/users-and-policies.png" alt="Users and Policies" width="700"/>
+</div>
 
 ### Wide Range of Operating Systems
 Supported out of the box:
@@ -42,8 +54,22 @@ OS images are hosted in a remote S3-based registry. When a VM is created, the ba
 ### Master / Slave Architecture
 Distribox supports a distributed setup where additional machines act as slave nodes. The master coordinates VM placement and proxies operations to slaves. Slaves report resource availability via periodic heartbeats, and the master routes new VMs to the node with the most available memory. The frontend includes a guided tutorial for registering slave nodes.
 
+<div align="center">
+  <img src=".github/assets/slaves-tutorial.png" alt="Slave Registration Tutorial" width="700"/>
+</div>
+
+Once connected, each slave node reports its status and resource usage in realtime.
+
+<div align="center">
+  <img src=".github/assets/connected-slave.png" alt="Connected Slave Node" width="400"/>
+</div>
+
 ### Realtime Host Metrics
-Monitor CPU, memory, and disk usage for the master node, individual slave nodes, or the entire cluster from the dashboard.
+Monitor CPU, memory, and disk usage for the master node, individual slave nodes, or the entire cluster from the dashboard. When provisioning a VM, you can choose which node to deploy on and see its available resources.
+
+<div align="center">
+  <img src=".github/assets/provision-target-node.png" alt="Provision Target Node" width="700"/>
+</div>
 
 ## Quickstart
 
