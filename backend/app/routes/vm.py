@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlmodel import Session
 from app.models.user_management import MissingPoliciesResponse
-from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, VmCredentialRead, RecoverableVm, RecoverableVmCreate
+from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, VmCredentialRead, RecoverableVm, RecoverableVmCreate, VmRename
 from app.services.vm_service import VmService
 from app.services.vm_screenshot import capture_screenshot
 from app.utils.auth import require_policy, decode_access_token, user_has_policy
@@ -134,6 +134,16 @@ def get_vm(vm_id: str):
              responses={403: {"model": MissingPoliciesResponse}})
 def restart_vm(vm_id: str):
     vm = VmService.restart_vm(vm_id)
+    return vm
+
+
+@router.post("/{vm_id}/rename",
+             status_code=status.HTTP_200_OK,
+             response_model=VmRead,
+             dependencies=[Depends(require_policy("vms:rename"))],
+             responses={403: {"model": MissingPoliciesResponse}})
+def rename_vm(vm_id: str, vm_rename: VmRename):
+    vm = VmService.rename_vm(vm_id, vm_rename)
     return vm
 
 

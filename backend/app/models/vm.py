@@ -33,6 +33,10 @@ class VmCreateXML(VmBase):
     id: UUID
 
 
+class VmRename(BaseModel):
+    name: str
+
+
 class VmCredentialCreateRequest(BaseModel):
     name: str = Field(min_length=1)
     password: Optional[str] = None
