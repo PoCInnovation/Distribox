@@ -6,7 +6,7 @@ import libvirt
 from app.utils.vm import wait_for_state
 from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
-from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML
+from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML, VmRename
 from app.models.image import ImageRead
 from app.core.xml_builder import build_xml
 from app.core.config import QEMUConfig, engine
@@ -423,7 +423,10 @@ class VmService:
         return vm
 
     @staticmethod
-    def _auto_pick_node(required_mem: int, required_vcpus: int, required_disk: int):
+    def _auto_pick_node(
+            required_mem: int,
+            required_vcpus: int,
+            required_disk: int):
         """Pick the best node, prioritizing master. Returns slave UUID or None for master."""
         from app.services.host_service import HostService
         from app.services.slave_service import SlaveService
@@ -789,3 +792,12 @@ class VmService:
                 )
 
             return Vm.get(str(duplicate_vm.id))
+
+    @staticmethod
+    def rename_vm(vm_id: str, vm_rename: VmRename):
+        with Session(engine) as session:
+            vm = VmService._get_vm_or_404(session, vm_id)
+            vm.name = vm_rename.name
+            session.add(vm)
+            session.commit()
+            return Vm.get(str(vm.id))
