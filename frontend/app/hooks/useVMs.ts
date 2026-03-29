@@ -6,6 +6,7 @@ import {
   restartVM,
   deleteVM,
   duplicateVM,
+  renameVM,
 } from "@/lib/api";
 import type { VirtualMachineMetadata } from "@/lib/types/virtual-machine";
 import { toast } from "sonner";
@@ -85,6 +86,19 @@ export function useVMs() {
     },
   });
 
+  const renameVMMutation = useMutation<
+    void,
+    Error,
+    { vmId: string; name: string }
+  >({
+    mutationFn: async ({ vmId, name }) => {
+      await renameVM(vmId, name);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vms"] });
+    },
+  });
+
   const handleStartVM = (vmId: string) => startVMMutation.mutate({ vmId });
   const handleStopVM = (vmId: string) => stopVMMutation.mutate({ vmId });
   const handleRestartVM = (vmId: string) => restartVMMutation.mutate({ vmId });
@@ -95,6 +109,8 @@ export function useVMs() {
       success: "VM duplicated successfully",
       error: "Failed to duplicate VM",
     });
+  const handleRenameVM = (vmId: string, name: string) =>
+    renameVMMutation.mutateAsync({ vmId, name });
 
   const isMutating =
     startVMMutation.isPending ||
@@ -112,11 +128,13 @@ export function useVMs() {
     restartVM: handleRestartVM,
     deleteVM: handleDeleteVM,
     duplicateVM: handleDuplicateVM,
+    renameVM: handleRenameVM,
     isMutating,
     isStartingVM: startVMMutation.isPending,
     isStoppingVM: stopVMMutation.isPending,
     isRestartingVM: restartVMMutation.isPending,
     isDeletingVM: deleteVMMutation.isPending,
     isDuplicatingVM: duplicateVMMutation.isPending,
+    isRenamingVM: renameVMMutation.isPending,
   };
 }
