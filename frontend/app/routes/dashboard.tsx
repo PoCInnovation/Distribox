@@ -15,7 +15,7 @@ export default function DashboardLayout() {
     <ProtectedRoute>
       <div className="flex h-screen overflow-hidden">
         <DashboardSidenav />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto min-w-0">
           <Outlet />
         </main>
       </div>
