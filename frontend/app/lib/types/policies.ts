@@ -20,6 +20,7 @@ export enum Policy {
   VMS_CONNECT = "vms:connect",
   VMS_CREDENTIALS_CREATE = "vms:credentials:create",
   VMS_DELETE = "vms:delete",
+  VMS_SCREENSHOT = "vms:screenshot",
   VMS_CREDENTIALS_REVOKE = "vms:credentials:revoke",
   VMS_CREDENTIALS_LIST = "vms:credentials:list",
   VMS_CREDENTIALS_GET_BY_ID = "vms:credentials:getById",
@@ -65,6 +66,8 @@ export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
   [Policy.VMS_CREDENTIALS_CREATE]:
     "Allows the user to create virtual machine credentials.",
   [Policy.VMS_DELETE]: "Allows the user to remove virtual machines.",
+  [Policy.VMS_SCREENSHOT]:
+    "Allows the user to take screenshots and access the monitor page.",
   [Policy.VMS_CREDENTIALS_REVOKE]:
     "Allows the user to revoke virtual machine credentials.",
   [Policy.VMS_CREDENTIALS_LIST]:
@@ -207,6 +210,12 @@ export const POLICY_COLORS = {
     border: "border-red-500",
     hover: "hover:bg-red-500/30",
     text: "text-red-600 dark:text-red-400",
+  },
+  [Policy.VMS_SCREENSHOT]: {
+    bg: "bg-rose-500/20",
+    border: "border-rose-500",
+    hover: "hover:bg-rose-500/30",
+    text: "text-rose-600 dark:text-rose-400",
   },
   [Policy.VMS_CREDENTIALS_REVOKE]: {
     bg: "bg-fuchsia-500/20",

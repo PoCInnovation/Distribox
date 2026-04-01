@@ -50,7 +50,7 @@ const navItems = [
     href: "/dashboard/monitor",
     label: "Monitor",
     icon: Monitor,
-    requiredPolicies: [Policy.VMS_GET] as PolicyName[],
+    requiredPolicies: [Policy.VMS_SCREENSHOT] as PolicyName[],
   },
   {
     href: "/dashboard/provision",
