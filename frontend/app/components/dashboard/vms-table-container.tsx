@@ -114,13 +114,6 @@ export function DashboardVMsTableContainer() {
     window.open(`/client?vm_id=${encodeURIComponent(vm.id)}`, "_blank");
   };
 
-  const handleConfigureVM = (
-    vm: VirtualMachineMetadata,
-    e?: React.MouseEvent,
-  ) => {
-    e?.stopPropagation();
-  };
-
   const handleRenameVM = (vm: VirtualMachineMetadata) => {
     setVmToRename(vm);
     setRenameDialogOpen(true);
@@ -155,7 +148,6 @@ export function DashboardVMsTableContainer() {
                 onDeleteVM={handleDeleteVM}
                 onDuplicateVM={handleDuplicateVM}
                 onConnectVM={handleConnectVM}
-                onConfigureVM={handleConfigureVM}
                 onRenameVM={handleRenameVM}
               />
             ) : null}

@@ -38,7 +38,6 @@ interface VMDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConnectVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
-  onConfigureVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
 }
 
 function badgeColor(state: VMState): string {
@@ -56,6 +55,7 @@ function badgeColor(state: VMState): string {
     case VMState.PMSUSPENDED:
       return "border-accent bg-accent/10 text-accent";
     case VMState.NOSTATE:
+    default:
       return "border-muted bg-muted/10 text-muted-foreground";
   }
 }
