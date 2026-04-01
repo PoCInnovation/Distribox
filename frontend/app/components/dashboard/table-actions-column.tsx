@@ -13,7 +13,6 @@ import {
   Play,
   Square,
   Trash2,
-  Settings,
   Terminal,
   RotateCw,
   Copy,
@@ -32,7 +31,6 @@ export const TableActionsColumn = ({
   onDeleteVM,
   onDuplicateVM,
   onConnectVM,
-  onConfigureVM,
   onRenameVM,
 }: {
   data?: VirtualMachineMetadata;
@@ -43,7 +41,6 @@ export const TableActionsColumn = ({
   onDeleteVM?: (vm: VirtualMachineMetadata) => void;
   onDuplicateVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onConnectVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
-  onConfigureVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onRenameVM?: (vm: VirtualMachineMetadata) => void;
 }) => {
   if (!vm) return null;
@@ -186,15 +183,6 @@ export const TableActionsColumn = ({
               {missingForRename.length > 0
                 ? ` (missing: ${missingForRename.join(", ")})`
                 : ""}
-            </DropdownMenuItem>
-          )}
-          {onConfigureVM && (
-            <DropdownMenuItem
-              className="focus:bg-primary/10 focus:text-primary"
-              onClick={(e) => onConfigureVM(vm, e)}
-            >
-              <Settings className="mr-2 h-4 w-4 text-inherit" />
-              Configure
             </DropdownMenuItem>
           )}
           {onDeleteVM && (

@@ -28,7 +28,6 @@ interface DashboardVMsTableProps {
   onDeleteVM?: (vm: VirtualMachineMetadata) => void;
   onDuplicateVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onConnectVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
-  onConfigureVM?: (vm: VirtualMachineMetadata, e?: React.MouseEvent) => void;
   onRenameVM?: (vm: VirtualMachineMetadata) => void;
 }
 
@@ -42,7 +41,6 @@ export function DashboardVMsTable({
   onDeleteVM,
   onDuplicateVM,
   onConnectVM,
-  onConfigureVM,
   onRenameVM,
 }: DashboardVMsTableProps) {
   const gridRef = useRef<AgGridReact<VirtualMachineMetadata>>(null);
@@ -139,7 +137,6 @@ export function DashboardVMsTable({
             onDeleteVM={onDeleteVM}
             onDuplicateVM={onDuplicateVM}
             onConnectVM={onConnectVM}
-            onConfigureVM={onConfigureVM}
             onRenameVM={onRenameVM}
           />
         ),
@@ -153,7 +150,6 @@ export function DashboardVMsTable({
       onDeleteVM,
       onDuplicateVM,
       onConnectVM,
-      onConfigureVM,
       onRenameVM,
     ],
   );
