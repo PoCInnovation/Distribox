@@ -52,9 +52,8 @@ export default function UsersPoliciesPage() {
     <PolicyGate requiredPolicies={Policy.USERS_GET}>
       <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex h-full overflow-hidden">
-          {/* Left Panel - Policies */}
           <div
-            className="border-r border-border bg-sidebar/30 flex flex-col overflow-hidden"
+            className="hidden md:flex border-r border-border bg-sidebar/30 flex-col overflow-hidden"
             style={{ width: `${leftPanelWidth}%` }}
           >
             <div className="p-6 border-b border-border flex-shrink-0">
@@ -102,9 +101,8 @@ export default function UsersPoliciesPage() {
             </div>
           </div>
 
-          {/* Resizer */}
           <div
-            className="w-2 bg-border hover:bg-primary cursor-col-resize transition-colors flex-shrink-0 relative group"
+            className="hidden md:block w-2 bg-border hover:bg-primary cursor-col-resize transition-colors flex-shrink-0 relative group"
             onMouseDown={(e) => handleResizeStart(e.clientX)}
           >
             <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-transparent group-hover:bg-primary/50 transition-colors" />
