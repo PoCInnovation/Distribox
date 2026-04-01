@@ -63,14 +63,14 @@ export function UserCard({
       )}
     >
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0">
             <CardTitle className="text-lg font-semibold">{user.user}</CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
               Created {formatDateOnly(user.created_at, timeZone)}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
             <PolicyGate requiredPolicies={Policy.USERS_UPDATE_POLICIES}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
