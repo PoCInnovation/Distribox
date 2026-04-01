@@ -215,7 +215,9 @@ export default function ProvisionPage() {
 
       {hasSlaves && (
         <div className="mb-6 md:mb-8">
-          <h2 className="mb-3 md:mb-4 font-mono text-base md:text-lg font-bold">Target Host</h2>
+          <h2 className="mb-3 md:mb-4 font-mono text-base md:text-lg font-bold">
+            Target Host
+          </h2>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
