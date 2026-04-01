@@ -240,7 +240,6 @@ async def vm_tunnel(
                 if opcode in {"disconnect", "error"}:
                     logger.warning("Tunnel browser->guacd opcode=%s", opcode)
                 writer.write(msg.encode())
-            # Flush remaining buffered data once the loop ends
             await writer.drain()
         except WebSocketDisconnect as exc:
             logger.warning(
@@ -269,11 +268,9 @@ async def vm_tunnel(
                 if not chunk:
                     raise ConnectionError("guacd closed connection")
                 buf += chunk
-                # Find the last complete instruction boundary
                 last_semi = buf.rfind(b";")
                 if last_semi == -1:
                     continue
-                # Send everything up to and including the last ';'
                 to_send = buf[:last_semi + 1]
                 buf = buf[last_semi + 1:]
                 await send_ws_text(to_send.decode("utf-8"))
