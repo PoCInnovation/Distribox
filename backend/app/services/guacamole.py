@@ -94,7 +94,7 @@ async def guacd_handshake(
         "swap-red-blue": "false",
         "read-only": "false",
         "cursor": "remote",
-        "encoding": "tight zrle copyrect hextile",
+        "encoding": "copyrect tight zrle hextile",
         "color-depth": "24",
         "autoretry": "",
         "username": "",

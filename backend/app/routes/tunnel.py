@@ -1,7 +1,7 @@
 from app.utils.vnc import get_vnc_port
 from app.utils.crypto import decrypt_secret
 from app.utils.auth import decode_access_token, user_has_policy
-from app.services.guacamole import build_instruction, guacd_handshake, read_instruction
+from app.services.guacamole import guacd_handshake
 from app.services.vm_service import VmService
 from app.orm.vm_credential import VmCredentialORM
 from app.orm.user import UserORM
@@ -240,7 +240,7 @@ async def vm_tunnel(
                 if opcode in {"disconnect", "error"}:
                     logger.warning("Tunnel browser->guacd opcode=%s", opcode)
                 writer.write(msg.encode())
-                await writer.drain()
+            await writer.drain()
         except WebSocketDisconnect as exc:
             logger.warning(
                 "Tunnel browser_to_guacd websocket disconnected code=%s",
@@ -256,6 +256,7 @@ async def vm_tunnel(
                 pass
 
     async def guacd_to_browser():
+        buf = b""
         try:
             if first_instruction:
                 initial_opcode = _extract_opcode(first_instruction)
@@ -263,12 +264,16 @@ async def vm_tunnel(
                     "Tunnel initial guacd->browser opcode=%s", initial_opcode)
                 await send_ws_text(first_instruction)
             while True:
-                instruction = await read_instruction(reader)
-                encoded = build_instruction(*instruction)
-                opcode = instruction[0] if instruction else None
-                if opcode in {"disconnect", "error"}:
-                    logger.warning("Tunnel guacd->browser opcode=%s", opcode)
-                await send_ws_text(encoded)
+                chunk = await reader.read(65536)
+                if not chunk:
+                    raise ConnectionError("guacd closed connection")
+                buf += chunk
+                last_semi = buf.rfind(b";")
+                if last_semi == -1:
+                    continue
+                to_send = buf[:last_semi + 1]
+                buf = buf[last_semi + 1:]
+                await send_ws_text(to_send.decode("utf-8"))
         except ConnectionError:
             logger.warning("Tunnel guacd_to_browser EOF from guacd")
         except WebSocketDisconnect as exc:
