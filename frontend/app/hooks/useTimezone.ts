@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useSettings } from "@/hooks/useSettings";
+import { getAuthToken } from "@/lib/api/core";
 
 function getBrowserTimezone(): string {
   try {
@@ -12,9 +13,11 @@ function getBrowserTimezone(): string {
 /**
  * Returns the effective IANA timezone string based on user settings.
  * "auto" resolves to the browser's timezone.
+ * Falls back to browser timezone when not authenticated.
  */
 export function useTimezone(): string {
-  const { data: settings } = useSettings();
+  const isAuthenticated = !!getAuthToken();
+  const { data: settings } = useSettings(isAuthenticated);
 
   return useMemo(() => {
     const tz = settings?.timezone;

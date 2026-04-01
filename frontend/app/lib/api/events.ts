@@ -55,7 +55,7 @@ export async function deleteEventVm(
 }
 
 export async function getPublicEvent(slug: string): Promise<Event> {
-  return apiRequest(`/events/public/${slug}`, {}, EventSchema);
+  return apiRequest(`/events/public/${slug}`, { public: true }, EventSchema);
 }
 
 export async function joinEvent(
@@ -67,6 +67,7 @@ export async function joinEvent(
     {
       method: "POST",
       body: JSON.stringify({ participant_name: participantName }),
+      public: true,
     },
     EventJoinResponseSchema,
   );
