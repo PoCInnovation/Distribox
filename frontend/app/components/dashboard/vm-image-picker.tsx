@@ -156,21 +156,21 @@ function ImagePicker({
 
       <div className="flex h-72">
         {/* Left: Family filter sidebar */}
-        <div className="border-r flex flex-col py-1 w-32 shrink-0 bg-muted/10">
+        <div className="border-r flex flex-col py-1 shrink-0 bg-muted/10">
           {families.map((family) => (
             <button
               key={family}
               type="button"
               onClick={() => setActiveFamily(family)}
               className={cn(
-                "flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors hover:bg-muted",
+                "flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-3 py-2 text-sm text-left transition-colors hover:bg-muted",
                 activeFamily === family
                   ? "bg-muted text-foreground font-medium border-l-2 border-primary"
                   : "text-muted-foreground border-l-2 border-transparent",
               )}
             >
               {getFamilyIcon(family)}
-              <span className="truncate">{family}</span>
+              <span className="truncate hidden sm:inline">{family}</span>
             </button>
           ))}
         </div>

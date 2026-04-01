@@ -177,12 +177,12 @@ export default function ProvisionPage() {
 
   if (!hasCreatePolicy) {
     return (
-      <div className="h-full p-8">
-        <div className="mb-8">
-          <h1 className="mb-2 font-mono text-3xl font-bold tracking-tight text-balance">
+      <div className="h-full p-4 md:p-8 min-w-0">
+        <div className="mb-6 md:mb-8">
+          <h1 className="mb-2 font-mono text-2xl md:text-3xl font-bold tracking-tight text-balance">
             Provision Virtual Machine
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm md:text-base text-muted-foreground">
             Configure and deploy a new virtual machine instance
           </p>
         </div>
@@ -203,19 +203,21 @@ export default function ProvisionPage() {
       : (onlineSlaves.find((s) => s.id === selectedTarget)?.name ?? "slave");
 
   return (
-    <div className="h-full p-8">
-      <div className="mb-8">
-        <h1 className="mb-2 font-mono text-3xl font-bold tracking-tight text-balance">
+    <div className="h-full p-4 md:p-8 min-w-0">
+      <div className="mb-6 md:mb-8">
+        <h1 className="mb-2 font-mono text-2xl md:text-3xl font-bold tracking-tight text-balance">
           Provision Virtual Machine
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm md:text-base text-muted-foreground">
           Configure and deploy a new virtual machine instance
         </p>
       </div>
 
       {hasSlaves && (
-        <div className="mb-8">
-          <h2 className="mb-4 font-mono text-lg font-bold">Target Host</h2>
+        <div className="mb-6 md:mb-8">
+          <h2 className="mb-3 md:mb-4 font-mono text-base md:text-lg font-bold">
+            Target Host
+          </h2>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -280,8 +282,8 @@ export default function ProvisionPage() {
         title="Host Resources Hidden"
       >
         {isAutoMode && clusterInfo && (
-          <div className="mb-8">
-            <h2 className="mb-4 font-mono text-lg font-bold">
+          <div className="mb-6 md:mb-8">
+            <h2 className="mb-3 md:mb-4 font-mono text-base md:text-lg font-bold">
               Available Resources
               <span className="ml-2 text-sm font-normal text-muted-foreground">
                 across {clusterInfo.nodes.length} node
@@ -326,8 +328,8 @@ export default function ProvisionPage() {
           </div>
         )}
         {!isAutoMode && targetHostInfo && (
-          <div className="mb-8">
-            <h2 className="mb-4 font-mono text-lg font-bold">
+          <div className="mb-6 md:mb-8">
+            <h2 className="mb-3 md:mb-4 font-mono text-base md:text-lg font-bold">
               Available Resources
               {targetLabel && (
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
@@ -344,8 +346,8 @@ export default function ProvisionPage() {
         )}
       </PolicyGate>
 
-      <div className="grid gap-6 lg:grid-cols-3 pb-8">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid gap-4 md:gap-6 lg:grid-cols-3 pb-8">
+        <div className="lg:col-span-2 space-y-4 md:space-y-6 min-w-0">
           <Card className="border-border bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -383,7 +385,7 @@ export default function ProvisionPage() {
                 Select the base image for your virtual machine
               </CardDescription>
             </CardHeader>
-            <CardContent className="w-full">
+            <CardContent className="w-full overflow-hidden">
               <PolicyGate
                 requiredPolicies={[Policy.IMAGES_GET]}
                 title="Image Registry Hidden"
@@ -544,7 +546,7 @@ export default function ProvisionPage() {
           </Card>
         </div>
 
-        <div className="space-y-6 sticky top-8 self-start">
+        <div className="space-y-4 md:space-y-6 lg:sticky lg:top-8 lg:self-start min-w-0">
           <Card className="border-border bg-card">
             <CardHeader>
               <CardTitle>Configuration Summary</CardTitle>
