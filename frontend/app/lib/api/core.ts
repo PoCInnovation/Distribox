@@ -256,28 +256,29 @@ export function clearAuthToken(): void {
 
 export async function apiRequest<T = unknown>(
   endpoint: string,
-  options: RequestInit = {},
+  options: RequestInit & { public?: boolean } = {},
   schema?: ZodType<T>,
 ): Promise<T> {
+  const { public: isPublic, ...fetchOptions } = options;
   const url = `${API_BASE_URL}${endpoint}`;
   const token = getAuthToken();
 
-  const headers = new Headers(options.headers);
+  const headers = new Headers(fetchOptions.headers);
   if (!headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
-  if (token) {
+  if (token && !isPublic) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
   const response = await fetch(url, {
-    ...options,
+    ...fetchOptions,
     headers,
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
+    if (response.status === 401 && !isPublic) {
       clearAuthToken();
       window.location.href = "/auth/login";
     }
