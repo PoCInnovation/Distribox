@@ -1,9 +1,12 @@
+import logging
 import subprocess
 import json
 import yaml
 from app.models.image import ImageRead
 from pathlib import Path
 from app.core.config import s3, distribox_bucket_registry
+
+logger = logging.getLogger(__name__)
 
 
 class ImageService():
@@ -17,10 +20,10 @@ class ImageService():
             data = yaml.safe_load(content)
             return ImageRead(**data)
         except s3.exceptions.NoSuchKey:
-            print(f"No image found")
+            logger.warning("No image found: %s", image_name)
             return None
-        except Exception as e:
-            print(f"Error")
+        except Exception:
+            logger.exception("Error fetching image: %s", image_name)
             return None
 
     @staticmethod
@@ -39,6 +42,6 @@ class ImageService():
                     try:
                         image = ImageRead(**data)
                         images.append(image)
-                    except Exception as e:
-                        print(f"Error on {key}: {e}")
+                    except Exception:
+                        logger.warning("Failed to parse image %s", key)
         return images
