@@ -125,6 +125,9 @@ When an event reaches its deadline, the share link stops working, all VM credent
 
 ```bash
 bash setup.sh
+
+cp .env.example .env
+
 docker compose --profile master up -d --build
 ```
 
@@ -136,12 +139,7 @@ For development with hot-reloading:
 docker compose --profile dev up --build
 ```
 
-To run a slave node on another machine:
-
-```bash
-bash setup.sh
-docker compose --profile slave up -d --build
-```
+To run a slave node on another machine, use the `slave` and follow the guide on the frontend:
 
 ## Configuration
 
@@ -157,6 +155,77 @@ Copy `.env.example` to `.env` and adjust as needed. Key variables:
 | `DISTRIBOX_SECRET` | `secret` | Encryption key for sensitive data |
 | `BACKEND_PORT` | `8080` | Backend API port |
 | `VITE_PORT` | `3000` | Frontend port |
+
+## Deployment
+
+### Reverse Proxy (nginx)
+
+In production, you should place nginx in front of the application to serve both the frontend and backend on a single port. A ready-to-use configuration is provided in [`nginx.conf`](./nginx.conf).
+
+Install it:
+
+```bash
+sudo cp nginx.conf /etc/nginx/sites-available/distribox
+sudo ln -s /etc/nginx/sites-available/distribox /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+This configuration:
+- Listens on port **80** and routes traffic to the frontend (port 3000) and backend (port 8080)
+- Proxies WebSocket connections for VM streaming (`/tunnel`)
+- All other backend routes (`/auth`, `/vms`, `/images`, etc.) are forwarded to the API
+
+> Note: If you change port configuration for the deployment, we trust you will update the reverse proxy configuration accordingly.
+
+After enabling the reverse proxy, update your `.env` so the frontend calls the backend through nginx instead of directly:
+
+```env
+VITE_API_DOMAIN=http://your-domain.com
+FRONTEND_URL=http://your-domain.com
+```
+
+### Firewall
+
+VNC servers listen on ports 5900-5999 on the host. These must **not** be exposed to the network -- VM streaming is handled securely through the Guacamole WebSocket tunnel. Block external access with your firewall:
+
+```bash
+# ufw
+sudo ufw deny 5900:5999/tcp
+
+# or iptables
+sudo iptables -A INPUT -p tcp --dport 5900:5999 -j DROP
+```
+
+### SSL is STRONGLY RECOMMENDED
+
+Distribox should be served over HTTPS. Without SSL:
+
+- **Clipboard will not work.** The browser Clipboard API (`navigator.clipboard`) is only available in [secure contexts](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API#security_considerations) (HTTPS). Copying VM credentials, event links, or any other data from the dashboard will silently fail on plain HTTP.
+- **Pasting into VMs will not work.** The Guacamole client uses the Clipboard API to sync your clipboard with the remote VM. Without HTTPS, you will not be able to paste text into a VM session from your browser.
+
+The easiest way to set up SSL is with [Certbot](https://certbot.eff.org/) (Let's Encrypt):
+
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+Certbot will automatically modify your nginx configuration to:
+- Redirect HTTP (port 80) to HTTPS (port 443)
+- Install and renew your TLS certificate
+
+After running Certbot, update your `.env`:
+
+```env
+VITE_API_DOMAIN=https://your-domain.com
+FRONTEND_URL=https://your-domain.com
+```
+
+Certbot sets up automatic renewal via a systemd timer. You can verify it with:
+
+```bash
+sudo certbot renew --dry-run
+```
 
 ## Tech Stack
 
