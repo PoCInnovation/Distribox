@@ -29,6 +29,21 @@ from sqlalchemy.orm import make_transient
 logger = logging.getLogger(__name__)
 
 
+def ensure_default_network():
+    try:
+        conn = QEMUConfig.get_connection()
+        net = conn.networkLookupByName("default")
+        if not net.isActive():
+            logger.info("Starting libvirt 'default' network")
+            net.create()
+    except libvirt.libvirtError as e:
+        logger.error("Failed to ensure default network: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to activate default network: {e}",
+        )
+
+
 class Vm:
     @staticmethod
     def _resolve_image_name(os_value: str) -> str:
@@ -195,6 +210,7 @@ class Vm:
                 keyboard_layout=self.keyboard_layout,
                 vm_dir=vm_dir,
             )
+        ensure_default_network()
         try:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
