@@ -77,7 +77,7 @@ async def startup_event():
     init_db()
 
     if DISTRIBOX_MODE == "slave":
-        print(f"✓ Starting in SLAVE mode")
+        logger.info("Starting in SLAVE mode")
         asyncio.create_task(_slave_heartbeat_loop())
         return
 
@@ -99,7 +99,7 @@ async def startup_event():
             )
             session.add(admin)
             session.commit()
-            print(f"✓ Created default admin user: {admin_username}")
+            logger.info("Created default admin user: %s", admin_username)
         else:
             should_save_admin = False
             if DISTRIBOX_ADMIN_POLICY not in admin.policies:
@@ -115,7 +115,7 @@ async def startup_event():
             if should_save_admin:
                 session.add(admin)
                 session.commit()
-            print(f"✓ Admin user already exists: {admin_username}")
+            logger.info("Admin user already exists: %s", admin_username)
 
         users = session.exec(
             select(UserORM).where(UserORM.password.is_not(None))
@@ -128,14 +128,14 @@ async def startup_event():
                 migrated_usernames.append(user.username)
         if migrated_usernames:
             session.commit()
-            print(
-                "✓ Encrypted plaintext passwords for users: " +
-                ", ".join(migrated_usernames)
+            logger.info(
+                "Encrypted plaintext passwords for users: %s",
+                ", ".join(migrated_usernames),
             )
 
     asyncio.create_task(_enforce_event_deadlines())
     asyncio.create_task(_check_stale_slaves())
-    print(f"✓ Starting in MASTER mode")
+    logger.info("Starting in MASTER mode")
 
 
 async def _enforce_event_deadlines():

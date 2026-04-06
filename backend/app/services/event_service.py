@@ -1,3 +1,4 @@
+import logging
 import re
 import uuid
 from datetime import datetime
@@ -18,6 +19,8 @@ from app.services.host_service import HostService
 from app.services.vm_service import VmService
 from app.services.slave_service import SlaveService
 from app.services.slave_client import slave_get_host_info
+
+logger = logging.getLogger(__name__)
 
 
 def _sanitize_name(name: str) -> str:
@@ -166,9 +169,6 @@ class EventService:
 
         Returns None for master, or slave UUID for a slave node.
         """
-        import logging
-        logger = logging.getLogger(__name__)
-
         # Check master first
         try:
             master = HostService.get_host_info()
