@@ -14,6 +14,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select, delete
 from app.orm.vm import VmORM
 from app.orm.vm_credential import VmCredentialORM
+from app.orm.event import EventParticipantORM
 from app.orm.slave import SlaveORM
 from fastapi import status, HTTPException
 from app.utils.vm import get_vm_ip
@@ -277,6 +278,11 @@ class Vm:
             rmtree(vm_dir)
 
         with Session(engine) as session:
+            session.exec(
+                delete(EventParticipantORM).where(
+                    EventParticipantORM.vm_id == self.id
+                )
+            )
             session.exec(
                 delete(VmCredentialORM).where(
                     VmCredentialORM.vm_id == self.id
@@ -564,6 +570,11 @@ class VmService:
             slave_delete_vm(slave, vm_id)
             # Remove the reference from master DB
             with Session(engine) as session:
+                session.exec(
+                    delete(EventParticipantORM).where(
+                        EventParticipantORM.vm_id == uuid.UUID(vm_id)
+                    )
+                )
                 session.exec(
                     delete(VmCredentialORM).where(
                         VmCredentialORM.vm_id == uuid.UUID(vm_id)

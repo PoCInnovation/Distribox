@@ -36,5 +36,11 @@ class EventParticipantORM(SQLModel, table=True):
         )
     )
     participant_name: str
-    vm_id: uuid.UUID = Field(foreign_key="vms.id")
+    vm_id: uuid.UUID = Field(
+        sa_column=Column(
+            UUID(as_uuid=True),
+            ForeignKey("vms.id", ondelete="CASCADE"),
+            nullable=False,
+        )
+    )
     created_at: datetime = Field(default_factory=datetime.utcnow)
