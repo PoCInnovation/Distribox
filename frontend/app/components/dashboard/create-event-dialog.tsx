@@ -32,6 +32,7 @@ import { useAuthz } from "@/contexts/authz-context";
 import { Policy } from "@/lib/types";
 import { useSettings } from "@/hooks/useSettings";
 import { KEYBOARD_LAYOUTS, getKeyboardLabel } from "@/lib/keyboard-layouts";
+import { SshAccessSwitch } from "@/components/ssh-access-switch";
 
 function slugify(name: string): string {
   return name
@@ -51,6 +52,7 @@ export function CreateEventDialog({
   const authz = useAuthz();
   const canReadHost = authz.hasPolicy(Policy.HOST_GET);
   const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
+  const canManageSsh = authz.hasPolicy(Policy.VMS_SSH_MANAGE);
 
   const { data: clusterInfo } = useClusterHostInfo(canReadHost && open);
   const { data: userSettings } = useSettings();
@@ -68,6 +70,7 @@ export function CreateEventDialog({
   const [keyboardSearch, setKeyboardSearch] = useState("");
   const [maxVms, setMaxVms] = useState("10");
   const [deadline, setDeadline] = useState<Date | undefined>(undefined);
+  const [sshEnabled, setSshEnabled] = useState(false);
 
   useEffect(() => {
     if (userSettings) {
@@ -130,6 +133,7 @@ export function CreateEventDialog({
         keyboard_layout: keyboardLayout || null,
         max_vms: maxVmsNum,
         deadline: deadline.toISOString(),
+        ssh_enabled: canManageSsh && sshEnabled,
       });
 
       setName("");
@@ -144,6 +148,7 @@ export function CreateEventDialog({
       setKeyboardSearch("");
       setMaxVms("10");
       setDeadline(undefined);
+      setSshEnabled(false);
       onOpenChange(false);
     } catch {
       // Error shown in UI via createEvent.isError
@@ -282,6 +287,14 @@ export function CreateEventDialog({
               <DateTimePicker value={deadline} onChange={setDeadline} />
             </div>
           </div>
+
+          {canManageSsh && (
+            <SshAccessSwitch
+              enabled={sshEnabled}
+              onChange={setSshEnabled}
+              description="Participants can connect from a terminal using their access secret."
+            />
+          )}
 
           {clusterInfo && <HostResourcesBar totals={clusterInfo.totals} />}
 

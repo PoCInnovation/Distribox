@@ -23,6 +23,7 @@ export const EventSchema = z.object({
   created_by: z.string(),
   participants_count: z.number(),
   participants: z.array(EventParticipantSchema),
+  ssh_enabled: z.boolean().default(false),
 });
 
 export type Event = z.infer<typeof EventSchema>;
@@ -42,6 +43,7 @@ export const CreateEventPayloadSchema = z.object({
   keyboard_layout: z.string().nullable().optional(),
   deadline: z.string(),
   max_vms: z.number().positive(),
+  ssh_enabled: z.boolean().default(false),
 });
 
 export type CreateEventPayload = z.infer<typeof CreateEventPayloadSchema>;
@@ -54,6 +56,7 @@ export const UpdateEventPayloadSchema = z.object({
   vm_disk_size: z.number().positive().optional(),
   deadline: z.string().optional(),
   max_vms: z.number().positive().optional(),
+  ssh_enabled: z.boolean().optional(),
 });
 
 export type UpdateEventPayload = z.infer<typeof UpdateEventPayloadSchema>;

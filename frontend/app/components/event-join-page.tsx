@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { getPublicEvent, joinEvent } from "@/lib/api/events";
 import type { Event, EventJoinResponse } from "@/lib/types/event";
 import { EventInfoCard } from "@/components/event-info-card";
+import { SecretField } from "@/components/ui/secret-field";
+import { SshConnectionButton } from "@/components/ssh-connection-button";
 
 function useNow(intervalMs = 1000) {
   const [now, setNow] = useState(() => new Date());
@@ -49,13 +51,6 @@ export function EventJoinPage() {
     try {
       const result = await joinEvent(slug, name.trim());
       setJoinResult(result);
-
-      // Redirect to client after a brief delay
-      setTimeout(() => {
-        navigate(
-          `/client?credential=${encodeURIComponent(result.credential_password)}`,
-        );
-      }, 3000);
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : "Failed to join event");
     } finally {
@@ -106,27 +101,35 @@ export function EventJoinPage() {
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-chart-3/10">
               <Server className="h-7 w-7 text-chart-3" />
             </div>
-            <h2 className="text-xl font-bold">VM Provisioned!</h2>
+            <h2 className="text-xl font-bold">Your VM is ready</h2>
             <div className="w-full space-y-2 rounded-lg bg-muted/30 p-4 text-left">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">VM Name</span>
                 <span className="font-mono">{joinResult.vm_name}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Username</span>
-                <span className="font-mono">{joinResult.credential_name}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Password</span>
-                <span className="font-mono">
-                  {joinResult.credential_password}
-                </span>
+              <div className="space-y-2 text-sm">
+                <span className="text-muted-foreground">Access secret</span>
+                <SecretField value={joinResult.credential_password} />
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              Redirecting to your VM...
+              Save your access secret to reconnect later.
             </p>
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button
+                onClick={() =>
+                  navigate(
+                    `/client?credential=${encodeURIComponent(joinResult.credential_password)}`,
+                  )
+                }
+              >
+                Open web client
+              </Button>
+              <SshConnectionButton
+                key={joinResult.credential_password}
+                credential={joinResult.credential_password}
+              />
+            </div>
           </div>
         )}
 

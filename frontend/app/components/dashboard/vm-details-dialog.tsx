@@ -32,6 +32,9 @@ import { Policy, VMState, type VirtualMachineMetadata } from "@/lib/types";
 import { getKeyboardLabel } from "@/lib/keyboard-layouts";
 import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { useAuthz } from "@/contexts/authz-context";
+import { SshAccessSwitch } from "@/components/ssh-access-switch";
+import { SshConnectionButton } from "@/components/ssh-connection-button";
+import { getVMSshSettings, updateVMSshSettings } from "@/lib/api/ssh";
 
 interface VMDetailsDialogProps {
   vm: VirtualMachineMetadata | null;
@@ -70,8 +73,28 @@ export function VMDetailsDialog({
   const authz = useAuthz();
   const timeZone = useTimezone();
   const missingForConnect = authz.missingPolicies([Policy.VMS_CONNECT]);
+  const canManageSsh = authz.hasPolicy(Policy.VMS_SSH_MANAGE);
   const [credentialName, setCredentialName] = useState("");
   const [credentialPassword, setCredentialPassword] = useState("");
+
+  const sshQuery = useQuery({
+    queryKey: ["vm-ssh", vm?.id],
+    queryFn: () => getVMSshSettings(vm?.id ?? ""),
+    enabled: open && !!vm && canManageSsh,
+    retry: false,
+  });
+
+  const sshMutation = useMutation({
+    mutationFn: ({ vmId, enabled }: { vmId: string; enabled: boolean }) =>
+      updateVMSshSettings(vmId, enabled),
+    onSuccess: (settings, { vmId }) => {
+      queryClient.setQueryData(["vm-ssh", vmId], settings);
+      queryClient.invalidateQueries({ queryKey: ["vms"] });
+      queryClient.invalidateQueries({ queryKey: ["ssh-connection"] });
+      toast.success(settings.enabled ? "SSH enabled" : "SSH disabled");
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   const credentialsQuery = useQuery({
     queryKey: ["vm-credentials", vm?.id],
@@ -186,7 +209,7 @@ export function VMDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl lg:max-w-4xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto max-w-2xl lg:max-w-4xl">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center border border-border bg-secondary">
@@ -241,6 +264,28 @@ export function VMDetailsDialog({
               <span className="text-sm">{vm.slave_name || "Local"}</span>
             </div>
           </div>
+
+          {canManageSsh && (
+            <div className="space-y-2">
+              <SshAccessSwitch
+                enabled={sshQuery.data?.enabled ?? vm.ssh_enabled}
+                onChange={(enabled) =>
+                  sshMutation.mutate({ vmId: vm.id, enabled })
+                }
+                disabled={!sshQuery.data || sshMutation.isPending}
+              />
+              {sshQuery.isError && (
+                <p className="text-sm text-destructive">
+                  {sshQuery.error.message}
+                </p>
+              )}
+              {sshQuery.data && !sshQuery.data.available && (
+                <p className="text-xs text-muted-foreground">
+                  The SSH gateway is unavailable. Check the deployment settings.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-3 border border-border p-4">
             <div className="flex items-center justify-between">
@@ -317,6 +362,10 @@ export function VMDetailsDialog({
                       </p>
                     </div>
                     <div className="flex items-center gap-2 ml-2">
+                      <SshConnectionButton
+                        key={credential.password}
+                        credential={credential.password}
+                      />
                       <Button
                         type="button"
                         variant="outline"

@@ -11,12 +11,14 @@ type UseGuacamoleClientOptions =
       mode: "credential";
       credential: string;
       containerRef: RefObject<HTMLDivElement | null>;
+      keyboardEnabled?: boolean;
     }
   | {
       mode: "vm";
       vmId: string;
       token: string;
       containerRef: RefObject<HTMLDivElement | null>;
+      keyboardEnabled?: boolean;
     };
 
 interface UseGuacamoleClientResult {
@@ -35,6 +37,13 @@ export function useGuacamoleClient(
   const [error, setError] = useState<string | undefined>();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const clientRef = useRef<Guacamole.Client | null>(null);
+  const keyboardRef = useRef<Guacamole.Keyboard | null>(null);
+  const keyboardEnabledRef = useRef(true);
+
+  useEffect(() => {
+    if (options.keyboardEnabled === false) keyboardRef.current?.reset();
+    keyboardEnabledRef.current = options.keyboardEnabled !== false;
+  }, [options.keyboardEnabled]);
 
   const sendKeyEvent = useCallback((pressed: boolean, keysym: number) => {
     clientRef.current?.sendKeyEvent(pressed ? 1 : 0, keysym);
@@ -167,11 +176,14 @@ export function useGuacamoleClient(
       };
 
       keyboard = new Guacamole.Keyboard(document);
+      keyboardRef.current = keyboard;
       keyboard.onkeydown = (keysym: number) => {
+        if (!keyboardEnabledRef.current) return true;
         client!.sendKeyEvent(1, remapKeysym(keysym));
         return false;
       };
       keyboard.onkeyup = (keysym: number) => {
+        if (!keyboardEnabledRef.current) return true;
         client!.sendKeyEvent(0, remapKeysym(keysym));
         return false;
       };
@@ -197,6 +209,7 @@ export function useGuacamoleClient(
       cancelled = true;
       clientRef.current = null;
       keyboard?.reset();
+      keyboardRef.current = null;
       if ("keyboard" in navigator && "unlock" in (navigator as any).keyboard) {
         (navigator as any).keyboard.unlock();
       }

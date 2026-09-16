@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGuacamoleClient } from "@/hooks/useGuacamoleClient";
 import { Image } from "@unpic/react";
+import { SshConnectionButton } from "@/components/ssh-connection-button";
 
 const KEYSYM = {
   CTRL_L: 0xffe3,
@@ -55,6 +56,7 @@ type GuacamoleDisplayProps =
 
 export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [sshOpen, setSshOpen] = useState(false);
 
   const options =
     "vmId" in props
@@ -63,11 +65,13 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
           vmId: props.vmId,
           token: props.token,
           containerRef,
+          keyboardEnabled: !sshOpen,
         }
       : {
           mode: "credential" as const,
           credential: props.credential,
           containerRef,
+          keyboardEnabled: !sshOpen,
         };
 
   const {
@@ -256,6 +260,17 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
               </span>
             </div>
             <div className="flex items-center gap-3">
+              {"credential" in props && (
+                <SshConnectionButton
+                  key={props.credential}
+                  credential={props.credential}
+                  className="h-7 border-white/20 bg-white/15 px-2 text-xs text-white hover:bg-white/25"
+                  onOpenChange={(open) => {
+                    setSshOpen(open);
+                    if (open && isFullscreen) void exitFullscreen();
+                  }}
+                />
+              )}
               {initialOverlay && (
                 <span className="text-xs text-white/60">
                   Login: <span className="font-mono font-semibold">user</span> /{" "}

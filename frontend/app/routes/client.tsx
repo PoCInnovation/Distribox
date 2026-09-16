@@ -40,5 +40,5 @@ export default function ClientRoute() {
   }
 
   if (!credential.trim()) return <NoCredentialPage />;
-  return <GuacamoleDisplay credential={credential} />;
+  return <GuacamoleDisplay key={credential} credential={credential} />;
 }
