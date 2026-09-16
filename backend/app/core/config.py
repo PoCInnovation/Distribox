@@ -17,7 +17,7 @@ def get_env_or_default(key: str, default: str) -> str:
 
 
 distribox_bucket_registry = get_env_or_default(
-    "DISTRIBOX_BUCKET_REGISTRY", "distribox-images")
+    "DISTRIBOX_BUCKET_REGISTRY", "distribox-registry")
 aws_region = get_env_or_default("AWS_REGION", "eu-west-3")
 
 db_name = get_env_or_default("POSTGRES_NAME", "distribox")

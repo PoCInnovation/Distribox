@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-CLOUD_IMG_URL=https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-GenericCloud-9.7-20251118.x86_64.qcow2
+CLOUD_IMG_URL=https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-GenericCloud-9.8-20260810.x86_64.qcow2
 DISTRIBOX_IMG_PATH="/var/lib/distribox/images/"
 CLOUD_IMG_SOURCE="${CLOUD_IMG_URL##*/}"
 
@@ -16,6 +16,11 @@ sudo virt-customize -a /tmp/resized_image.qcow2 \
     --install vim,qemu-guest-agent,cloud-init \
     --run-command 'grub2-mkconfig -o /boot/grub2/grub.cfg' \
     --run-command 'grub2-install /dev/sda'
+
+# Relabel with the guest's policy tools; the builder's older tools only schedule a reboot-time relabel.
+sudo virt-customize -a /tmp/resized_image.qcow2 \
+    --run-command 'setfiles -F -e /proc -e /sys -e /dev -e /run /etc/selinux/targeted/contexts/files/file_contexts /' \
+    --run-command 'rm -f /.autorelabel'
 
 sudo virt-sysprep -a /tmp/resized_image.qcow2 --operations machine-id,ssh-hostkeys
 

@@ -17,7 +17,7 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - DISTRIBOX_SECRET=${DISTRIBOX_SECRET:-secret}
-      - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-images}
+      - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-registry}
       - AWS_REGION=${AWS_REGION:-eu-west-3}
       - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
       - GUACD_PORT=${GUACD_PORT:-4822}
@@ -56,7 +56,7 @@ services:
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
-      - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-images}
+      - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-registry}
       - AWS_REGION=${AWS_REGION:-eu-west-3}
       - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
       - GUACD_PORT=${GUACD_PORT:-4822}
@@ -111,7 +111,7 @@ services:
       - MASTER_URL=${MASTER_URL:-http://distribox-backend:8080}
       - SLAVE_API_KEY=${SLAVE_API_KEY:-}
       - DISTRIBOX_SECRET=${DISTRIBOX_SECRET:-secret}
-      - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-images}
+      - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-registry}
       - AWS_REGION=${AWS_REGION:-eu-west-3}
       - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
       - GUACD_PORT=${GUACD_PORT:-4822}

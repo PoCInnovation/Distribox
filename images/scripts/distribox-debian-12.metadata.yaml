@@ -3,4 +3,4 @@ image: distribox-debian-12.qcow2
 version: 12
 distribution: debian
 family: debian
-revision: 0
+revision: 1

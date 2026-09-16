@@ -21,6 +21,7 @@ To install the dependencies, run the following command:
 
 ```bash
 pnpm install
+pnpm build
 ```
 
 ## AWS Setup
@@ -45,7 +46,6 @@ Your IAM user must have the following permissions:
 - s3:GetObject
 - s3:PutObject
 - s3:ListBucket
-- s3:ListObjectsV2
 - s3:DeleteObject
 
 ## Environment Variables
@@ -54,7 +54,7 @@ Copy the `.env.default` file to `.env` and configure the following environment v
 
 - `AWS_PROFILE`: The AWS profile to use. `distribox` if you followed the instructions above.
 - `AWS_REGION`: The AWS region to use. `eu-west-3` if you followed the instructions above.
-- `DISTRIBOX_BUCKET_REGISTRY`: The name of the bucket to use for the Distribox registry. You can use the `distribox-images` bucket.
+- `DISTRIBOX_BUCKET_REGISTRY`: The name of the bucket to use for the Distribox registry. You can use the `distribox-registry` bucket.
 
 > Note: If you already have a profile setup, you might need to `unset AWS_PROFILE` before running atlas. It won't overwrite the profile if it's already set, therefore it will use the wrong credentials.
 
@@ -80,17 +80,26 @@ To build images you can check the [available documentation](/images/README.md).
 
 ## Use Terraform
 
-After installing terraform, you can use the terraform config to setup the bucket and the permissions.
+Run these commands from `atlas/` with your personal AWS profile. A separate workspace
+keeps the previous account's Terraform state intact.
 
 ```bash
+export AWS_PROFILE=personal
 terraform init
+terraform workspace select -or-create personal
 
-# This is optional, but you should check the terraform plan before applying it.
-terraform plan
-
-terraform apply
+(
+  eval "$(aws configure export-credentials --profile personal --format env)"
+  terraform plan -out=registry.tfplan
+  terraform apply registry.tfplan
+)
 ```
 
-This should ensure your registry is setup correctly.
+This creates `distribox-registry` in `eu-west-3`, with public image downloads and
+listing. Uploads require AWS credentials. Bucket names are globally unique; choose
+another name in `main.tf` and your environment if deploying a separate registry.
 
-It will create a bucket called `distribox-images` and set the correct permissions.
+For browser-based authentication, sign in with `aws login --profile personal` first.
+The pinned Terraform AWS provider predates `login_session` support, so the subshell
+above exports temporary credentials through the AWS CLI. Atlas supports this login
+profile directly: set `AWS_PROFILE=personal` in its `.env` or your shell.

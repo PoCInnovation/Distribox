@@ -19,7 +19,7 @@ chmod +x libvirt-install.sh
 cd images
 
 chmod +x create-image.sh
-./create-image.sh create-ubuntu
+./create-image.sh scripts/create-ubuntu.sh
 ```
 
 The script will run a docker container with the specified image builder and output it to the dist folder.

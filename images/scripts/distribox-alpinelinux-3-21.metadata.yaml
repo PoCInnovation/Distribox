@@ -3,4 +3,4 @@ image: distribox-alpinelinux-3-21.qcow2
 version: 3.21
 distribution: alpinelinux
 family: alpine
-revision: 0
+revision: 1

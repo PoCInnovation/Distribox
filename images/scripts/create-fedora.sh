@@ -18,6 +18,11 @@ sudo virt-customize -a /tmp/resized_image.qcow2 \
     --run-command 'grub2-mkconfig -o /boot/grub2/grub.cfg' \
     --run-command 'grub2-install /dev/sda'
 
+# Relabel with the guest's policy tools; the builder's older tools only schedule a reboot-time relabel.
+sudo virt-customize -a /tmp/resized_image.qcow2 \
+    --run-command 'setfiles -F -e /proc -e /sys -e /dev -e /run /etc/selinux/targeted/contexts/files/file_contexts /' \
+    --run-command 'rm -f /.autorelabel'
+
 sudo virt-sysprep -a /tmp/resized_image.qcow2 --operations machine-id,ssh-hostkeys
 sudo virt-sparsify --compress /tmp/resized_image.qcow2 \
     "/var/lib/distribox/images/distribox-fedora-43.qcow2"

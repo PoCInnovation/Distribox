@@ -2,26 +2,27 @@
 
 set -euo pipefail
 
-CLOUD_IMG_URL=https://dl-cdn.alpinelinux.org/alpine/v3.21/releases/cloud/generic_alpine-3.21.5-x86_64-uefi-cloudinit-r0.qcow2
+CLOUD_IMG_URL=https://dl-cdn.alpinelinux.org/alpine/v3.21/releases/cloud/generic_alpine-3.21.5-x86_64-bios-cloudinit-r0.qcow2
 DISTRIBOX_IMG_PATH="/var/lib/distribox/images/"
 CLOUD_IMG_SOURCE="${CLOUD_IMG_URL##*/}"
 
 wget -O "/tmp/${CLOUD_IMG_SOURCE}" $CLOUD_IMG_URL
 
-sudo qemu-img create -f qcow2 /tmp/resized_image.qcow2 9G
-sudo virt-resize --expand /dev/sda2 \
-    "/tmp/$CLOUD_IMG_SOURCE" \
-    /tmp/resized_image.qcow2
+# The BIOS cloud image uses ext4 directly on the disk, without a partition table.
+sudo cp "/tmp/$CLOUD_IMG_SOURCE" /tmp/resized_image.qcow2
+sudo qemu-img resize /tmp/resized_image.qcow2 9G
+sudo guestfish --rw -a /tmp/resized_image.qcow2 <<'EOF'
+run
+e2fsck-f /dev/sda
+resize2fs /dev/sda
+EOF
 
+# Keep the image's virt kernel and extlinux BIOS bootloader.
 sudo virt-customize -a /tmp/resized_image.qcow2 \
     --network \
-    --run-command 'apk update' \
-    --run-command 'apk add vim qemu-guest-agent cloud-init gettext' \
-    \
-    --run-command 'apk add linux-lts linux-headers' \
-    --run-command 'mkinitfs' \
-    --run-command 'grub-mkconfig -o /boot/grub/grub.cfg' \
-    --run-command 'grub-install /dev/sda'
+    --run-command 'apk update && apk upgrade' \
+    --run-command 'apk add vim qemu-guest-agent cloud-init gettext bash sudo' \
+    --run-command 'rc-update add qemu-guest-agent default'
 
 sudo virt-sysprep -a /tmp/resized_image.qcow2 --operations machine-id,ssh-hostkeys
 

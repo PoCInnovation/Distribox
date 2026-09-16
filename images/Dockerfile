@@ -1,7 +1,5 @@
 FROM debian:bookworm-slim
 
-ARG IMAGE
-
 RUN apt-get update && apt-get install -y \
     wget \
     libguestfs-tools \
@@ -12,6 +10,8 @@ RUN apt-get update && apt-get install -y \
 ENV LIBGUESTFS_BACKEND=direct
 
 RUN mkdir -p /var/lib/distribox/images/
+
+ARG IMAGE
 
 COPY $IMAGE /usr/local/bin/build_script.sh
 COPY scripts/*.metadata.yaml /usr/local/bin/

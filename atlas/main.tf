@@ -1,18 +1,3 @@
-import {
-  to = aws_s3_bucket.images
-  id = "distribox-images"
-}
-
-import {
-  to = aws_s3_bucket_public_access_block.images
-  id = "distribox-images"
-}
-
-import {
-  to = aws_s3_bucket_policy.public_read
-  id = "distribox-images"
-}
-
 terraform {
   required_providers {
     aws = {
@@ -28,7 +13,7 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "images" {
-  bucket = "distribox-images"
+  bucket = "distribox-registry"
 }
 
 resource "aws_s3_bucket_public_access_block" "images" {
