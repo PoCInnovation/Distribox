@@ -4,10 +4,7 @@ import type Guacamole from "guacamole-common-js";
 import { API_BASE_URL } from "~/lib/api";
 
 export type GuacamoleConnectionState =
-  | "connecting"
-  | "connected"
-  | "error"
-  | "disconnected";
+  "connecting" | "connected" | "error" | "disconnected";
 
 type UseGuacamoleClientOptions =
   | {
