@@ -262,7 +262,6 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
             <div className="flex items-center gap-3">
               {"credential" in props && (
                 <SshConnectionButton
-                  key={props.credential}
                   credential={props.credential}
                   className="h-7 border-white/20 bg-white/15 px-2 text-xs text-white hover:bg-white/25"
                   onOpenChange={(open) => {

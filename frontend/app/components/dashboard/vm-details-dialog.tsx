@@ -363,8 +363,8 @@ export function VMDetailsDialog({
                     </div>
                     <div className="flex items-center gap-2 ml-2">
                       <SshConnectionButton
-                        key={credential.password}
                         credential={credential.password}
+                        sshEnabled={sshQuery.data?.enabled ?? vm.ssh_enabled}
                       />
                       <Button
                         type="button"

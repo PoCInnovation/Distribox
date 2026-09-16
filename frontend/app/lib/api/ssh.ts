@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiRequest } from "./core";
+import { utcDateString } from "@/lib/types/event";
 
 const SshSettingsSchema = z.object({
   enabled: z.boolean(),
@@ -15,12 +16,7 @@ const SshSettingsSchema = z.object({
 const SshConnectionSchema = SshSettingsSchema.extend({
   credential_id: z.string().uuid(),
   vm_name: z.string(),
-  expires_at: z
-    .string()
-    .transform((value) =>
-      /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}Z`,
-    )
-    .nullable(),
+  expires_at: utcDateString.nullable(),
 });
 
 export function getVMSshSettings(vmId: string) {

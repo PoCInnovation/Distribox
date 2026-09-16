@@ -20,6 +20,17 @@ function fallbackCopy(text: string, toastMessage: string) {
   }
 }
 
+export function copyToClipboard(text: string, toastMessage: string) {
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(
+      () => toast.success(toastMessage),
+      () => fallbackCopy(text, toastMessage),
+    );
+  } else {
+    fallbackCopy(text, toastMessage);
+  }
+}
+
 interface SecretFieldProps {
   value: string;
   placeholder?: string;
@@ -39,14 +50,7 @@ export function SecretField({
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(value).then(
-        () => toast.success(toastMessage),
-        () => fallbackCopy(value, toastMessage),
-      );
-    } else {
-      fallbackCopy(value, toastMessage);
-    }
+    copyToClipboard(value, toastMessage);
   };
 
   return (

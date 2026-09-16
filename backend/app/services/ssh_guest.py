@@ -7,6 +7,7 @@ import stat
 import tempfile
 import time
 from pathlib import Path
+from threading import Lock
 from uuid import UUID
 from xml.etree import ElementTree
 
@@ -61,6 +62,17 @@ else
 fi
 cat /etc/ssh/ssh_host_*_key.pub
 '''
+
+
+PREPARED_TTL = 600
+_prepared: dict[str, tuple[object, float, dict]] = {}
+_locks: dict[str, Lock] = {}
+_locks_lock = Lock()
+
+
+def _vm_lock(vm_id: str) -> Lock:
+    with _locks_lock:
+        return _locks.setdefault(vm_id, Lock())
 
 
 def _get_connection():
@@ -233,6 +245,17 @@ def _install_key(domain, public_key: str) -> list[str]:
 
 def prepare_guest(vm_id: str) -> dict:
     connection, domain = _running_domain(vm_id)
+    with _vm_lock(vm_id):
+        cached = _prepared.get(vm_id)
+        if cached and cached[0] == domain.ID() and cached[1] > time.monotonic():
+            return cached[2]
+        details = _prepare_running_guest(connection, domain, vm_id)
+        _prepared[vm_id] = (
+            domain.ID(), time.monotonic() + PREPARED_TTL, details)
+        return details
+
+
+def _prepare_running_guest(connection, domain, vm_id: str) -> dict:
     try:
         host = _target_address(connection, domain)
     except (libvirt.libvirtError, ElementTree.ParseError, ValueError) as exc:

@@ -22,7 +22,7 @@ def connection_settings(enabled: bool) -> dict:
     host = os.getenv("SSH_PUBLIC_HOST") or urlparse(
         os.getenv("FRONTEND_URL", "http://localhost:3000")
     ).hostname
-    if not host or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9.:-]*", host):
+    if not host or not re.fullmatch(r"[a-zA-Z0-9.:-]+", host):
         host = None
     fingerprint = get_ssh_host_fingerprint()
     return {

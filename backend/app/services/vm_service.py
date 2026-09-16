@@ -331,6 +331,15 @@ class VmService:
         return vm_record
 
     @staticmethod
+    def _with_slave_fields(data: dict, slave: SlaveORM, vm_id: str) -> dict:
+        with Session(engine) as session:
+            data["ssh_enabled"] = VmService._get_vm_or_404(
+                session, vm_id).ssh_enabled
+        data["slave_id"] = str(slave.id)
+        data["slave_name"] = slave.name
+        return data
+
+    @staticmethod
     def _get_slave_for_vm(vm_id: str) -> Optional[SlaveORM]:
         """Check if a VM is hosted on a slave node."""
         with Session(engine) as session:
@@ -426,13 +435,8 @@ class VmService:
                         "slave_name": slave.name,
                     }
             from app.services.slave_client import slave_get_vm
-            data = slave_get_vm(slave, vm_id)
-            with Session(engine) as session:
-                data["ssh_enabled"] = VmService._get_vm_or_404(
-                    session, vm_id).ssh_enabled
-            data["slave_id"] = str(slave.id)
-            data["slave_name"] = slave.name
-            return data
+            return VmService._with_slave_fields(
+                slave_get_vm(slave, vm_id), slave, vm_id)
         vm = Vm.get(vm_id)
         return vm
 
@@ -547,13 +551,8 @@ class VmService:
                     detail=f"Slave {slave.name} is offline",
                 )
             from app.services.slave_client import slave_start_vm
-            data = slave_start_vm(slave, vm_id)
-            with Session(engine) as session:
-                data["ssh_enabled"] = VmService._get_vm_or_404(
-                    session, vm_id).ssh_enabled
-            data["slave_id"] = str(slave.id)
-            data["slave_name"] = slave.name
-            return data
+            return VmService._with_slave_fields(
+                slave_start_vm(slave, vm_id), slave, vm_id)
         vm = Vm.get(vm_id)
         return vm.start()
 
@@ -566,13 +565,8 @@ class VmService:
                     detail=f"Slave {slave.name} is offline",
                 )
             from app.services.slave_client import slave_stop_vm
-            data = slave_stop_vm(slave, vm_id)
-            with Session(engine) as session:
-                data["ssh_enabled"] = VmService._get_vm_or_404(
-                    session, vm_id).ssh_enabled
-            data["slave_id"] = str(slave.id)
-            data["slave_name"] = slave.name
-            return data
+            return VmService._with_slave_fields(
+                slave_stop_vm(slave, vm_id), slave, vm_id)
         vm = Vm.get(vm_id)
         return vm.stop()
 
@@ -616,13 +610,8 @@ class VmService:
                 )
             from app.services.slave_client import slave_stop_vm, slave_start_vm
             slave_stop_vm(slave, vm_id)
-            data = slave_start_vm(slave, vm_id)
-            with Session(engine) as session:
-                data["ssh_enabled"] = VmService._get_vm_or_404(
-                    session, vm_id).ssh_enabled
-            data["slave_id"] = str(slave.id)
-            data["slave_name"] = slave.name
-            return data
+            return VmService._with_slave_fields(
+                slave_start_vm(slave, vm_id), slave, vm_id)
         vm = Vm.get(vm_id)
         vm.stop()
         return vm.start()

@@ -7,7 +7,7 @@ from app.models.user_management import MissingPoliciesResponse
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, VmCredentialRead, RecoverableVm, RecoverableVmCreate, VmRename
 from app.services.vm_service import VmService
 from app.services.vm_screenshot import capture_screenshot
-from app.utils.auth import require_policy, decode_access_token, user_has_policy
+from app.utils.auth import ensure_policy, require_policy, decode_access_token, user_has_policy
 from app.orm.user import UserORM
 from app.core.config import engine
 
@@ -174,8 +174,8 @@ def stop_vm(vm_id: str):
     responses={403: {"model": MissingPoliciesResponse}},
 )
 def create_vm(vm: VmCreate, current_user: UserORM = Depends(require_policy("vms:create"))):
-    if vm.ssh_enabled and not user_has_policy(current_user, "vms:ssh:manage"):
-        raise HTTPException(403, "Missing vms:ssh:manage policy")
+    if vm.ssh_enabled:
+        ensure_policy(current_user, "vms:ssh:manage")
     created_vm = VmService.create_vm(vm)
     return created_vm
 

@@ -126,7 +126,6 @@ export function EventJoinPage() {
                 Open web client
               </Button>
               <SshConnectionButton
-                key={joinResult.credential_password}
                 credential={joinResult.credential_password}
               />
             </div>

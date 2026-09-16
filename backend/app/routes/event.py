@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 
 from app.models.event import (
     EventCreate, EventUpdate, EventRead,
@@ -6,7 +6,7 @@ from app.models.event import (
 )
 from app.models.user_management import MissingPoliciesResponse
 from app.services.event_service import EventService
-from app.utils.auth import require_policy, user_has_policy
+from app.utils.auth import ensure_policy, require_policy
 from app.orm.user import UserORM
 
 router = APIRouter()
@@ -44,8 +44,8 @@ def create_event(
     payload: EventCreate,
     current_user: UserORM = Depends(require_policy("events:create")),
 ):
-    if payload.ssh_enabled and not user_has_policy(current_user, "vms:ssh:manage"):
-        raise HTTPException(403, "Missing vms:ssh:manage policy")
+    if payload.ssh_enabled:
+        ensure_policy(current_user, "vms:ssh:manage")
     return EventService.create_event(payload, current_user.username)
 
 
@@ -59,8 +59,8 @@ def update_event(
     event_id: str, payload: EventUpdate,
     current_user: UserORM = Depends(require_policy("events:update")),
 ):
-    if "ssh_enabled" in payload.model_fields_set and not user_has_policy(current_user, "vms:ssh:manage"):
-        raise HTTPException(403, "Missing vms:ssh:manage policy")
+    if "ssh_enabled" in payload.model_fields_set:
+        ensure_policy(current_user, "vms:ssh:manage")
     return EventService.update_event(event_id, payload)
 
 

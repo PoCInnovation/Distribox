@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from functools import lru_cache
 from pathlib import Path
 from threading import Lock
 
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 ACCESS_CHECK_INTERVAL = 2
 ACCESS_CHECK_TIMEOUT = 3
+ACCESS_CHECK_FAILURES = 3
 _host_key_lock = Lock()
 _connections: set[asyncssh.SSHServerConnection] = set()
 
@@ -21,8 +23,12 @@ def ssh_enabled() -> bool:
 
 
 def _load_host_key() -> asyncssh.SSHKey:
-    key_path = Path(os.getenv("SSH_HOST_KEY_PATH",
-                    "/var/lib/distribox/ssh/host_key"))
+    return _read_host_key(Path(os.getenv(
+        "SSH_HOST_KEY_PATH", "/var/lib/distribox/ssh/host_key")))
+
+
+@lru_cache
+def _read_host_key(key_path: Path) -> asyncssh.SSHKey:
     with _host_key_lock:
         key_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         try:
@@ -55,7 +61,7 @@ def ssh_access_valid(credential_id: str, vm_id: str) -> bool:
     return valid(credential_id, vm_id)
 
 
-async def _access_valid(credential_id: str, vm_id: str) -> bool:
+async def _access_valid(credential_id: str, vm_id: str) -> bool | None:
     try:
         return await asyncio.wait_for(
             asyncio.to_thread(ssh_access_valid, credential_id, vm_id),
@@ -63,7 +69,7 @@ async def _access_valid(credential_id: str, vm_id: str) -> bool:
         )
     except Exception:
         logger.exception("Failed to verify SSH access")
-        return False
+        return None
 
 
 class GatewayServer(asyncssh.SSHServer):
@@ -110,10 +116,15 @@ class GatewayServer(asyncssh.SSHServer):
         return GatewayProcess(handle_process, None, 3, False)
 
     async def _monitor_access(self):
-        while await _access_valid(
-            self.conn.get_extra_info("credential_id"),
-            self.conn.get_extra_info("vm_id"),
-        ):
+        failures = 0
+        while failures < ACCESS_CHECK_FAILURES:
+            valid = await _access_valid(
+                self.conn.get_extra_info("credential_id"),
+                self.conn.get_extra_info("vm_id"),
+            )
+            if valid is False:
+                break
+            failures = 0 if valid else failures + 1
             await asyncio.sleep(ACCESS_CHECK_INTERVAL)
         self.conn.close()
 
@@ -182,9 +193,9 @@ async def start_ssh_gateway():
     if not ssh_enabled():
         return None
     secret = os.getenv("DISTRIBOX_SECRET", "")
-    if len(secret) < 32 or secret == "distribox-default-secret-change-me":
+    if len(secret) < 32:
         raise RuntimeError(
-            "SSH requires a unique DISTRIBOX_SECRET of at least 32 characters")
+            "SSH requires a DISTRIBOX_SECRET of at least 32 characters")
     jwt_secret = os.getenv("JWT_SECRET_KEY")
     if jwt_secret and (
         len(jwt_secret) < 32 or jwt_secret == "your-secret-key-change-in-production"

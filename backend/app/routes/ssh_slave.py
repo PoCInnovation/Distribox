@@ -20,7 +20,7 @@ def prepare_vm_ssh(vm_id: UUID, response: Response):
 @router.websocket("/vms/{vm_id}/ssh/tunnel")
 async def relay_vm_ssh(websocket: WebSocket, vm_id: UUID):
     token = websocket.headers.get("x-slave-token", "")
-    if not SLAVE_API_KEY or not secrets.compare_digest(token, SLAVE_API_KEY):
+    if not SLAVE_API_KEY or not secrets.compare_digest(token.encode(), SLAVE_API_KEY.encode()):
         await websocket.close(code=1008)
         return
     try:

@@ -115,7 +115,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-distribox_user}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-distribox_password}
       - BACKEND_PORT=${SLAVE_PORT:-8081}
-      - MASTER_URL=${MASTER_URL:-http://distribox-backend:8080}
+      - MASTER_URL=${MASTER_URL:-http://127.0.0.1:8080}
       - SLAVE_API_KEY=${SLAVE_API_KEY:-}
       - DISTRIBOX_SECRET=${DISTRIBOX_SECRET:-secret}
       - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-registry}

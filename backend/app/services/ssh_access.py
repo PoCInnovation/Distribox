@@ -1,3 +1,4 @@
+import logging
 import secrets
 from datetime import datetime, timezone
 from uuid import UUID
@@ -9,6 +10,8 @@ from app.orm.event import EventORM, EventParticipantORM
 from app.orm.vm import VmORM
 from app.orm.vm_credential import VmCredentialORM
 from app.utils.crypto import decrypt_secret
+
+logger = logging.getLogger(__name__)
 
 
 def credential_is_active(session: Session, credential: VmCredentialORM) -> bool:
@@ -49,6 +52,9 @@ def find_credential(session: Session, password: str) -> VmCredentialORM | None:
         if credential_matches(credential, password) and
         credential_is_active(session, credential)
     ]
+    if len(matches) > 1:
+        logger.warning("Rejected access secret shared by credentials %s",
+                       ", ".join(str(credential.id) for credential in matches))
     return matches[0] if len(matches) == 1 else None
 
 

@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const utcDateString = z
+  .string()
+  .transform((s) => (s.endsWith("Z") ? s : s + "Z"));
+
 export const EventParticipantSchema = z.object({
   id: z.string().uuid(),
   participant_name: z.string(),
@@ -17,7 +21,7 @@ export const EventSchema = z.object({
   vm_vcpus: z.number(),
   vm_disk_size: z.number(),
   keyboard_layout: z.string().nullable().optional(),
-  deadline: z.string().transform((s) => (s.endsWith("Z") ? s : s + "Z")),
+  deadline: utcDateString,
   max_vms: z.number(),
   created_at: z.string(),
   created_by: z.string(),

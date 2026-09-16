@@ -107,16 +107,20 @@ def user_has_policy(user: UserORM, policy: str) -> bool:
     return policy in user.policies
 
 
+def ensure_policy(user: UserORM, policy: str) -> None:
+    if not user_has_policy(user, policy):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": "Missing required policies",
+                "missing_policies": [policy],
+            }
+        )
+
+
 def require_policy(policy: str) -> Callable:
     async def checker(current_user: UserORM = Depends(get_current_user)) -> UserORM:
-        if not user_has_policy(current_user, policy):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "message": "Missing required policies",
-                    "missing_policies": [policy],
-                }
-            )
+        ensure_policy(current_user, policy)
         return current_user
 
     return checker

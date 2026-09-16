@@ -256,6 +256,7 @@ class EventService:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
                                     f"Event {event_id} not found")
 
+            previous_ssh_enabled = event.ssh_enabled
             update_data = payload.model_dump(exclude_unset=True)
             for key, value in update_data.items():
                 setattr(event, key, value)
@@ -276,7 +277,7 @@ class EventService:
                         cred.expires_at = new_deadline
                         session.add(cred)
 
-            if "ssh_enabled" in update_data:
+            if event.ssh_enabled != previous_ssh_enabled:
                 participants = session.exec(
                     select(EventParticipantORM)
                     .where(EventParticipantORM.event_id == event.id)

@@ -1,7 +1,6 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Copy, Terminal } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,31 +9,35 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SecretField } from "@/components/ui/secret-field";
+import { SecretField, copyToClipboard } from "@/components/ui/secret-field";
 import { getSshConnection } from "@/lib/api/ssh";
+import { formatDateTime, useTimezone } from "@/hooks/useTimezone";
 
 export function SshConnectionButton({
   credential,
+  sshEnabled,
   className,
   onOpenChange,
 }: {
   credential: string;
+  sshEnabled?: boolean;
   className?: string;
   onOpenChange?: (open: boolean) => void;
 }) {
-  const id = useId();
   const [open, setOpen] = useState(false);
+  const timeZone = useTimezone();
   const connection = useQuery({
-    queryKey: ["ssh-connection", id],
+    queryKey: ["ssh-connection", credential],
     queryFn: ({ signal }) => getSshConnection(credential, signal),
+    enabled: open || sshEnabled === undefined,
     retry: false,
     gcTime: 0,
     refetchInterval: open ? 30000 : false,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   const settings = connection.data;
-  if (!settings?.enabled && !open) return null;
+  if (!(sshEnabled ?? settings?.enabled) && !open) return null;
 
   const command = settings?.host
     ? `ssh -p ${settings.port} ${settings.credential_id}@${settings.host}`
@@ -48,14 +51,7 @@ export function SshConnectionButton({
     if (value) void connection.refetch();
   };
 
-  const copyCommand = async () => {
-    try {
-      await navigator.clipboard.writeText(command);
-      toast.success("SSH command copied");
-    } catch {
-      toast.error("Could not copy. Select and copy the command below.");
-    }
-  };
+  const copyCommand = () => copyToClipboard(command, "SSH command copied");
 
   return (
     <>
@@ -128,8 +124,7 @@ export function SshConnectionButton({
               )}
               {settings.expires_at && (
                 <p className="text-xs text-muted-foreground">
-                  Access expires{" "}
-                  {new Date(settings.expires_at).toLocaleString()}.
+                  Access expires {formatDateTime(settings.expires_at, timeZone)}
                 </p>
               )}
             </div>
