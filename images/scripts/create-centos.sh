@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-CLOUD_IMG_URL=https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-GenericCloud-10-20241118.0.x86_64.qcow2
+CLOUD_IMG_URL=https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-GenericCloud-x86_64-10-20260818.0.x86_64.qcow2
 DISTRIBOX_IMG_PATH="/var/lib/distribox/images/"
 CLOUD_IMG_SOURCE="${CLOUD_IMG_URL##*/}"
 
@@ -14,9 +14,12 @@ sudo virt-customize -a /tmp/resized_image.qcow2 \
     --network \
     --update \
     --install vim,qemu-guest-agent,cloud-init \
-    --run-command 'grub2-mkconfig -o /boot/grub2/grub.cfg' \
-    --run-command 'touch /.autorelabel' \
-    # --run-command 'grub2-install /dev/sda'
+    --run-command 'grub2-mkconfig -o /boot/grub2/grub.cfg'
+
+# Relabel with the guest's policy tools; the builder's older tools only schedule a reboot-time relabel.
+sudo virt-customize -a /tmp/resized_image.qcow2 \
+    --run-command 'setfiles -F -e /proc -e /sys -e /dev -e /run /etc/selinux/targeted/contexts/files/file_contexts /' \
+    --run-command 'rm -f /.autorelabel'
 
 sudo virt-sysprep -a /tmp/resized_image.qcow2 --operations machine-id,ssh-hostkeys
 

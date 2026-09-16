@@ -13,8 +13,10 @@ sudo virt-resize --expand /dev/sda1 \
     "/tmp/$CLOUD_IMG_SOURCE" \
     /tmp/resized_image.qcow2
 
+# libguestfs does not mount the PARTUUID-based EFI entry; virt-resize moves it to sda2.
 sudo virt-customize -a /tmp/resized_image.qcow2 \
     --network \
+    --run-command 'mkdir -p /boot/efi; mount /dev/sda2 /boot/efi' \
     --update \
     --install vim,qemu-guest-agent,cloud-init \
     --run-command 'update-initramfs -u' \

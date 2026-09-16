@@ -16,3 +16,8 @@ __pycache__/
 
 */.terraform
 */terraform.tfstate
+
+# Terraform state, backups, and saved plans
+**/terraform.tfstate.*
+**/terraform.tfstate.d/
+**/*.tfplan

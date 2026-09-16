@@ -3,4 +3,4 @@ image: distribox-ubuntu-22-04.qcow2
 version: 22.04
 distribution: ubuntu
 family: debian
-revision: 0
+revision: 1
