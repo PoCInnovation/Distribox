@@ -1,4 +1,5 @@
 import uuid
+import secrets
 import subprocess
 import logging
 from shutil import copy, rmtree
@@ -85,6 +86,7 @@ class Vm:
         self.vcpus = vm_create.vcpus
         self.disk_size = vm_create.disk_size
         self.keyboard_layout = vm_create.keyboard_layout
+        self.ssh_enabled = vm_create.ssh_enabled
         self.state: Optional[str] = None
         self.state = 'Stopped'
         self.ipv4: Optional[str] = None
@@ -138,6 +140,7 @@ class Vm:
                     vcpus=self.vcpus,
                     disk_size=self.disk_size,
                     keyboard_layout=self.keyboard_layout,
+                    ssh_enabled=self.ssh_enabled,
                     slave_id=getattr(vm_create, 'slave_id', None),
                 )
                 session.add(vm_record)
@@ -168,6 +171,7 @@ class Vm:
                 vm_instance.vcpus = vm_record.vcpus
                 vm_instance.disk_size = vm_record.disk_size
                 vm_instance.keyboard_layout = vm_record.keyboard_layout
+                vm_instance.ssh_enabled = vm_record.ssh_enabled
                 vm_instance.state = VM_STATE_NAMES.get(vm_state, 'None')
                 vm_instance.ipv4 = get_vm_ip(str(vm_instance.id))
                 vm_instance.slave_id = vm_record.slave_id
@@ -364,6 +368,7 @@ class VmService:
                     try:
                         from app.services.slave_client import slave_get_vm
                         data = slave_get_vm(slave, str(vm_record.id))
+                        data["ssh_enabled"] = vm_record.ssh_enabled
                         data["slave_id"] = str(vm_record.slave_id)
                         data["slave_name"] = slave.name
                         vm_list.append(data)
@@ -379,6 +384,7 @@ class VmService:
                     "vcpus": vm_record.vcpus,
                     "disk_size": vm_record.disk_size,
                     "keyboard_layout": vm_record.keyboard_layout,
+                    "ssh_enabled": vm_record.ssh_enabled,
                     "state": "Unknown",
                     "ipv4": None,
                     "credentials_count": 0,
@@ -412,6 +418,7 @@ class VmService:
                         "vcpus": vm_record.vcpus,
                         "disk_size": vm_record.disk_size,
                         "keyboard_layout": vm_record.keyboard_layout,
+                        "ssh_enabled": vm_record.ssh_enabled,
                         "state": "Unknown",
                         "ipv4": None,
                         "credentials_count": 0,
@@ -420,6 +427,9 @@ class VmService:
                     }
             from app.services.slave_client import slave_get_vm
             data = slave_get_vm(slave, vm_id)
+            with Session(engine) as session:
+                data["ssh_enabled"] = VmService._get_vm_or_404(
+                    session, vm_id).ssh_enabled
             data["slave_id"] = str(slave.id)
             data["slave_name"] = slave.name
             return data
@@ -502,6 +512,7 @@ class VmService:
             "vcpus": vm_create.vcpus,
             "disk_size": vm_create.disk_size,
             "keyboard_layout": vm_create.keyboard_layout,
+            "ssh_enabled": vm_create.ssh_enabled,
             "activate_at_start": vm_create.activate_at_start,
         }
         result = slave_create_vm(slave, payload)
@@ -517,6 +528,7 @@ class VmService:
                 vcpus=vm_create.vcpus,
                 disk_size=vm_create.disk_size,
                 keyboard_layout=vm_create.keyboard_layout,
+                ssh_enabled=vm_create.ssh_enabled,
                 slave_id=slave.id,
             )
             session.add(vm_record)
@@ -536,6 +548,9 @@ class VmService:
                 )
             from app.services.slave_client import slave_start_vm
             data = slave_start_vm(slave, vm_id)
+            with Session(engine) as session:
+                data["ssh_enabled"] = VmService._get_vm_or_404(
+                    session, vm_id).ssh_enabled
             data["slave_id"] = str(slave.id)
             data["slave_name"] = slave.name
             return data
@@ -552,6 +567,9 @@ class VmService:
                 )
             from app.services.slave_client import slave_stop_vm
             data = slave_stop_vm(slave, vm_id)
+            with Session(engine) as session:
+                data["ssh_enabled"] = VmService._get_vm_or_404(
+                    session, vm_id).ssh_enabled
             data["slave_id"] = str(slave.id)
             data["slave_name"] = slave.name
             return data
@@ -599,6 +617,9 @@ class VmService:
             from app.services.slave_client import slave_stop_vm, slave_start_vm
             slave_stop_vm(slave, vm_id)
             data = slave_start_vm(slave, vm_id)
+            with Session(engine) as session:
+                data["ssh_enabled"] = VmService._get_vm_or_404(
+                    session, vm_id).ssh_enabled
             data["slave_id"] = str(slave.id)
             data["slave_name"] = slave.name
             return data
@@ -611,7 +632,17 @@ class VmService:
         with Session(engine) as session:
             vm_record = VmService._get_vm_or_404(session, vm_id)
             provided_password = payload.password.strip() if payload.password else ""
-            credential_password = provided_password or str(uuid.uuid4())
+            if provided_password:
+                from app.services.ssh_access import credential_matches
+
+                for existing in session.exec(select(VmCredentialORM)):
+                    if credential_matches(existing, provided_password):
+                        raise HTTPException(
+                            status.HTTP_409_CONFLICT,
+                            "This access secret is already in use. Generate a new secret.",
+                        )
+            credential_password = provided_password or secrets.token_urlsafe(
+                32)
             credential = VmCredentialORM(
                 vm_id=vm_record.id,
                 name=payload.name,
@@ -784,6 +815,7 @@ class VmService:
             vm_to_duplicate = VmService._get_vm_or_404(session, vm_id)
             duplicate_vm = VmORM(**vm_to_duplicate.model_dump())
             duplicate_vm.id = uuid.uuid4()
+            duplicate_vm.ssh_enabled = False
             duplicate_vm.name = VmService._get_duplicate_name(
                 session, duplicate_vm.name)
 

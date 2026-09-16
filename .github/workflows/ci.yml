@@ -69,6 +69,20 @@ jobs:
         working-directory: ./frontend
         run: pnpm build
 
+  backend-ssh-tests:
+    name: Test SSH access
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: sudo apt-get update && sudo apt-get install -y libvirt-dev pkg-config
+      - run: pip install -r backend/requirements.txt pytest pytest-asyncio
+      - run: PYTHONPATH=backend pytest backend/tests -q
+        env:
+          AWS_EC2_METADATA_DISABLED: 'true'
+
   backend-format:
     name: Check Backend Format
     runs-on: ubuntu-latest

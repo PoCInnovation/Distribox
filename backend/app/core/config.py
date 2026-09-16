@@ -27,7 +27,7 @@ db_port = get_env_or_default("POSTGRES_PORT", "5432")
 db_host = get_env_or_default("POSTGRES_HOST", "localhost")
 
 database_url = f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
-engine = create_engine(database_url, echo=True)
+engine = create_engine(database_url)
 
 s3 = boto3.client(
     "s3",
@@ -66,6 +66,10 @@ def init_db():
             vm_columns = {
                 col["name"] for col in inspector.get_columns("vms")
             }
+            if "ssh_enabled" not in vm_columns:
+                conn.execute(text(
+                    "ALTER TABLE vms ADD COLUMN ssh_enabled BOOLEAN NOT NULL DEFAULT FALSE"
+                ))
             if "keyboard_layout" not in vm_columns:
                 conn.execute(
                     text(
@@ -84,6 +88,10 @@ def init_db():
             event_columns = {
                 col["name"] for col in inspector.get_columns("events")
             }
+            if "ssh_enabled" not in event_columns:
+                conn.execute(text(
+                    "ALTER TABLE events ADD COLUMN ssh_enabled BOOLEAN NOT NULL DEFAULT FALSE"
+                ))
             if "keyboard_layout" not in event_columns:
                 conn.execute(
                     text(

@@ -16,7 +16,7 @@ sudo virt-resize --expand /dev/sda1 \
 sudo virt-customize -a /tmp/resized_image.qcow2 \
     --network \
     --update \
-    --install vim,qemu-guest-agent,cloud-init,xubuntu-desktop \
+    --install vim,qemu-guest-agent,openssh-server,cloud-init,xubuntu-desktop \
     --run-command 'update-initramfs -u' \
     --run-command 'update-grub' \
     --run-command 'grub-install /dev/sda'

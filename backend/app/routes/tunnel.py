@@ -1,12 +1,10 @@
 from app.utils.vnc import get_vnc_port
-from app.utils.crypto import decrypt_secret
 from app.utils.auth import decode_access_token, user_has_policy
 from app.services.guacamole import guacd_handshake
 from app.services.vm_service import VmService
-from app.orm.vm_credential import VmCredentialORM
 from app.orm.user import UserORM
 from app.core.config import engine, GUACD_HOST, GUACD_PORT, VNC_HOST
-from sqlmodel import Session, select
+from sqlmodel import Session
 import asyncio
 import logging
 from uuid import UUID
@@ -44,47 +42,11 @@ def _extract_opcode(message: str) -> str | None:
 
 
 def _find_vm_for_credential(token: str) -> str | None:
-    """
-    Resolve a public tunnel credential to its VM id.
-
-    Supported token formats:
-    - credential password (legacy/current behaviour)
-    - credential record UUID (fallback for clients using credential id)
-
-    Returns None if the credential is expired or not found.
-    """
-    from datetime import datetime
-
-    normalized = token.strip()
-    if not normalized:
-        return None
+    from app.services.ssh_access import find_credential
 
     with Session(engine) as session:
-        credentials = session.exec(
-            select(VmCredentialORM.id, VmCredentialORM.vm_id,
-                   VmCredentialORM.password, VmCredentialORM.expires_at)
-        ).all()
-
-        for cred in credentials:
-            try:
-                if decrypt_secret(cred.password) == normalized:
-                    if cred.expires_at and datetime.utcnow() > cred.expires_at:
-                        return None
-                    return str(cred.vm_id)
-            except Exception:
-                continue
-
-        try:
-            parsed_id = UUID(normalized)
-        except ValueError:
-            return None
-
-        credential = session.get(VmCredentialORM, parsed_id)
-        if credential:
-            if credential.expires_at and datetime.now() > credential.expires_at:
-                return None
-            return str(credential.vm_id)
-    return None
+        credential = find_credential(session, token)
+        return str(credential.vm_id) if credential else None
 
 
 def _resolve_vm_id_with_token(vm_id: str, jwt_token: str) -> str | None:

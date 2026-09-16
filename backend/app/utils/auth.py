@@ -1,4 +1,6 @@
 import bcrypt
+import hashlib
+import hmac
 import jwt
 from datetime import datetime, timedelta
 from typing import Callable, Optional
@@ -10,7 +12,11 @@ from app.core.config import engine
 from app.core.policies import DISTRIBOX_ADMIN_POLICY
 from app.orm.user import UserORM
 
-SECRET_KEY = getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+SECRET_KEY = getenv("JWT_SECRET_KEY") or hmac.new(
+    getenv("DISTRIBOX_SECRET", "secret").encode(),
+    b"distribox-jwt-signing",
+    hashlib.sha256,
+).hexdigest()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 

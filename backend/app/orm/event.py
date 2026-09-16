@@ -18,6 +18,7 @@ class EventORM(SQLModel, table=True):
     vm_vcpus: int
     vm_disk_size: int
     keyboard_layout: Optional[str] = Field(default=None)
+    ssh_enabled: bool = Field(default=False)
     deadline: datetime
     max_vms: int
     created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -171,10 +171,11 @@ def stop_vm(vm_id: str):
     "/",
     status_code=status.HTTP_201_CREATED,
     response_model=VmRead,
-    dependencies=[Depends(require_policy("vms:create"))],
     responses={403: {"model": MissingPoliciesResponse}},
 )
-def create_vm(vm: VmCreate):
+def create_vm(vm: VmCreate, current_user: UserORM = Depends(require_policy("vms:create"))):
+    if vm.ssh_enabled and not user_has_policy(current_user, "vms:ssh:manage"):
+        raise HTTPException(403, "Missing vms:ssh:manage policy")
     created_vm = VmService.create_vm(vm)
     return created_vm
 

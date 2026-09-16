@@ -15,3 +15,5 @@ cryptography
 boto3
 Pillow
 httpx
+asyncssh~=2.24.0
+websockets>=15,<16

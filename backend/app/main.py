@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 from app.core.policies import DISTRIBOX_ADMIN_POLICY
 from app.routes import vm, image, host, auth, user_management, tunnel, event, slave
-from app.routes import slave_agent
+from app.routes import slave_agent, ssh, ssh_slave
 from app.orm.user import UserORM
 from app.orm.vm_credential import VmCredentialORM  # noqa: F401
 from app.orm.event import EventORM, EventParticipantORM  # noqa: F401
@@ -22,6 +22,7 @@ from app.services.vm_service import VmService
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+ssh_listener = None
 
 frontend_url = get_env_or_default("FRONTEND_URL", "http://localhost:3000")
 
@@ -36,6 +37,8 @@ app.add_middleware(
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    from app.services.ssh_gateway import stop_ssh_gateway
+    await stop_ssh_gateway(ssh_listener)
     if DISTRIBOX_MODE != "slave":
         return
 
@@ -74,6 +77,7 @@ def _stop_all_local_vms():
 
 @app.on_event("startup")
 async def startup_event():
+    global ssh_listener
     init_db()
 
     if DISTRIBOX_MODE == "slave":
@@ -133,6 +137,9 @@ async def startup_event():
                 ", ".join(migrated_usernames),
             )
 
+    from app.services.ssh_gateway import start_ssh_gateway
+    ssh_listener = await start_ssh_gateway()
+
     asyncio.create_task(_enforce_event_deadlines())
     asyncio.create_task(_check_stale_slaves())
     logger.info("Starting in MASTER mode")
@@ -156,7 +163,9 @@ async def _enforce_event_deadlines():
                             vm = await asyncio.to_thread(
                                 VmService.get_vm, str(p.vm_id)
                             )
-                            if vm and vm.state.lower() == "running":
+                            vm_state = vm.get("state") if isinstance(
+                                vm, dict) else vm.state
+                            if vm_state and vm_state.lower() == "running":
                                 await asyncio.to_thread(
                                     VmService.stop_vm, str(p.vm_id)
                                 )
@@ -241,6 +250,7 @@ async def general_exception_handler(_, exc: Exception):
 
 if DISTRIBOX_MODE == "slave":
     app.include_router(slave_agent.router, tags=["slave-agent"])
+    app.include_router(ssh_slave.router, tags=["slave-agent"])
 else:
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(user_management.router, tags=["users"])
@@ -248,5 +258,6 @@ else:
     app.include_router(image.router, prefix="/images", tags=["images"])
     app.include_router(host.router, prefix="/host", tags=["host"])
     app.include_router(tunnel.router, tags=["tunnel"])
+    app.include_router(ssh.router, tags=["ssh"])
     app.include_router(event.router, prefix="/events", tags=["events"])
     app.include_router(slave.router, prefix="/slaves", tags=["slaves"])
