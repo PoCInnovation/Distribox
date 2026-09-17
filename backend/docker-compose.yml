@@ -34,7 +34,12 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock
-      - /var/lib/distribox:/var/lib/distribox
+      - type: bind
+        source: /var/lib/distribox
+        target: /var/lib/distribox
+        bind:
+          create_host_path: false
+          propagation: rslave
     depends_on:
       database:
         condition: service_healthy
@@ -79,7 +84,12 @@ services:
       - ./app:/code/app
       - ./.env:/code/.env
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock
-      - /var/lib/distribox:/var/lib/distribox
+      - type: bind
+        source: /var/lib/distribox
+        target: /var/lib/distribox
+        bind:
+          create_host_path: false
+          propagation: rslave
     depends_on:
       database:
         condition: service_healthy
@@ -131,7 +141,12 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock
-      - /var/lib/distribox:/var/lib/distribox
+      - type: bind
+        source: /var/lib/distribox
+        target: /var/lib/distribox
+        bind:
+          create_host_path: false
+          propagation: rslave
     depends_on:
       database:
         condition: service_healthy
