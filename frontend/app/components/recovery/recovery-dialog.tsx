@@ -55,7 +55,7 @@ export function RecoveryDialog({
           ) : (
             recoverableVMs.map((vm) => (
               <RecoverableVMCard
-                key={vm.vm_id}
+                key={`${vm.storage_id}:${vm.vm_id}`}
                 vm={vm}
                 onRecover={onRecover}
                 onClean={onClean}

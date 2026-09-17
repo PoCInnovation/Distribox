@@ -45,7 +45,10 @@ export function RecoveryContainer() {
 
   const confirmClean = async () => {
     if (!cleanTarget) return;
-    await cleanVM({ vmId: cleanTarget.vm_id });
+    await cleanVM({
+      vmId: cleanTarget.vm_id,
+      storageId: cleanTarget.storage_id,
+    });
     setCleanTarget(null);
   };
 
@@ -96,7 +99,8 @@ export function RecoveryContainer() {
             <DialogDescription>
               Are you sure you want to permanently delete{" "}
               <span className="font-mono font-medium">{cleanTarget?.name}</span>{" "}
-              from disk? This action cannot be undone.
+              from storage {cleanTarget?.storage_id}? This action cannot be
+              undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -46,6 +46,7 @@ export function RecoverVMDialog({
     if (!vm || !isValid) return;
     await onRecover({
       vm_id: vm.vm_id,
+      storage_id: vm.storage_id,
       name: name.trim(),
       vcpus: vcpusNum,
       mem: memNum,
@@ -93,6 +94,9 @@ export function RecoverVMDialog({
               </div>
               <p className="text-xs text-muted-foreground font-mono truncate">
                 {vm.vm_id}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Storage: {vm.storage_id}
               </p>
             </div>
           </div>

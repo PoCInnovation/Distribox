@@ -8,6 +8,7 @@ import {
   Terminal,
   Trash2,
   InfoIcon,
+  HardDrive,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -262,6 +263,15 @@ export function VMDetailsDialog({
                 Host
               </span>
               <span className="text-sm">{vm.slave_name || "Local"}</span>
+            </div>
+            <div className="flex items-start justify-between gap-4">
+              <span className="text-sm text-muted-foreground flex items-center gap-2">
+                <HardDrive className="h-4 w-4" />
+                Storage
+              </span>
+              <span className="font-mono text-sm text-right break-all">
+                {vm.storage_path ?? vm.storage_id}
+              </span>
             </div>
           </div>
 
