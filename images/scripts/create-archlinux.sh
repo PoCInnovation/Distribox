@@ -18,7 +18,7 @@ sudo virt-customize -a /tmp/resized_image.qcow2 \
     --run-command 'pacman-key --init' \
     --run-command 'pacman-key --populate archlinux' \
     --run-command 'pacman -Syu --noconfirm' \
-    --run-command 'pacman -S --noconfirm vim qemu-guest-agent cloud-init grub linux intel-ucode btrfs-progs' \
+    --run-command 'pacman -S --noconfirm vim qemu-guest-agent openssh cloud-init grub linux intel-ucode btrfs-progs' \
     --run-command 'mkinitcpio -P' \
     --run-command 'grub-install /dev/sda' \
     --run-command 'grub-mkconfig -o /boot/grub/grub.cfg' \

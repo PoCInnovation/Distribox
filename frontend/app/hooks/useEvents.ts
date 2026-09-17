@@ -54,6 +54,9 @@ export function useUpdateEvent() {
     }) => updateEvent(eventId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["vms"] });
+      queryClient.invalidateQueries({ queryKey: ["vm-ssh"] });
+      queryClient.invalidateQueries({ queryKey: ["ssh-connection"] });
     },
   });
 }

@@ -1,4 +1,6 @@
 import bcrypt
+import hashlib
+import hmac
 import jwt
 from datetime import datetime, timedelta
 from typing import Callable, Optional
@@ -10,7 +12,11 @@ from app.core.config import engine
 from app.core.policies import DISTRIBOX_ADMIN_POLICY
 from app.orm.user import UserORM
 
-SECRET_KEY = getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+SECRET_KEY = getenv("JWT_SECRET_KEY") or hmac.new(
+    getenv("DISTRIBOX_SECRET", "secret").encode(),
+    b"distribox-jwt-signing",
+    hashlib.sha256,
+).hexdigest()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
@@ -101,16 +107,20 @@ def user_has_policy(user: UserORM, policy: str) -> bool:
     return policy in user.policies
 
 
+def ensure_policy(user: UserORM, policy: str) -> None:
+    if not user_has_policy(user, policy):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": "Missing required policies",
+                "missing_policies": [policy],
+            }
+        )
+
+
 def require_policy(policy: str) -> Callable:
     async def checker(current_user: UserORM = Depends(get_current_user)) -> UserORM:
-        if not user_has_policy(current_user, policy):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "message": "Missing required policies",
-                    "missing_policies": [policy],
-                }
-            )
+        ensure_policy(current_user, policy)
         return current_user
 
     return checker

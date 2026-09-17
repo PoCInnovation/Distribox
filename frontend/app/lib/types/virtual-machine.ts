@@ -12,6 +12,7 @@ export const VirtualMachineMetadataSchema = z.object({
   keyboard_layout: z.string().nullable().optional(),
   ipv4: z.string().nullable(),
   credentials_count: z.number().int().nonnegative(),
+  ssh_enabled: z.boolean().default(false),
   slave_id: z.string().nullable().optional(),
   slave_name: z.string().nullable().optional(),
 });

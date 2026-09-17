@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import HTTPException, status
-from sqlmodel import Session, select, func
+from sqlmodel import Session, select, func, delete
 
 from app.core.config import engine
 from app.models.event import (
@@ -27,6 +27,14 @@ def _sanitize_name(name: str) -> str:
     sanitized = re.sub(r"[^a-z0-9-]", "-", name.lower().strip())
     sanitized = re.sub(r"-+", "-", sanitized).strip("-")
     return sanitized or "participant"
+
+
+def _revoke_vm_access(session: Session, vm_id: uuid.UUID) -> None:
+    vm = session.get(VmORM, vm_id)
+    if vm:
+        vm.ssh_enabled = False
+        session.add(vm)
+    session.exec(delete(VmCredentialORM).where(VmCredentialORM.vm_id == vm_id))
 
 
 def _event_to_read(event: EventORM, participants: list[EventParticipantORM] | None = None) -> EventRead:
@@ -58,6 +66,7 @@ def _event_to_read(event: EventORM, participants: list[EventParticipantORM] | No
         vm_vcpus=event.vm_vcpus,
         vm_disk_size=event.vm_disk_size,
         keyboard_layout=event.keyboard_layout,
+        ssh_enabled=event.ssh_enabled,
         deadline=event.deadline,
         max_vms=event.max_vms,
         created_at=event.created_at,
@@ -228,6 +237,7 @@ class EventService:
                 vm_vcpus=payload.vm_vcpus,
                 vm_disk_size=payload.vm_disk_size,
                 keyboard_layout=payload.keyboard_layout,
+                ssh_enabled=payload.ssh_enabled,
                 deadline=payload.deadline,
                 max_vms=payload.max_vms,
                 created_by=created_by,
@@ -246,6 +256,7 @@ class EventService:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
                                     f"Event {event_id} not found")
 
+            previous_ssh_enabled = event.ssh_enabled
             update_data = payload.model_dump(exclude_unset=True)
             for key, value in update_data.items():
                 setattr(event, key, value)
@@ -265,6 +276,17 @@ class EventService:
                     for cred in credentials:
                         cred.expires_at = new_deadline
                         session.add(cred)
+
+            if event.ssh_enabled != previous_ssh_enabled:
+                participants = session.exec(
+                    select(EventParticipantORM)
+                    .where(EventParticipantORM.event_id == event.id)
+                ).all()
+                for participant in participants:
+                    vm = session.get(VmORM, participant.vm_id)
+                    if vm:
+                        vm.ssh_enabled = event.ssh_enabled
+                        session.add(vm)
 
             session.add(event)
             session.commit()
@@ -294,6 +316,7 @@ class EventService:
             vm_ids = [str(p.vm_id) for p in participants]
 
             for participant in participants:
+                _revoke_vm_access(session, participant.vm_id)
                 session.delete(participant)
 
             session.delete(event)
@@ -326,6 +349,7 @@ class EventService:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
                                     "Participant VM not found in this event")
 
+            _revoke_vm_access(session, participant.vm_id)
             session.delete(participant)
             session.commit()
 
@@ -393,6 +417,7 @@ class EventService:
             vcpus=event.vm_vcpus,
             disk_size=event.vm_disk_size,
             keyboard_layout=event.keyboard_layout,
+            ssh_enabled=event.ssh_enabled,
             activate_at_start=True,
             slave_id=slave_id,
         )
@@ -401,12 +426,10 @@ class EventService:
         # create_vm returns a Vm object (local) or a dict (slave)
         vm_id = vm["id"] if isinstance(vm, dict) else vm.id
 
-        credential_password = str(uuid.uuid4())[:12]
         credential = VmService.create_vm_credential(
             str(vm_id),
             VmCredentialCreateRequest(
                 name=sanitized,
-                password=credential_password,
                 expires_at=event.deadline,
             ),
         )

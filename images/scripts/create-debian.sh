@@ -18,7 +18,7 @@ sudo virt-customize -a /tmp/resized_image.qcow2 \
     --network \
     --run-command 'mkdir -p /boot/efi; mount /dev/sda2 /boot/efi' \
     --update \
-    --install vim,qemu-guest-agent,cloud-init \
+    --install vim,qemu-guest-agent,openssh-server,cloud-init \
     --run-command 'update-initramfs -u' \
     --run-command 'update-grub' \
     --run-command 'grub-install /dev/sda'

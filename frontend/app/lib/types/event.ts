@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const utcDateString = z
+  .string()
+  .transform((s) => (s.endsWith("Z") ? s : s + "Z"));
+
 export const EventParticipantSchema = z.object({
   id: z.string().uuid(),
   participant_name: z.string(),
@@ -17,12 +21,13 @@ export const EventSchema = z.object({
   vm_vcpus: z.number(),
   vm_disk_size: z.number(),
   keyboard_layout: z.string().nullable().optional(),
-  deadline: z.string().transform((s) => (s.endsWith("Z") ? s : s + "Z")),
+  deadline: utcDateString,
   max_vms: z.number(),
   created_at: z.string(),
   created_by: z.string(),
   participants_count: z.number(),
   participants: z.array(EventParticipantSchema),
+  ssh_enabled: z.boolean().default(false),
 });
 
 export type Event = z.infer<typeof EventSchema>;
@@ -42,6 +47,7 @@ export const CreateEventPayloadSchema = z.object({
   keyboard_layout: z.string().nullable().optional(),
   deadline: z.string(),
   max_vms: z.number().positive(),
+  ssh_enabled: z.boolean().default(false),
 });
 
 export type CreateEventPayload = z.infer<typeof CreateEventPayloadSchema>;
@@ -54,6 +60,7 @@ export const UpdateEventPayloadSchema = z.object({
   vm_disk_size: z.number().positive().optional(),
   deadline: z.string().optional(),
   max_vms: z.number().positive().optional(),
+  ssh_enabled: z.boolean().optional(),
 });
 
 export type UpdateEventPayload = z.infer<typeof UpdateEventPayloadSchema>;

@@ -8,6 +8,7 @@ export const CreateVMPayloadSchema = z.object({
   disk_size: z.number().int().positive(),
   keyboard_layout: z.string().nullable().optional(),
   activate_at_start: z.boolean(),
+  ssh_enabled: z.boolean().default(false),
   slave_id: z.string().uuid().nullable().optional(),
   auto_place: z.boolean().optional(),
 });

@@ -13,7 +13,7 @@ sudo cp "/tmp/$CLOUD_IMG_SOURCE" /tmp/resized_image.qcow2
 sudo virt-customize -a /tmp/resized_image.qcow2 \
     --network \
     --update \
-    --install vim,qemu-guest-agent,cloud-init \
+    --install vim,qemu-guest-agent,openssh-server,cloud-init \
     --run-command 'grub2-mkconfig -o /boot/grub2/grub.cfg' \
     --run-command 'grub2-install /dev/sda'
 

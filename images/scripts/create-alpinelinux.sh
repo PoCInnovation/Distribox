@@ -21,7 +21,7 @@ EOF
 sudo virt-customize -a /tmp/resized_image.qcow2 \
     --network \
     --run-command 'apk update && apk upgrade' \
-    --run-command 'apk add vim qemu-guest-agent cloud-init gettext bash sudo' \
+    --run-command 'apk add vim qemu-guest-agent openssh cloud-init gettext bash sudo' \
     --run-command 'rc-update add qemu-guest-agent default'
 
 sudo virt-sysprep -a /tmp/resized_image.qcow2 --operations machine-id,ssh-hostkeys

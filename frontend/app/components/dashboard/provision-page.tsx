@@ -41,6 +41,7 @@ import { PolicyNotice } from "@/components/policy/policy-notice";
 import { useSettings } from "@/hooks/useSettings";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { KEYBOARD_LAYOUTS, getKeyboardLabel } from "@/lib/keyboard-layouts";
+import { SshAccessSwitch } from "@/components/ssh-access-switch";
 
 // "auto" = auto-place (master-first), null = master only, string = specific slave
 type TargetSelection = "auto" | null | string;
@@ -55,6 +56,7 @@ export default function ProvisionPage() {
   const hasCreatePolicy = authz.hasPolicy(Policy.VMS_CREATE);
   const canReadHost = authz.hasPolicy(Policy.HOST_GET);
   const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
+  const canManageSsh = authz.hasPolicy(Policy.VMS_SSH_MANAGE);
 
   const { slaves } = useSlaves();
   const onlineSlaves = slaves.filter((s) => s.status === "online");
@@ -88,6 +90,7 @@ export default function ProvisionPage() {
 
   const [name, setName] = useState("");
   const [autoStart, setAutoStart] = useState(false);
+  const [sshEnabled, setSshEnabled] = useState(false);
   const [selectedOS, setSelectedOS] = useState("");
   const [vcpus, setVcpus] = useState("2");
   const [mem, setMem] = useState("4");
@@ -165,6 +168,7 @@ export default function ProvisionPage() {
         disk_size: diskNum,
         keyboard_layout: keyboardLayout || null,
         activate_at_start: autoStart,
+        ssh_enabled: canManageSsh && sshEnabled,
         slave_id: targetSlaveId || null,
         auto_place: isAutoMode,
       });
@@ -644,6 +648,13 @@ export default function ProvisionPage() {
                   </div>
                   <Separator />
                 </>
+              )}
+
+              {canManageSsh && (
+                <SshAccessSwitch
+                  enabled={sshEnabled}
+                  onChange={setSshEnabled}
+                />
               )}
 
               <div className="w-full flex flex-row items-center space-x-2">

@@ -6,7 +6,7 @@ from app.models.event import (
 )
 from app.models.user_management import MissingPoliciesResponse
 from app.services.event_service import EventService
-from app.utils.auth import require_policy, get_current_user
+from app.utils.auth import ensure_policy, require_policy
 from app.orm.user import UserORM
 
 router = APIRouter()
@@ -44,6 +44,8 @@ def create_event(
     payload: EventCreate,
     current_user: UserORM = Depends(require_policy("events:create")),
 ):
+    if payload.ssh_enabled:
+        ensure_policy(current_user, "vms:ssh:manage")
     return EventService.create_event(payload, current_user.username)
 
 
@@ -51,10 +53,14 @@ def create_event(
     "/{event_id}",
     status_code=status.HTTP_200_OK,
     response_model=EventRead,
-    dependencies=[Depends(require_policy("events:update"))],
     responses={403: {"model": MissingPoliciesResponse}},
 )
-def update_event(event_id: str, payload: EventUpdate):
+def update_event(
+    event_id: str, payload: EventUpdate,
+    current_user: UserORM = Depends(require_policy("events:update")),
+):
+    if "ssh_enabled" in payload.model_fields_set:
+        ensure_policy(current_user, "vms:ssh:manage")
     return EventService.update_event(event_id, payload)
 
 

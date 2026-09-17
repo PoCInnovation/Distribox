@@ -10,6 +10,9 @@ declare module "guacamole-common-js" {
     class Display {
       getElement(): HTMLElement;
       scale(scale: number): void;
+      showCursor(shown: boolean): void;
+      oncursor: (() => void) | null;
+      onresize: ((width: number, height: number) => void) | null;
     }
 
     class Client {

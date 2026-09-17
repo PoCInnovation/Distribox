@@ -63,6 +63,7 @@ import {
 import type { VirtualMachineMetadata } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { FRONTEND_URL, getVMs } from "@/lib/api";
+import { SshAccessSwitch } from "@/components/ssh-access-switch";
 
 function useNow(intervalMs = 1000) {
   const [now, setNow] = useState(() => new Date());
@@ -90,6 +91,7 @@ export function EventDetailPage() {
   const canDelete = authz.hasPolicy(Policy.EVENTS_DELETE);
   const canReadHost = authz.hasPolicy(Policy.HOST_GET);
   const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
+  const canManageSsh = authz.hasPolicy(Policy.VMS_SSH_MANAGE);
 
   const [editing, setEditing] = useState(false);
   const { data: clusterInfo } = useClusterHostInfo(canReadHost && editing);
@@ -101,6 +103,7 @@ export function EventDetailPage() {
   const [editDisk, setEditDisk] = useState("");
   const [editMaxVms, setEditMaxVms] = useState("");
   const [editDeadline, setEditDeadline] = useState<Date | undefined>(undefined);
+  const [editSshEnabled, setEditSshEnabled] = useState(false);
 
   const [shareLinkOpen, setShareLinkOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -130,6 +133,7 @@ export function EventDetailPage() {
     setEditDisk(String(event.vm_disk_size));
     setEditMaxVms(String(event.max_vms));
     setEditDeadline(new Date(event.deadline));
+    setEditSshEnabled(event.ssh_enabled);
     setEditing(true);
   };
 
@@ -146,6 +150,7 @@ export function EventDetailPage() {
           vm_disk_size: Number.parseInt(editDisk) || undefined,
           max_vms: Number.parseInt(editMaxVms) || undefined,
           deadline: editDeadline ? editDeadline.toISOString() : undefined,
+          ssh_enabled: canManageSsh ? editSshEnabled : undefined,
         },
       });
       setEditing(false);
@@ -303,6 +308,13 @@ export function EventDetailPage() {
                       side="bottom"
                     />
                   </div>
+                  {canManageSsh && (
+                    <SshAccessSwitch
+                      enabled={editSshEnabled}
+                      onChange={setEditSshEnabled}
+                      description="Applies to all existing and future VMs in this event."
+                    />
+                  )}
                   {clusterInfo && (
                     <HostResourcesBar totals={clusterInfo.totals} />
                   )}
@@ -316,6 +328,11 @@ export function EventDetailPage() {
                     />
                   )}
 
+                  {updateEvent.isError && (
+                    <p role="alert" className="text-sm text-destructive">
+                      {updateEvent.error.message}
+                    </p>
+                  )}
                   <div className="flex gap-2">
                     <Button
                       className="flex-1"
@@ -380,6 +397,11 @@ export function EventDetailPage() {
                     icon={<Calendar className="h-4 w-4" />}
                     label="Deadline"
                     value={formatDateTime(event.deadline, timeZone)}
+                  />
+                  <InfoRow
+                    icon={<Monitor className="h-4 w-4" />}
+                    label="SSH access"
+                    value={event.ssh_enabled ? "Allowed" : "Disabled"}
                   />
                   <InfoRow
                     icon={<Clock className="h-4 w-4" />}

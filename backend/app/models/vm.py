@@ -12,6 +12,7 @@ class VmBase(BaseModel):
     vcpus: int
     disk_size: int
     keyboard_layout: Optional[str] = None
+    ssh_enabled: bool = False
 
 
 class VmRead(VmBase):

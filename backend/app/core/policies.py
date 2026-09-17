@@ -78,6 +78,10 @@ POLICIES: list[dict[str, str]] = [
         "description": "Allows the user to connect to a virtual machine via the dashboard tunnel.",
     },
     {
+        "policy": "vms:ssh:manage",
+        "description": "Allows the user to enable or disable SSH access to virtual machines.",
+    },
+    {
         "policy": "vms:credentials:create",
         "description": "Allows the user to create virtual machine credentials.",
     },
