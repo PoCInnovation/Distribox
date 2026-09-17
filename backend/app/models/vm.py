@@ -10,9 +10,10 @@ class VmBase(BaseModel):
     name: str
     mem: int
     vcpus: int
-    disk_size: int
+    disk_size: int = Field(ge=1)
     keyboard_layout: Optional[str] = None
     ssh_enabled: bool = False
+    storage_id: str = "default"
 
 
 class VmRead(VmBase):
@@ -22,9 +23,11 @@ class VmRead(VmBase):
     credentials_count: int = 0
     slave_id: Optional[UUID] = None
     slave_name: Optional[str] = None
+    storage_path: Optional[str] = None
 
 
 class VmCreate(VmBase):
+    storage_id: Optional[str] = None
     activate_at_start: bool
     slave_id: Optional[UUID] = None
     auto_place: bool = False
@@ -55,6 +58,8 @@ class VmCredentialRead(BaseModel):
 
 class RecoverableVm(ImageRead):
     vm_id: str
+    storage_id: str = "default"
+    storage_path: Optional[str] = None
 
 
 class RecoverableVmCreate(BaseModel):
@@ -62,4 +67,5 @@ class RecoverableVmCreate(BaseModel):
     name: str
     mem: int
     vcpus: int
-    disk_size: int
+    disk_size: int = Field(ge=1)
+    storage_id: Optional[str] = None

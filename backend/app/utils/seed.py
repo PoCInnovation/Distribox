@@ -81,7 +81,7 @@ def _generate_seed_iso(
     user_data_path = seed_config_dir / "user-data"
     meta_data_path = seed_config_dir / "meta-data"
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    _check_seed_path(output_path)
 
     base_user_data = user_data_path.read_text()
     final_user_data = _build_user_data(base_user_data, keyboard_layout)
@@ -93,35 +93,55 @@ def _generate_seed_iso(
         temp_user_data_path.write_text(final_user_data)
         temp_meta_data_path.write_text(meta_data_path.read_text())
 
+        with tempfile.NamedTemporaryFile(dir=output_path.parent, suffix=".iso.part", delete=False) as output:
+            temporary_output = Path(output.name)
         try:
-            subprocess.run(
-                [
-                    "genisoimage",
-                    "-output",
-                    str(output_path),
-                    "-volid",
-                    "cidata",
-                    "-joliet",
-                    "-rock",
-                    str(temp_user_data_path),
-                    str(temp_meta_data_path),
-                ],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-        except FileNotFoundError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="genisoimage is required to create seed.iso but was not found",
-            ) from exc
-        except subprocess.CalledProcessError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create seed.iso: {exc.stderr.strip()}",
-            ) from exc
+            _write_seed_iso(temporary_output,
+                            temp_user_data_path, temp_meta_data_path)
+            temporary_output.chmod(0o644)
+            _check_seed_path(output_path)
+            temporary_output.replace(output_path)
+        finally:
+            temporary_output.unlink(missing_ok=True)
 
     return output_path
+
+
+def _write_seed_iso(output_path: Path, user_data_path: Path, meta_data_path: Path):
+    try:
+        subprocess.run(
+            [
+                "genisoimage",
+                "-output",
+                str(output_path),
+                "-volid",
+                "cidata",
+                "-joliet",
+                "-rock",
+                str(user_data_path),
+                str(meta_data_path),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="genisoimage is required to create seed.iso but was not found",
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create seed.iso: {exc.stderr.strip()}",
+        ) from exc
+
+
+def _check_seed_path(seed_path: Path):
+    if (not seed_path.parent.is_dir() or
+            any(path.is_symlink() for path in (seed_path, *seed_path.parents))):
+        raise HTTPException(
+            409, "The VM seed directory is unavailable or unsafe")
 
 
 def ensure_seed_iso(
@@ -130,11 +150,13 @@ def ensure_seed_iso(
 ) -> Path:
     if vm_dir:
         seed_iso_path = vm_dir / "seed.iso"
+        _check_seed_path(seed_iso_path)
         if seed_iso_path.exists() and not keyboard_layout:
             return seed_iso_path
         return _generate_seed_iso(seed_iso_path, keyboard_layout)
 
     seed_iso_path = IMAGES_DIR / "seed.iso"
+    _check_seed_path(seed_iso_path)
     if seed_iso_path.exists():
         return seed_iso_path
 

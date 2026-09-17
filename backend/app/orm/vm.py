@@ -12,6 +12,7 @@ class VmORM(SQLModel, table=True, ):
     mem: int
     vcpus: int
     disk_size: int
+    storage_id: str = Field(default="default")
     ssh_enabled: bool = Field(default=False)
     keyboard_layout: Optional[str] = Field(default=None)
     slave_id: Optional[uuid.UUID] = Field(

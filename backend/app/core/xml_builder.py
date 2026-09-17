@@ -1,7 +1,8 @@
 from lxml import etree
 from app.models.vm import VmCreateXML
-from app.core.constants import VMS_DIR, IMAGES_DIR
 from app.core.config import VIRT_TYPE
+from app.services.storage_service import StorageService
+from fastapi import HTTPException
 
 LAYOUT_TO_KEYMAP = {
     "en-us-qwerty": "en-us",
@@ -33,6 +34,11 @@ LAYOUT_TO_KEYMAP = {
 
 
 def build_xml(vm_read: VmCreateXML):
+    vm_dir = StorageService.vm_dir(vm_read.storage_id, vm_read.id)
+    image_name = StorageService.safe_image_name(vm_read.os)
+    if (vm_dir / image_name).is_symlink() or (vm_dir / "seed.iso").is_symlink():
+        raise HTTPException(
+            409, "The VM disk and seed must not be symbolic links")
 
     domain = etree.Element("domain", type=VIRT_TYPE)
 
@@ -65,7 +71,7 @@ def build_xml(vm_read: VmCreateXML):
     disk_main = etree.SubElement(devices, "disk", type="file", device="disk")
     etree.SubElement(disk_main, "driver", name="qemu", type="qcow2")
     etree.SubElement(disk_main, "source", file=str(
-        VMS_DIR / str(vm_read.id) / vm_read.os))
+        vm_dir / image_name))
     etree.SubElement(disk_main, "target", dev="vda", bus="virtio")
 
     channel = etree.SubElement(devices, "channel", type="unix")
@@ -75,12 +81,7 @@ def build_xml(vm_read: VmCreateXML):
 
     disk_seed = etree.SubElement(devices, "disk", type="file", device="cdrom")
     etree.SubElement(disk_seed, "driver", name="qemu", type="raw")
-    per_vm_seed = VMS_DIR / str(vm_read.id) / "seed.iso"
-    seed_iso_path = (
-        str(per_vm_seed)
-        if per_vm_seed.exists()
-        else str(IMAGES_DIR / "seed.iso")
-    )
+    seed_iso_path = str(vm_dir / "seed.iso")
     etree.SubElement(disk_seed, "source", file=seed_iso_path)
     etree.SubElement(disk_seed, "target", dev="hdb", bus="ide")
     etree.SubElement(disk_seed, "readonly")
