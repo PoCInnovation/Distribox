@@ -46,7 +46,7 @@ if [ "$(head -n 1 /etc/ssh/sshd_config)" != "$include" ]; then
     config=$(mktemp /etc/ssh/sshd_config.XXXXXX)
     trap 'rm -f "$config"' EXIT
     printf '%s\n' "$include" > "$config"
-    awk -v include="$include" '$0 != include' /etc/ssh/sshd_config >> "$config"
+    awk -v marker="$include" '$0 != marker' /etc/ssh/sshd_config >> "$config"
     chmod 600 "$config"
     mv "$config" /etc/ssh/sshd_config
     trap - EXIT
