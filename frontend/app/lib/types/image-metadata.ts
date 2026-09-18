@@ -18,3 +18,8 @@ export interface ImageUploadPayload {
   version: string;
   firmware: "bios" | "efi";
 }
+
+export const ImageUploadStatusSchema = z.object({
+  status: z.enum(["converting", "ready", "failed"]),
+  detail: z.string().nullable().optional(),
+});

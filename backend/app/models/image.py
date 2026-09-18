@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -26,3 +26,8 @@ class ImageUpload(BaseModel):
     distribution: str = "custom"
     version: str = "custom"
     firmware: Literal["bios", "efi"] = "bios"
+
+
+class ImageUploadStatus(BaseModel):
+    status: Literal["converting", "ready", "failed"]
+    detail: Optional[str] = None

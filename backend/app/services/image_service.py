@@ -15,6 +15,7 @@ from app.core.config import s3, distribox_bucket_registry
 logger = logging.getLogger(__name__)
 
 DISK_SUFFIXES = (".qcow2", ".vmdk", ".vdi", ".img", ".raw")
+conversions: dict[str, asyncio.Task] = {}
 
 
 class ImageService():
@@ -95,29 +96,69 @@ class ImageService():
         return list(images.values())
 
     @staticmethod
-    async def upload_image(stream, filename: str, upload: ImageUpload):
+    def _slug(name: str) -> str:
+        slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+        if not slug:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Invalid image name")
+        return slug
+
+    @staticmethod
+    def _upload_path(slug: str, filename: str) -> Path:
         suffix = Path(filename).suffix.lower()
         if suffix not in DISK_SUFFIXES + (".zip",):
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 f"Unsupported image file '{filename}'",
             )
-        slug = re.sub(r"[^a-z0-9]+", "-", upload.name.lower()).strip("-")
-        if not slug:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST, "Invalid image name")
-        image_path = IMAGES_DIR / f"{slug}.qcow2"
-        metadata_path = IMAGES_DIR / f"{slug}.metadata.yaml"
-        if image_path.exists() or metadata_path.exists():
+        return IMAGES_DIR / f"{slug}.upload{suffix}"
+
+    @staticmethod
+    async def write_chunk(name: str, filename: str, offset: int, stream):
+        slug = ImageService._slug(name)
+        upload_path = ImageService._upload_path(slug, filename)
+        if offset == 0:
+            if (IMAGES_DIR / f"{slug}.metadata.yaml").exists():
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    f"An image named '{slug}' already exists",
+                )
+            upload_path.unlink(missing_ok=True)
+        elif not upload_path.exists() or upload_path.stat().st_size != offset:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                f"An image named '{slug}' already exists",
+                "Upload out of sync, please start again",
             )
-        upload_path = IMAGES_DIR / f"{slug}.upload{suffix}"
+        with upload_path.open("ab") as upload_file:
+            async for chunk in stream:
+                upload_file.write(chunk)
+
+    @staticmethod
+    async def finish_upload(filename: str, upload: ImageUpload):
+        slug = ImageService._slug(upload.name)
+        upload_path = ImageService._upload_path(slug, filename)
+        if not upload_path.exists():
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "No uploaded data for this image",
+            )
+        image = ImageRead(
+            name=upload.name,
+            image=f"{slug}.qcow2",
+            version=upload.version,
+            distribution=upload.distribution,
+            family="local",
+            revision=0,
+            firmware=upload.firmware,
+        )
+        conversions[slug] = asyncio.create_task(
+            ImageService._convert_upload(slug, upload_path, image))
+        return image
+
+    @staticmethod
+    async def _convert_upload(slug: str, upload_path: Path, image: ImageRead):
+        image_path = IMAGES_DIR / image.image
         try:
-            with upload_path.open("wb") as upload_file:
-                async for chunk in stream:
-                    upload_file.write(chunk)
             await asyncio.to_thread(
                 ImageService._convert_image, upload_path, image_path)
         except Exception:
@@ -125,18 +166,25 @@ class ImageService():
             raise
         finally:
             upload_path.unlink(missing_ok=True)
-        image = ImageRead(
-            name=upload.name,
-            image=image_path.name,
-            version=upload.version,
-            distribution=upload.distribution,
-            family="local",
-            revision=0,
-            firmware=upload.firmware,
-        )
-        metadata_path.write_text(
+        (IMAGES_DIR / f"{slug}.metadata.yaml").write_text(
             yaml.safe_dump(image.model_dump(), sort_keys=False))
-        return image
+
+    @staticmethod
+    def upload_status(name: str) -> dict:
+        slug = ImageService._slug(name)
+        task = conversions.get(slug)
+        if task is None:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, "No upload in progress")
+        if not task.done():
+            return {"status": "converting", "detail": None}
+        del conversions[slug]
+        error = task.exception()
+        if error is None:
+            return {"status": "ready", "detail": None}
+        detail = error.detail if isinstance(
+            error, HTTPException) else str(error)
+        return {"status": "failed", "detail": detail}
 
     @staticmethod
     def _convert_image(source: Path, target: Path):
