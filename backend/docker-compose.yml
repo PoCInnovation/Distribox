@@ -89,7 +89,7 @@ services:
 
 
   guacd:
-    image: guacamole/guacd:1.5.5
+    image: guacamole/guacd:1.6.0
     container_name: distribox-guacd
     restart: unless-stopped
     # host networking gives guacd access to 127.0.0.1 on the host so it can
@@ -97,7 +97,6 @@ services:
     # guacd binds 0.0.0.0:4822, which includes the Docker bridge IP, so the
     # backend containers can reach it via host.docker.internal:4822.
     network_mode: host
-    command: ["/opt/guacamole/sbin/guacd", "-f", "-b", "0.0.0.0", "-l", "4822", "-L", "debug"]
     profiles: ["master", "dev", "slave"]
 
 
