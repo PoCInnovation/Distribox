@@ -9,7 +9,7 @@ from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML, VmRename
 from app.models.image import ImageRead
-from app.core.xml_builder import build_xml
+from app.core.xml_builder import build_xml, upgrade_display_devices
 from app.core.config import QEMUConfig, engine
 from sqlalchemy import func
 from sqlmodel import Session, select, delete
@@ -207,6 +207,9 @@ class Vm:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
             if vm.isActive() == 0:
+                upgraded = upgrade_display_devices(vm.XMLDesc())
+                if upgraded:
+                    conn.defineXML(upgraded)
                 vm.create()
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
