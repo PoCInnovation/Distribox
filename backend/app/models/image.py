@@ -1,4 +1,5 @@
-from pydantic import BaseModel, field_validator
+from typing import Literal, Optional
+from pydantic import BaseModel, Field, field_validator
 
 
 class ImageBase(BaseModel):
@@ -8,6 +9,7 @@ class ImageBase(BaseModel):
     distribution: str
     family: str
     revision: int
+    firmware: str = "bios"
 
     @field_validator("version", mode="before")
     @classmethod
@@ -17,3 +19,15 @@ class ImageBase(BaseModel):
 
 class ImageRead(ImageBase):
     pass
+
+
+class ImageUpload(BaseModel):
+    name: str = Field(min_length=1)
+    distribution: str = "custom"
+    version: str = "custom"
+    firmware: Literal["bios", "efi"] = "bios"
+
+
+class ImageUploadStatus(BaseModel):
+    status: Literal["converting", "ready", "failed"]
+    detail: Optional[str] = None

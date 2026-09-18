@@ -77,6 +77,9 @@ Supported out of the box:
 ## Distribox Image Registry
 OS images are hosted in a remote S3-based registry. When a VM is created, the backend downloads the corresponding image on demand and caches it locally. This keeps the installation lightweight -- no need to bundle large disk images. Image metadata includes revision tracking so updates are fetched automatically.
 
+### Local images
+Bring your own images: click **Upload** in the image picker and choose a qcow2, VMDK, VDI or raw disk, or a zip archive holding one. Distribox converts it, keeps it on the host and lists it next to the registry images. Tick the UEFI option for machines exported from VirtualBox or VMware with EFI enabled.
+
 ---
 
 ## Master / Slave Architecture

@@ -24,7 +24,6 @@ from app.utils.seed import ensure_seed_iso
 from app.core.config import s3, distribox_bucket_registry
 from os import path
 from app.services.image_service import ImageService
-import yaml
 from pathlib import Path
 from sqlalchemy.orm import make_transient
 
@@ -58,25 +57,13 @@ class Vm:
 
     @staticmethod
     def has_revision_changed(metadata_filename: str) -> bool:
-        if (path.exists(IMAGES_DIR / metadata_filename) is False):
+        local_image = ImageService.get_local_image(metadata_filename)
+        if local_image is None:
             return True
-
-        metadata_file = s3.get_object(
-            Bucket=distribox_bucket_registry,
-            Key=metadata_filename)
-        file_content = metadata_file["Body"].read().decode("utf-8")
-
-        metadata = yaml.safe_load(file_content)
-        local_metadata = yaml.safe_load(
-            (IMAGES_DIR /
-             metadata_filename).read_text(
-                encoding="utf-8"))
-
-        revision = metadata["revision"]
-        local_revision = local_metadata["revision"]
-        if (revision != local_revision):
-            return True
-        return False
+        registry_image = ImageService.get_registry_image(metadata_filename)
+        if registry_image is None:
+            return False
+        return registry_image.revision != local_image.revision
 
     def __init__(self, vm_create: VmCreate):
         self.id = uuid.uuid4()
@@ -273,7 +260,7 @@ class Vm:
             self.stop()
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
-            vm.undefine()
+            vm.undefineFlags(libvirt.VIR_DOMAIN_UNDEFINE_NVRAM)
         except Exception:
             pass
 

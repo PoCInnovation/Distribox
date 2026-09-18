@@ -26,6 +26,10 @@ POLICIES: list[dict[str, str]] = [
         "description": "Allows the user to fetch images metadata from the registry.",
     },
     {
+        "policy": "images:upload",
+        "description": "Allows the user to upload local images.",
+    },
+    {
         "policy": "policies:get",
         "description": "Allows the user to fetch policies.",
     },

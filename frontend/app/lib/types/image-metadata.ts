@@ -7,6 +7,19 @@ export const ImageMetadataSchema = z.object({
   distribution: z.string(),
   family: z.string(),
   revision: z.number(),
+  firmware: z.string().optional(),
 });
 
 export type ImageMetadata = z.infer<typeof ImageMetadataSchema>;
+
+export interface ImageUploadPayload {
+  name: string;
+  distribution: string;
+  version: string;
+  firmware: "bios" | "efi";
+}
+
+export const ImageUploadStatusSchema = z.object({
+  status: z.enum(["converting", "ready", "failed"]),
+  detail: z.string().nullable().optional(),
+});
