@@ -77,6 +77,13 @@ Supported out of the box:
 ## Distribox Image Registry
 OS images are hosted in a remote S3-based registry. When a VM is created, the backend downloads the corresponding image on demand and caches it locally. This keeps the installation lightweight -- no need to bundle large disk images. Image metadata includes revision tracking so updates are fetched automatically.
 
+### Local images
+Images stored in `/var/lib/distribox/images` are listed next to the registry ones. Each image is a `<name>.qcow2` file with a `<name>.metadata.yaml` file describing it (same fields as the registry, plus an optional `firmware: efi` for UEFI guests).
+
+Users with the `images:upload` policy can upload an image from the **Upload** button of the image picker. VMDK, VDI and raw disks are converted to qcow2, and a zip archive containing a disk (a VirtualBox or VMware export, for example) is accepted as well. UEFI images must boot from the default `EFI/BOOT/BOOTX64.EFI` path since no firmware boot entries are carried over.
+
+Reverse proxies cap request sizes: raise `client_max_body_size` (see `nginx.conf`) or copy very large images straight into the images directory.
+
 ---
 
 ## Master / Slave Architecture
