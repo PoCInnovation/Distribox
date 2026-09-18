@@ -260,7 +260,7 @@ class Vm:
             self.stop()
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
-            vm.undefine()
+            vm.undefineFlags(libvirt.VIR_DOMAIN_UNDEFINE_NVRAM)
         except Exception:
             pass
 

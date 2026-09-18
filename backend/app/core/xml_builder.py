@@ -2,6 +2,7 @@ from lxml import etree
 from app.models.vm import VmCreateXML
 from app.core.constants import VMS_DIR, IMAGES_DIR
 from app.core.config import VIRT_TYPE
+from app.services.image_service import ImageService
 
 LAYOUT_TO_KEYMAP = {
     "en-us-qwerty": "en-us",
@@ -32,6 +33,12 @@ LAYOUT_TO_KEYMAP = {
 }
 
 
+def image_firmware(image_name: str) -> str:
+    metadata_filename = image_name.replace("qcow2", "metadata.yaml")
+    image = ImageService.get_local_image(metadata_filename)
+    return image.firmware if image else "bios"
+
+
 def build_xml(vm_read: VmCreateXML):
 
     domain = etree.Element("domain", type=VIRT_TYPE)
@@ -45,6 +52,13 @@ def build_xml(vm_read: VmCreateXML):
 
     os_el = etree.SubElement(domain, "os")
     etree.SubElement(os_el, "type", arch="x86_64", machine="pc").text = "hvm"
+    if image_firmware(vm_read.os) == "efi":
+        os_el.set("firmware", "efi")
+        firmware = etree.SubElement(os_el, "firmware")
+        etree.SubElement(firmware, "feature",
+                         enabled="no", name="enrolled-keys")
+        etree.SubElement(firmware, "feature",
+                         enabled="no", name="secure-boot")
     etree.SubElement(os_el, "boot", dev="hd")
 
     features = etree.SubElement(domain, "features")
