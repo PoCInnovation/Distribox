@@ -11,7 +11,9 @@ declare module "guacamole-common-js" {
       getElement(): HTMLElement;
       scale(scale: number): void;
       showCursor(shown: boolean): void;
-      oncursor: (() => void) | null;
+      oncursor:
+        | ((canvas: HTMLCanvasElement, x: number, y: number) => void)
+        | null;
       onresize: ((width: number, height: number) => void) | null;
     }
 
@@ -42,6 +44,7 @@ declare module "guacamole-common-js" {
       onmousedown: ((state: Mouse.State) => void) | null;
       onmouseup: ((state: Mouse.State) => void) | null;
       onmousemove: ((state: Mouse.State) => void) | null;
+      setCursor(canvas: HTMLCanvasElement, x: number, y: number): boolean;
     }
 
     namespace Mouse {

@@ -119,17 +119,14 @@ export function useGuacamoleClient(
       clientRef.current = client;
 
       const display = client.getDisplay();
-
-      const killCursor = () => {
-        display.showCursor(false);
-        const cursorEl = display.getElement().querySelector(".cursor");
-        if (cursorEl) (cursorEl as HTMLElement).style.display = "none";
-      };
-      killCursor();
-      display.oncursor = killCursor;
-
       const displayEl = display.getElement();
       container.appendChild(displayEl);
+
+      const mouse: Guacamole.Mouse = new Guacamole.Mouse(displayEl);
+      display.showCursor(false);
+      display.oncursor = (canvas, x, y) => {
+        display.showCursor(!mouse.setCursor(canvas, x, y));
+      };
 
       client.getDisplay().onresize = (newWidth: number, newHeight: number) => {
         const containerEl = options.containerRef.current;
@@ -145,7 +142,6 @@ export function useGuacamoleClient(
 
       client.onstatechange = (newState: number) => {
         if (newState === 3) {
-          killCursor();
           setState("connected");
         } else if (newState === 5) {
           setState("disconnected");
@@ -188,7 +184,6 @@ export function useGuacamoleClient(
         return false;
       };
 
-      const mouse: Guacamole.Mouse = new Guacamole.Mouse(displayEl);
       const sendMouse = (mouseState: Guacamole.Mouse.State) =>
         client!.sendMouseState(mouseState, true);
       mouse.onmousedown = sendMouse;

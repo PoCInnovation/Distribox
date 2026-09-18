@@ -198,11 +198,6 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      <style>{`
-        .guacamole-display, .guacamole-display * {
-          cursor: none !important;
-        }
-      `}</style>
       <div ref={containerRef} className="guacamole-display w-full h-full" />
 
       {state === "connecting" && (

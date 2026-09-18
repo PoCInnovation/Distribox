@@ -108,8 +108,8 @@ async def guacd_handshake(
         "password": "",
         "swap-red-blue": "false",
         "read-only": "false",
-        "cursor": "remote",
-        "encoding": "copyrect tight zrle hextile",
+        "cursor": "local",
+        "encodings": "copyrect raw hextile tight zrle",
         "color-depth": "24",
         "autoretry": "",
         "username": "",
@@ -153,8 +153,7 @@ async def guacd_handshake(
     await writer.drain()
     writer.write(build_instruction("video").encode())
     await writer.drain()
-    writer.write(build_instruction("image", "image/png",
-                 "image/jpeg", "image/webp").encode())
+    writer.write(build_instruction("image", "image/png", "image/jpeg").encode())
     await writer.drain()
 
     writer.write(build_instruction(*connect_values).encode())
