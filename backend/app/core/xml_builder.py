@@ -117,12 +117,28 @@ def build_xml(vm_read: VmCreateXML):
     etree.SubElement(devices, "graphics", **vnc_attrs)
 
     video = etree.SubElement(devices, "video")
-    etree.SubElement(video, "model", type="vga", vram="16384", heads="1")
+    etree.SubElement(video, "model", type="virtio")
 
     etree.SubElement(devices, "console", type="pty")
     etree.SubElement(devices, "input", type="keyboard", bus="ps2")
-    etree.SubElement(devices, "input", type="tablet", bus="usb")
+    etree.SubElement(devices, "input", type="tablet", bus="virtio")
 
     xml_string = etree.tostring(
         domain, pretty_print=True, encoding="utf-8").decode()
     return xml_string
+
+
+def upgrade_display_devices(domain_xml: str) -> str | None:
+    root = etree.fromstring(domain_xml.encode())
+    model = root.find("./devices/video/model")
+    tablet = root.find('./devices/input[@type="tablet"]')
+    if model is None or tablet is None:
+        return None
+    if model.get("type") == "virtio" and tablet.get("bus") == "virtio":
+        return None
+    model.attrib.clear()
+    model.set("type", "virtio")
+    tablet.set("bus", "virtio")
+    for address in tablet.findall("address"):
+        tablet.remove(address)
+    return etree.tostring(root, encoding="utf-8").decode()

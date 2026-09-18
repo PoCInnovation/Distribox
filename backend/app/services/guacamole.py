@@ -9,6 +9,21 @@ def build_instruction(*args: str) -> str:
     return ",".join(f"{len(a)}.{a}" for a in args) + ";"
 
 
+def complete_instructions_end(text: str) -> int:
+    end = 0
+    pos = 0
+    while True:
+        dot = text.find(".", pos)
+        if dot == -1:
+            return end
+        element_end = dot + 1 + int(text[pos:dot])
+        if element_end >= len(text):
+            return end
+        pos = element_end + 1
+        if text[element_end] == ";":
+            end = pos
+
+
 async def read_instruction(reader: asyncio.StreamReader) -> list[str]:
     """Read one Guacamole instruction using length-prefix parsing.
 
@@ -93,8 +108,8 @@ async def guacd_handshake(
         "password": "",
         "swap-red-blue": "false",
         "read-only": "false",
-        "cursor": "remote",
-        "encoding": "copyrect tight zrle hextile",
+        "cursor": "local",
+        "encodings": "copyrect raw hextile tight zrle",
         "color-depth": "24",
         "autoretry": "",
         "username": "",
@@ -138,8 +153,8 @@ async def guacd_handshake(
     await writer.drain()
     writer.write(build_instruction("video").encode())
     await writer.drain()
-    writer.write(build_instruction("image", "image/png",
-                 "image/jpeg", "image/webp").encode())
+    writer.write(build_instruction(
+        "image", "image/png", "image/jpeg").encode())
     await writer.drain()
 
     writer.write(build_instruction(*connect_values).encode())
