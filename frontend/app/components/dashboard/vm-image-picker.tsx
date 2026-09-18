@@ -20,11 +20,15 @@ import {
   MonitorIcon,
   BoxIcon,
   CheckIcon,
+  UploadIcon,
 } from "lucide-react";
 import { DistroLogo } from "@/components/distro-logo";
-import type { ImageMetadata } from "~/lib/types";
+import { Policy, type ImageMetadata } from "~/lib/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useAuthz } from "@/contexts/authz-context";
+import { UploadImageDialog } from "@/components/dashboard/upload-image-dialog";
 
 interface VMImageSelectProps {
   selectedOS: string;
@@ -113,10 +117,12 @@ function ImagePicker({
   images,
   selectedOS,
   setSelectedOS,
+  action,
 }: {
   images: ImageMetadata[];
   selectedOS: string;
   setSelectedOS: (value: string, distribution?: string) => void;
+  action?: React.ReactNode;
 }) {
   const [search, setSearch] = useState("");
   const [activeFamily, setActiveFamily] = useState("All");
@@ -152,6 +158,7 @@ function ImagePicker({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        {action}
       </div>
 
       <div className="flex h-72">
@@ -187,7 +194,7 @@ function ImagePicker({
               ) : (
                 filtered.map((image) => (
                   <button
-                    key={image.name}
+                    key={image.image}
                     type="button"
                     onClick={() =>
                       setSelectedOS(image.image, image.distribution)
@@ -217,6 +224,14 @@ function ImagePicker({
                         >
                           {image.family}
                         </Badge>
+                        {image.firmware === "efi" && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs px-1.5 py-0 h-4"
+                          >
+                            UEFI
+                          </Badge>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground truncate mt-0.5 font-mono">
                         {image.image}
@@ -238,22 +253,66 @@ function ImagePicker({
   );
 }
 
+function UploadImageButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-7 px-2 text-xs"
+      onClick={onClick}
+    >
+      <UploadIcon className="h-3.5 w-3.5" />
+      Upload
+    </Button>
+  );
+}
+
 export function VMImageSelect({
   selectedOS,
   setSelectedOS,
   enabled = true,
 }: VMImageSelectProps) {
   const { data: images, isLoading, error } = useImages(enabled);
+  const authz = useAuthz();
+  const canUpload = authz.hasPolicy(Policy.IMAGES_UPLOAD);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
-  if (isLoading) return <LoadingVMImageSelect />;
-  if (error || !images) return <ErrorVMImageSelect error={error} />;
-  if (images.length === 0) return <EmptyVMImageSelect />;
+  const uploadButton = canUpload ? (
+    <UploadImageButton onClick={() => setUploadOpen(true)} />
+  ) : null;
+
+  let content: React.ReactNode;
+  if (isLoading) {
+    content = <LoadingVMImageSelect />;
+  } else if (error || !images) {
+    content = <ErrorVMImageSelect error={error} />;
+  } else if (images.length === 0) {
+    content = <EmptyVMImageSelect />;
+  } else {
+    content = (
+      <ImagePicker
+        images={images}
+        selectedOS={selectedOS}
+        setSelectedOS={setSelectedOS}
+        action={uploadButton}
+      />
+    );
+  }
 
   return (
-    <ImagePicker
-      images={images}
-      selectedOS={selectedOS}
-      setSelectedOS={setSelectedOS}
-    />
+    <div className="space-y-2">
+      {content}
+      {uploadButton && (!images || images.length === 0) && (
+        <div className="flex justify-end">{uploadButton}</div>
+      )}
+      {canUpload && (
+        <UploadImageDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          onUploaded={(image) => setSelectedOS(image.image, image.distribution)}
+        />
+      )}
+    </div>
   );
 }

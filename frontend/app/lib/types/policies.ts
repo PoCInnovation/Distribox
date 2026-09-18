@@ -6,6 +6,7 @@ export enum Policy {
   AUTH_CHANGE_PASSWORD = "auth:changePassword",
   HOST_GET = "host:get",
   IMAGES_GET = "images:get",
+  IMAGES_UPLOAD = "images:upload",
   POLICIES_GET = "policies:get",
   USERS_GET = "users:get",
   USERS_CREATE = "users:create",
@@ -51,6 +52,7 @@ export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
   [Policy.HOST_GET]: "Allows the user to fetch the host resources.",
   [Policy.IMAGES_GET]:
     "Allows the user to fetch images metadata from the registry.",
+  [Policy.IMAGES_UPLOAD]: "Allows the user to upload local images.",
   [Policy.POLICIES_GET]: "Allows the user to fetch policies.",
   [Policy.USERS_GET]: "Allows the user to fetch users.",
   [Policy.USERS_CREATE]: "Allows the user to create users.",
@@ -128,6 +130,12 @@ export const POLICY_COLORS = {
     border: "border-sky-500",
     hover: "hover:bg-sky-500/30",
     text: "text-sky-600 dark:text-sky-400",
+  },
+  [Policy.IMAGES_UPLOAD]: {
+    bg: "bg-sky-600/20",
+    border: "border-sky-600",
+    hover: "hover:bg-sky-600/30",
+    text: "text-sky-700 dark:text-sky-400",
   },
   [Policy.POLICIES_GET]: {
     bg: "bg-violet-500/20",
