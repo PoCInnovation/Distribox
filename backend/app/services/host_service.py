@@ -3,13 +3,14 @@ import psutil
 from app.models.host import HostInfoBase
 from app.services.vm_service import VmService
 from app.core.config import system_monitor
+from app.core.constants import BASE_DIR
 
 
 class HostService:
 
     @staticmethod
     def get_host_info():
-        disk_usage = shutil.disk_usage("/")
+        disk_usage = shutil.disk_usage(BASE_DIR)
         mem_usage = psutil.virtual_memory()
 
         disk = {
