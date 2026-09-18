@@ -35,7 +35,6 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { KEYBOARD_LAYOUTS } from "@/lib/keyboard-layouts";
-import { StorageSettingsSection } from "@/components/dashboard/storage-settings-section";
 
 function getBrowserTimezone(): string {
   try {
@@ -227,7 +226,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="h-full min-w-0 p-4 md:p-8">
+    <div className="h-full p-8">
       <div className="mb-8 flex items-start justify-between">
         <div>
           <h1 className="mb-2 font-mono text-3xl font-bold tracking-tight">
@@ -334,9 +333,6 @@ export default function SettingsPage() {
         </Card>
 
         <Separator />
-
-        {(authz.hasPolicy(Policy.STORAGE_GET) ||
-          authz.hasPolicy(Policy.STORAGE_MANAGE)) && <StorageSettingsSection />}
 
         <Card className="border-border bg-card">
           <CardHeader>

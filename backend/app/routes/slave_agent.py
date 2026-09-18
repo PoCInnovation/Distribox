@@ -9,42 +9,8 @@ from app.services.host_service import HostService
 from app.services.vm_screenshot import capture_screenshot
 from app.utils.vnc import get_vnc_port
 from app.utils.slave_auth import require_slave_token
-from app.models.storage import StorageOverview, StorageSettings, StorageAdd, StorageUpdate
-from app.services.storage_service import StorageService
-from app.services.storage_management import StorageManagementService
 
 router = APIRouter()
-
-
-@router.get("/host/storage/settings", response_model=StorageSettings,
-            dependencies=[Depends(require_slave_token)])
-def get_storage_settings():
-    return StorageManagementService.settings()
-
-
-@router.post("/host/storage/locations", response_model=StorageSettings,
-             status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(require_slave_token)])
-def add_storage(payload: StorageAdd):
-    return StorageManagementService.add(payload)
-
-
-@router.patch("/host/storage/locations/{storage_id}", response_model=StorageSettings,
-              dependencies=[Depends(require_slave_token)])
-def update_storage(storage_id: str, payload: StorageUpdate):
-    return StorageManagementService.update(storage_id, payload)
-
-
-@router.get("/host/storage", response_model=StorageOverview,
-            dependencies=[Depends(require_slave_token)])
-def get_storage():
-    return StorageService.overview()
-
-
-@router.post("/vms/{vm_id}/duplicate", response_model=VmRead,
-             dependencies=[Depends(require_slave_token)])
-def duplicate_vm(vm_id: str):
-    return VmService.duplicate_vm(vm_id)
 
 
 @router.post(

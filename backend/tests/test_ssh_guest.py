@@ -45,7 +45,7 @@ def guest(monkeypatch, tmp_path):
     connection.lookupByName.return_value = domain
     connection.networkLookupByName.return_value = network
     monkeypatch.setattr(ssh_guest, "_get_connection", lambda: connection)
-    monkeypatch.setattr(ssh_guest, "_vm_directory", lambda _: vm_dir)
+    monkeypatch.setattr(ssh_guest, "VMS_DIR", tmp_path)
     monkeypatch.setenv("DISTRIBOX_SECRET",
                        "test-encryption-secret-for-ssh-guest")
     _get_fernet.cache_clear()

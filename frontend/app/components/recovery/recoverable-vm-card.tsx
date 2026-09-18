@@ -26,9 +26,6 @@ export function RecoverableVMCard({
           <p className="text-xs text-muted-foreground font-mono truncate">
             {vm.vm_id}
           </p>
-          <p className="text-xs text-muted-foreground truncate">
-            Storage: {vm.storage_id}
-          </p>
           <div className="mt-1 flex flex-wrap gap-1.5">
             <Badge variant="outline" className="text-xs">
               Distro: {vm.distribution}

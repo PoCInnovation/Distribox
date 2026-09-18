@@ -18,7 +18,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import HTTPException
 
-from app.services.storage_service import StorageService
+from app.core.constants import VMS_DIR
 from app.utils.crypto import decrypt_secret, encrypt_secret
 
 
@@ -152,23 +152,11 @@ def resolve_guest_target(vm_id: str) -> str:
             503, "Cannot resolve the VM's SSH address") from exc
 
 
-def _vm_directory(vm_id: str) -> Path:
-    from sqlmodel import Session
-    from app.core.config import engine
-    from app.orm.vm import VmORM
-
-    with Session(engine) as session:
-        record = session.get(VmORM, UUID(vm_id))
-        if record is None:
-            raise HTTPException(404, "The VM was not found")
-        return StorageService.vm_dir(record.storage_id, record.id)
-
-
 def _load_private_key(vm_id: str) -> Ed25519PrivateKey:
     if len(os.environ.get("DISTRIBOX_SECRET", "")) < 32:
         raise HTTPException(
             503, "SSH requires DISTRIBOX_SECRET with at least 32 characters on this host")
-    vm_dir = _vm_directory(vm_id)
+    vm_dir = VMS_DIR / str(UUID(vm_id))
     if not vm_dir.is_dir() or vm_dir.is_symlink():
         raise HTTPException(409, "The VM storage is unavailable for SSH")
     key_path = vm_dir / "ssh-client-key.enc"

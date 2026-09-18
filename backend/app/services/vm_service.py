@@ -2,14 +2,11 @@ import uuid
 import secrets
 import subprocess
 import logging
-import os
-import tempfile
-from contextlib import contextmanager
 from shutil import copy, rmtree
 import libvirt
 from app.utils.vm import wait_for_state
 from typing import Optional
-from app.core.constants import VM_STATE_NAMES
+from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML, VmRename
 from app.models.image import ImageRead
 from app.core.xml_builder import build_xml
@@ -25,10 +22,11 @@ from app.utils.vm import get_vm_ip
 from app.utils.crypto import decrypt_secret, encrypt_secret
 from app.utils.seed import ensure_seed_iso
 from app.core.config import s3, distribox_bucket_registry
+from os import path
 from app.services.image_service import ImageService
 import yaml
 from pathlib import Path
-from app.services.storage_service import StorageService
+from sqlalchemy.orm import make_transient
 
 logger = logging.getLogger(__name__)
 
@@ -51,116 +49,34 @@ def ensure_default_network():
 class Vm:
     @staticmethod
     def _resolve_image_name(os_value: str) -> str:
-        return StorageService.safe_image_name(os_value)
-
-    @staticmethod
-    def _cache_image(location, image_name: str, disk_size: int) -> Path:
-        """Check capacity and publish a complete image before its revision metadata."""
-        images_dir = StorageService.images_dir(location.id)
-        image_path = images_dir / image_name
-        metadata_name = image_name.removesuffix(".qcow2") + ".metadata.yaml"
-        metadata_path = images_dir / metadata_name
-        if image_path.is_symlink() or metadata_path.is_symlink():
+        if not os_value.endswith(".qcow2"):
             raise HTTPException(
-                409, "The image cache contains an unsafe symbolic link")
-        try:
-            response = s3.get_object(
-                Bucket=distribox_bucket_registry, Key=metadata_name)
-            metadata_text = response["Body"].read().decode("utf-8")
-            metadata = ImageRead(**yaml.safe_load(metadata_text))
-            if metadata.image != image_name:
-                raise ValueError(
-                    "Image metadata does not match the requested image")
-            local_revision = None
-            if metadata_path.is_file():
-                try:
-                    local_revision = ImageRead(**yaml.safe_load(
-                        metadata_path.read_text(encoding="utf-8"))).revision
-                except (ValueError, TypeError, yaml.YAMLError):
-                    pass
-            download_needed = not image_path.is_file() or local_revision != metadata.revision
-            image_bytes = (
-                int(s3.head_object(Bucket=distribox_bucket_registry,
-                    Key=image_name)["ContentLength"])
-                if download_needed else image_path.stat().st_size
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid image '{os_value}': expected .qcow2 image",
             )
-        except Exception as exc:
-            raise HTTPException(
-                502, "Cannot read the image registry; try again shortly") from exc
-
-        # The copy and its requested growth need room even when the base image is cached.
-        required_bytes = disk_size * 1024 ** 3 + \
-            image_bytes * (2 if download_needed else 1)
-        StorageService.ensure_space(location, required_bytes)
-        if not download_needed:
-            return image_path
-
-        temporary_image = None
-        temporary_metadata = None
-        try:
-            with tempfile.NamedTemporaryFile(dir=images_dir, suffix=".part", delete=False) as stream:
-                temporary_image = Path(stream.name)
-            s3.download_file(distribox_bucket_registry,
-                             image_name, str(temporary_image))
-            if temporary_image.stat().st_size != image_bytes:
-                raise OSError("The image download is incomplete")
-            # QEMU must be able to read the cached image after it is copied.
-            temporary_image.chmod(0o644)
-            with temporary_image.open("rb") as stream:
-                os.fsync(stream.fileno())
-            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=images_dir,
-                                             suffix=".part", delete=False) as stream:
-                temporary_metadata = Path(stream.name)
-                stream.write(metadata_text)
-                stream.flush()
-                os.fsync(stream.fileno())
-            temporary_image.replace(image_path)
-            temporary_metadata.replace(metadata_path)
-        except Exception as exc:
-            raise HTTPException(
-                502, "The image download failed; retry to download it again") from exc
-        finally:
-            for temporary in (temporary_image, temporary_metadata):
-                if temporary is not None:
-                    temporary.unlink(missing_ok=True)
-        return image_path
+        return os_value
 
     @staticmethod
-    @contextmanager
-    def _prepared_image(storage_id: Optional[str], image_name: str, disk_size: int):
-        if storage_id is not None:
-            candidates = [storage_id]
-        else:
-            locations = StorageService.overview()["locations"]
-            candidates = [entry["id"] for entry in sorted(
-                locations, key=lambda entry: entry["available_gib"], reverse=True)
-                if entry["available"] and entry["enabled"]]
-        if not candidates:
-            raise HTTPException(
-                409, "No storage location is available. Check the mounts on this host.")
-        capacity_error = None
-        for candidate in candidates:
-            try:
-                location = StorageService.select(
-                    candidate, disk_size * 1024 ** 3)
-            except HTTPException as exc:
-                if storage_id is None and exc.status_code == 507:
-                    capacity_error = exc
-                    continue
-                raise
-            with StorageService.lock(location):
-                try:
-                    image_path = Vm._cache_image(
-                        location, image_name, disk_size)
-                except HTTPException as exc:
-                    if storage_id is None and exc.status_code == 507:
-                        capacity_error = exc
-                        continue
-                    raise
-                # Keep the lock until the caller finishes copying and defining the VM.
-                yield location, image_path
-                return
-        raise capacity_error
+    def has_revision_changed(metadata_filename: str) -> bool:
+        if (path.exists(IMAGES_DIR / metadata_filename) is False):
+            return True
+
+        metadata_file = s3.get_object(
+            Bucket=distribox_bucket_registry,
+            Key=metadata_filename)
+        file_content = metadata_file["Body"].read().decode("utf-8")
+
+        metadata = yaml.safe_load(file_content)
+        local_metadata = yaml.safe_load(
+            (IMAGES_DIR /
+             metadata_filename).read_text(
+                encoding="utf-8"))
+
+        revision = metadata["revision"]
+        local_revision = local_metadata["revision"]
+        if (revision != local_revision):
+            return True
+        return False
 
     def __init__(self, vm_create: VmCreate):
         self.id = uuid.uuid4()
@@ -171,62 +87,67 @@ class Vm:
         self.disk_size = vm_create.disk_size
         self.keyboard_layout = vm_create.keyboard_layout
         self.ssh_enabled = vm_create.ssh_enabled
-        self.state = "Stopped"
-        self.ipv4 = None
-        self.credentials_count = 0
-        self.slave_id = None
-        self.slave_name = None
+        self.state: Optional[str] = None
+        self.state = 'Stopped'
+        self.ipv4: Optional[str] = None
+        self.credentials_count: int = 0
 
-        vm_dir = None
-        domain = None
-        created_directory = False
+        vm_dir = VMS_DIR / str(self.id)
+        distribox_image_dir = IMAGES_DIR / self.os
+
+        metadata_filename = self.os.replace("qcow2", "metadata.yaml")
+        if (self.has_revision_changed(metadata_filename) is True):
+            s3.download_file(
+                distribox_bucket_registry,
+                metadata_filename,
+                IMAGES_DIR / metadata_filename)
         try:
-            with self._prepared_image(vm_create.storage_id, self.os, self.disk_size) as (location, image_path):
-                self.storage_id = location.id
-                self.storage_path = location.display_path
-                vm_dir = StorageService.vm_dir(location.id, self.id)
-                vm_dir.mkdir(exist_ok=False)
-                created_directory = True
-                ensure_seed_iso(
-                    keyboard_layout=self.keyboard_layout, vm_dir=vm_dir)
-                copy(image_path, vm_dir / self.os)
-                subprocess.run(["qemu-img", "resize", str(vm_dir / self.os),
-                                f"+{self.disk_size}G"], check=True)
+            if (path.exists(distribox_image_dir)
+                    is False or self.has_revision_changed is True):
+                s3.download_file(
+                    distribox_bucket_registry,
+                    self.os,
+                    distribox_image_dir)
+
+            vm_dir.mkdir(parents=True, exist_ok=True)
+            ensure_seed_iso(
+                keyboard_layout=self.keyboard_layout,
+                vm_dir=vm_dir,
+            )
+            copy(distribox_image_dir, vm_dir)
+            vm_path = vm_dir / self.os
+            subprocess.run(
+                ["qemu-img", "resize", vm_path, f"+{self.disk_size}G"],
+                check=True,
+            )
+            vm_xml = build_xml(VmCreateXML(
+                id=self.id,
+                os=self.os,
+                name=self.name,
+                mem=self.mem,
+                vcpus=self.vcpus,
+                disk_size=self.disk_size,
+                keyboard_layout=self.keyboard_layout,
+            ))
+            conn = QEMUConfig.get_connection()
+            conn.defineXML(vm_xml)
+            with Session(engine) as session:
                 vm_record = VmORM(
-                    id=self.id, name=self.name, os=self.os, mem=self.mem,
-                    vcpus=self.vcpus, disk_size=self.disk_size,
-                    keyboard_layout=self.keyboard_layout, ssh_enabled=self.ssh_enabled,
-                    storage_id=self.storage_id,
+                    id=self.id,
+                    name=self.name,
+                    os=self.os,
+                    mem=self.mem,
+                    vcpus=self.vcpus,
+                    disk_size=self.disk_size,
+                    keyboard_layout=self.keyboard_layout,
+                    ssh_enabled=self.ssh_enabled,
+                    slave_id=getattr(vm_create, 'slave_id', None),
                 )
-                domain = QEMUConfig.get_connection().defineXML(
-                    build_xml(VmCreateXML(**vm_record.model_dump())))
-                with Session(engine) as session:
-                    session.add(vm_record)
-                    session.commit()
-            if vm_create.activate_at_start:
+                session.add(vm_record)
+                session.commit()
+            if vm_create.activate_at_start is True:
                 self.start()
         except Exception:
-            # Remove only this attempt's files; a failed cache download never publishes .part files.
-            cleanup_safe = True
-            if domain is not None:
-                try:
-                    if domain.isActive():
-                        domain.destroy()
-                    domain.undefine()
-                except libvirt.libvirtError:
-                    cleanup_safe = False
-                    logger.exception(
-                        "Could not remove failed VM domain %s", self.id)
-            if cleanup_safe:
-                try:
-                    with Session(engine) as session:
-                        session.exec(delete(VmORM).where(VmORM.id == self.id))
-                        session.commit()
-                except Exception:
-                    logger.exception(
-                        "Could not remove failed VM database record %s", self.id)
-            if created_directory and cleanup_safe:
-                rmtree(vm_dir)
             raise
 
     @classmethod
@@ -249,11 +170,6 @@ class Vm:
                 vm_instance.mem = vm_record.mem
                 vm_instance.vcpus = vm_record.vcpus
                 vm_instance.disk_size = vm_record.disk_size
-                vm_instance.storage_id = vm_record.storage_id
-                vm_instance.storage_path = next((
-                    location.display_path for location in StorageService.locations()
-                    if location.id == vm_record.storage_id
-                ), None)
                 vm_instance.keyboard_layout = vm_record.keyboard_layout
                 vm_instance.ssh_enabled = vm_record.ssh_enabled
                 vm_instance.state = VM_STATE_NAMES.get(vm_state, 'None')
@@ -292,17 +208,8 @@ class Vm:
             raise
 
     def start(self):
-        location = StorageService.get(self.storage_id)
-        with StorageService.lock(location):
-            return self._start()
-
-    def _start(self):
-        vm_dir = StorageService.vm_dir(self.storage_id, self.id)
-        disk_path = vm_dir / StorageService.safe_image_name(self.os)
+        vm_dir = VMS_DIR / str(self.id)
         per_vm_seed = vm_dir / "seed.iso"
-        if not disk_path.is_file() or disk_path.is_symlink() or per_vm_seed.is_symlink():
-            raise HTTPException(
-                409, "The VM disk or seed is unavailable or unsafe")
         if not per_vm_seed.exists():
             ensure_seed_iso(
                 keyboard_layout=self.keyboard_layout,
@@ -362,29 +269,32 @@ class Vm:
         return {"state": VM_STATE_NAMES.get(state, 'None')}
 
     def remove(self):
-        location = StorageService.get(self.storage_id)
-        with StorageService.lock(location):
-            self._remove()
+        try:
+            self.stop()
+            conn = QEMUConfig.get_connection()
+            vm = conn.lookupByName(str(self.id))
+            vm.undefine()
+        except Exception:
+            pass
 
-    def _remove(self):
-        # Validate the recorded location before changing libvirt or database state.
-        vm_dir = StorageService.vm_dir(self.storage_id, self.id)
-        self.stop()
-        conn = QEMUConfig.get_connection()
-        domain = conn.lookupByName(str(self.id))
-        if domain.isActive():
-            raise HTTPException(
-                409, "Wait for the VM to stop before deleting it")
-        domain.undefine()
+        vm_dir = VMS_DIR / str(self.id)
         if vm_dir.exists():
             rmtree(vm_dir)
 
         with Session(engine) as session:
-            session.exec(delete(EventParticipantORM).where(
-                EventParticipantORM.vm_id == self.id))
-            session.exec(delete(VmCredentialORM).where(
-                VmCredentialORM.vm_id == self.id))
-            session.exec(delete(VmORM).where(VmORM.id == self.id))
+            session.exec(
+                delete(EventParticipantORM).where(
+                    EventParticipantORM.vm_id == self.id
+                )
+            )
+            session.exec(
+                delete(VmCredentialORM).where(
+                    VmCredentialORM.vm_id == self.id
+                )
+            )
+            session.exec(
+                delete(VmORM).where(VmORM.id == self.id)
+            )
             session.commit()
 
 
@@ -423,9 +333,8 @@ class VmService:
     @staticmethod
     def _with_slave_fields(data: dict, slave: SlaveORM, vm_id: str) -> dict:
         with Session(engine) as session:
-            record = VmService._get_vm_or_404(session, vm_id)
-            data["ssh_enabled"] = record.ssh_enabled
-            data["storage_id"] = record.storage_id
+            data["ssh_enabled"] = VmService._get_vm_or_404(
+                session, vm_id).ssh_enabled
         data["slave_id"] = str(slave.id)
         data["slave_name"] = slave.name
         return data
@@ -469,7 +378,6 @@ class VmService:
                         from app.services.slave_client import slave_get_vm
                         data = slave_get_vm(slave, str(vm_record.id))
                         data["ssh_enabled"] = vm_record.ssh_enabled
-                        data["storage_id"] = vm_record.storage_id
                         data["slave_id"] = str(vm_record.slave_id)
                         data["slave_name"] = slave.name
                         vm_list.append(data)
@@ -484,7 +392,6 @@ class VmService:
                     "mem": vm_record.mem,
                     "vcpus": vm_record.vcpus,
                     "disk_size": vm_record.disk_size,
-                    "storage_id": vm_record.storage_id,
                     "keyboard_layout": vm_record.keyboard_layout,
                     "ssh_enabled": vm_record.ssh_enabled,
                     "state": "Unknown",
@@ -519,7 +426,6 @@ class VmService:
                         "mem": vm_record.mem,
                         "vcpus": vm_record.vcpus,
                         "disk_size": vm_record.disk_size,
-                        "storage_id": vm_record.storage_id,
                         "keyboard_layout": vm_record.keyboard_layout,
                         "ssh_enabled": vm_record.ssh_enabled,
                         "state": "Unknown",
@@ -540,10 +446,6 @@ class VmService:
         return state
 
     def create_vm(vm_create: VmCreate):
-        Vm._resolve_image_name(vm_create.os)
-        if vm_create.auto_place and vm_create.storage_id and not vm_create.slave_id:
-            raise HTTPException(
-                400, "Choose a host before choosing a storage location")
         if vm_create.slave_id:
             return VmService._create_vm_on_slave(vm_create)
         if vm_create.auto_place:
@@ -592,10 +494,7 @@ class VmService:
             except Exception:
                 continue
 
-        if best_slave:
-            return best_slave.id
-        raise HTTPException(
-            507, "No available host has enough memory, CPU and storage for this VM")
+        return best_slave.id if best_slave else None
 
     @staticmethod
     def _create_vm_on_slave(vm_create: VmCreate):
@@ -619,7 +518,6 @@ class VmService:
             "keyboard_layout": vm_create.keyboard_layout,
             "ssh_enabled": vm_create.ssh_enabled,
             "activate_at_start": vm_create.activate_at_start,
-            "storage_id": vm_create.storage_id,
         }
         result = slave_create_vm(slave, payload)
         vm_id = result["id"]
@@ -636,7 +534,6 @@ class VmService:
                 keyboard_layout=vm_create.keyboard_layout,
                 ssh_enabled=vm_create.ssh_enabled,
                 slave_id=slave.id,
-                storage_id=result.get("storage_id", "default"),
             )
             session.add(vm_record)
             session.commit()
@@ -825,219 +722,124 @@ class VmService:
             session.commit()
 
     @staticmethod
-    def _recoverable_disks(storage_id: Optional[str] = None):
-        locations = ([StorageService.get(storage_id)] if storage_id is not None
-                     else StorageService.locations())
-        with Session(engine) as session:
-            for location in locations:
-                try:
-                    StorageService.get(location.id)
-                except HTTPException:
-                    # An unplugged pool must not hide recoverable VMs on other pools.
-                    continue
-                for directory in (location.path / "vms").iterdir():
-                    if not directory.is_dir() or directory.is_symlink():
-                        continue
-                    try:
-                        vm_id = uuid.UUID(directory.name)
-                    except ValueError:
-                        continue
-                    if session.get(VmORM, vm_id) is not None:
-                        continue
-                    for image in directory.iterdir():
-                        if image.is_file() and not image.is_symlink() and image.suffix == ".qcow2":
-                            try:
-                                StorageService.safe_image_name(image.name)
-                            except HTTPException:
-                                continue
-                            yield location, directory, image.name
-
-    @staticmethod
     def get_recoverable_vms() -> list[RecoverableVm]:
         recoverable_vms = []
-        for location, directory, image_name in VmService._recoverable_disks():
-            metadata_name = image_name.removesuffix(
-                ".qcow2") + ".metadata.yaml"
-            metadata_path = StorageService.images_dir(
-                location.id) / metadata_name
-            image_metadata = None
-            if metadata_path.is_file() and not metadata_path.is_symlink():
-                try:
-                    image_metadata = ImageRead(
-                        **yaml.safe_load(metadata_path.read_text()))
-                except (ValueError, TypeError, yaml.YAMLError):
-                    pass
-            if image_metadata is None:
-                image_metadata = ImageService.get_distribox_image(
-                    metadata_name)
-            if image_metadata is None:
-                image_metadata = ImageRead(name=image_name, image=image_name,
-                                           version="Unknown", distribution="Unknown",
-                                           family="Unknown", revision=0)
-            metadata = image_metadata.model_dump()
-            metadata["image"] = image_name
-            recoverable_vms.append(RecoverableVm(
-                vm_id=directory.name, storage_id=location.id,
-                storage_path=location.display_path, **metadata))
+        vm_root = Path(VMS_DIR)
+        with Session(engine) as session:
+            for vm in vm_root.iterdir():
+                vm_record = session.get(VmORM, uuid.UUID(vm.name))
+                if vm_record is None:
+                    for vm_file in vm.iterdir():
+                        if vm_file.name.endswith(".qcow2"):
+                            image_name = vm_file.name.replace(
+                                ".qcow2", ".metadata.yaml")
+                            image_metadata = ImageService.get_distribox_image(
+                                image_name)
+                            recoverable_vms.append(
+                                RecoverableVm(
+                                    vm_id=vm.name,
+                                    **image_metadata.model_dump()))
         return recoverable_vms
 
     @staticmethod
-    def _recoverable_source(vm_id: str, storage_id: Optional[str] = None):
-        normalized = str(VmService._parse_vm_id(vm_id))
-        matches = [item for item in VmService._recoverable_disks(storage_id)
-                   if item[1].name == normalized]
-        if not matches:
-            raise HTTPException(404, f"Recoverable VM {vm_id} not found")
-        if len(matches) > 1:
-            raise HTTPException(
-                409, "Several disks match this VM; choose its storage location")
-        return matches[0]
-
-    @staticmethod
     def recover_vm(recoverable_vm: RecoverableVmCreate):
-        location, directory, image_name = VmService._recoverable_source(
-            str(recoverable_vm.vm_id), recoverable_vm.storage_id)
-        vm_record = VmORM(
-            id=recoverable_vm.vm_id, name=recoverable_vm.name, os=image_name,
-            mem=recoverable_vm.mem, vcpus=recoverable_vm.vcpus,
-            disk_size=recoverable_vm.disk_size, storage_id=location.id,
-        )
-        domain = None
-        with StorageService.lock(location):
-            directory = StorageService.vm_dir(
-                location.id, recoverable_vm.vm_id)
-            if (directory / "seed.iso").is_symlink():
-                raise HTTPException(
-                    409, "The VM seed must not be a symbolic link")
-            with Session(engine) as session:
-                if session.get(VmORM, vm_record.id) is not None:
-                    raise HTTPException(
-                        409, "This VM has already been recovered")
-                conn = QEMUConfig.get_connection()
-                try:
-                    existing = conn.lookupByName(str(vm_record.id))
-                except libvirt.libvirtError as exc:
-                    if exc.get_error_code() != libvirt.VIR_ERR_NO_DOMAIN:
-                        raise
-                else:
-                    from lxml import etree
-                    source = etree.fromstring(existing.XMLDesc(0).encode()).find(
-                        "./devices/disk[@device='disk']/source")
-                    if source is None or source.get("file") != str(directory / image_name):
-                        raise HTTPException(
-                            409, "This VM is already defined with a different disk")
-                try:
-                    ensure_seed_iso(vm_dir=directory)
-                    try:
-                        conn.lookupByName(str(vm_record.id))
-                    except libvirt.libvirtError as exc:
-                        if exc.get_error_code() != libvirt.VIR_ERR_NO_DOMAIN:
-                            raise
-                        domain = conn.defineXML(
-                            build_xml(VmCreateXML(**vm_record.model_dump())))
+        rec_vms_list = VmService.get_recoverable_vms()
+
+        for v in rec_vms_list:
+            if v.vm_id == str(recoverable_vm.vm_id):
+                with Session(engine) as session:
+                    vm_record = VmORM(
+                        id=recoverable_vm.vm_id,
+                        name=recoverable_vm.name,
+                        os=v.image,
+                        mem=recoverable_vm.mem,
+                        vcpus=recoverable_vm.vcpus,
+                        disk_size=recoverable_vm.disk_size,
+                    )
                     session.add(vm_record)
                     session.commit()
-                except Exception:
-                    if domain is not None:
-                        domain.undefine()
-                    raise
-        return Vm.get(str(recoverable_vm.vm_id))
+                    session.refresh(vm_record)
+                return VmRead(
+                    id=vm_record.id,
+                    os=vm_record.os,
+                    name=vm_record.name,
+                    mem=vm_record.mem,
+                    vcpus=vm_record.vcpus,
+                    disk_size=vm_record.disk_size,
+                    state="Stopped",
+                    ipv4=None,
+                    credentials_count=0,
+                )
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Vm {recoverable_vm.vm_id} not found in database"
+        )
 
     @staticmethod
-    def remove_recoverable_vm(vm_id: str, storage_id: Optional[str] = None):
-        location, directory, image_name = VmService._recoverable_source(
-            vm_id, storage_id)
-        with StorageService.lock(location):
-            # Recheck after taking the lock: recovery could have registered it meanwhile.
-            with Session(engine) as session:
-                if session.get(VmORM, VmService._parse_vm_id(vm_id)) is not None:
-                    raise HTTPException(
-                        409, "This VM is registered; delete it from the VM list")
-            try:
-                domain = QEMUConfig.get_connection().lookupByName(str(uuid.UUID(vm_id)))
-            except libvirt.libvirtError as exc:
-                if exc.get_error_code() != libvirt.VIR_ERR_NO_DOMAIN:
-                    raise
-            else:
-                from lxml import etree
-                source = etree.fromstring(domain.XMLDesc(0).encode()).find(
-                    "./devices/disk[@device='disk']/source")
-                if source is None or source.get("file") != str(directory / image_name):
-                    raise HTTPException(
-                        409, "This VM is defined with a different disk")
-                if domain.isActive():
-                    raise HTTPException(
-                        409, "Stop or recover this VM before deleting its files")
-                domain.undefine()
-            rmtree(StorageService.vm_dir(location.id, vm_id))
+    def remove_recoverable_vm(vm_id: str):
+        vm_root = Path(VMS_DIR)
+        for v in vm_root.iterdir():
+            if v.name == vm_id:
+                rmtree(VMS_DIR / v.name)
+                return
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Vm {vm_id} not found in database"
+        )
 
     @staticmethod
     def remove_all_recoverable_vms():
-        sources = {(location.id, directory.name)
-                   for location, directory, _ in VmService._recoverable_disks()}
-        for storage_id, vm_id in sources:
-            VmService.remove_recoverable_vm(vm_id, storage_id)
+        vms_to_delete = VmService.get_recoverable_vms()
+        vm_root = Path(VMS_DIR)
+        for v in vm_root.iterdir():
+            for x in vms_to_delete:
+                if v.name == str(x.vm_id):
+                    rmtree(VMS_DIR / v.name)
+                    break
+        return
 
     @staticmethod
     def duplicate_vm(vm_id: str):
-        slave = VmService._get_slave_for_vm(vm_id)
-        if slave:
-            if slave.status != "online":
-                raise HTTPException(409, f"Slave {slave.name} is offline")
-            from app.services.slave_client import slave_request, VM_CREATE_TIMEOUT
-            result = slave_request(slave, "POST", f"/vms/{vm_id}/duplicate",
-                                   timeout=VM_CREATE_TIMEOUT)
-            with Session(engine) as session:
-                session.add(VmORM(**{
-                    **VmRead(**result).model_dump(), "slave_id": slave.id,
-                    "ssh_enabled": False,
-                }))
-                session.commit()
-            result["slave_id"] = str(slave.id)
-            result["slave_name"] = slave.name
-            result["ssh_enabled"] = False
-            return result
-
         with Session(engine) as session:
-            source = VmService._get_vm_or_404(session, vm_id)
-            image_name = StorageService.safe_image_name(source.os)
-            location = StorageService.select(source.storage_id)
-            source_directory = StorageService.vm_dir(location.id, source.id)
-            source_image = source_directory / image_name
-            if source_image.is_symlink() or not source_image.is_file():
-                raise HTTPException(409, "The VM disk is unavailable")
-            conn = QEMUConfig.get_connection()
-            duplicate = VmORM(**{
-                **source.model_dump(), "id": uuid.uuid4(), "ssh_enabled": False,
-                "name": VmService._get_duplicate_name(session, source.name),
-            })
-            destination = StorageService.vm_dir(location.id, duplicate.id)
-            domain = None
-            created_directory = False
+            vm_to_duplicate = VmService._get_vm_or_404(session, vm_id)
+            duplicate_vm = VmORM(**vm_to_duplicate.model_dump())
+            duplicate_vm.id = uuid.uuid4()
+            duplicate_vm.ssh_enabled = False
+            duplicate_vm.name = VmService._get_duplicate_name(
+                session, duplicate_vm.name)
+
+            src_dir = VMS_DIR / vm_id
+            dest_path = VMS_DIR / str(duplicate_vm.id)
+
+            vm_xml = build_xml(VmCreateXML(**duplicate_vm.model_dump()))
+
             try:
-                with StorageService.lock(location):
-                    if conn.lookupByName(str(source.id)).isActive():
-                        raise HTTPException(
-                            409, "Stop the VM before duplicating its disk")
-                    StorageService.ensure_space(location, source.disk_size * 1024 ** 3 +
-                                                source_image.stat().st_size)
-                    destination.mkdir(exist_ok=False)
-                    created_directory = True
-                    copy(source_image, destination / image_name)
-                    ensure_seed_iso(
-                        keyboard_layout=source.keyboard_layout, vm_dir=destination)
-                    domain = conn.defineXML(
-                        build_xml(VmCreateXML(**duplicate.model_dump())))
-                    session.add(duplicate)
-                    session.commit()
-            except Exception:
-                session.rollback()
-                if domain is not None:
-                    domain.undefine()
-                if created_directory:
-                    rmtree(destination)
-                raise
-            return Vm.get(str(duplicate.id))
+                session.add(duplicate_vm)
+                session.commit()
+
+                dest_path.mkdir(parents=True, exist_ok=True)
+                copy(src_dir / duplicate_vm.os, dest_path / duplicate_vm.os)
+                seed_src = src_dir / "seed.iso"
+                if seed_src.exists():
+                    copy(seed_src, dest_path / "seed.iso")
+
+                conn = QEMUConfig.get_connection()
+                conn.defineXML(vm_xml)
+            except Exception as e:
+                if dest_path.exists():
+                    rmtree(dest_path)
+                with Session(engine) as cleanup_session:
+                    db_vm = cleanup_session.get(
+                        VmORM, duplicate_vm.id)
+                    if db_vm:
+                        cleanup_session.delete(db_vm)
+                        cleanup_session.commit()
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to duplicate VM: {str(e)}"
+                )
+
+            return Vm.get(str(duplicate_vm.id))
 
     @staticmethod
     def rename_vm(vm_id: str, vm_rename: VmRename):

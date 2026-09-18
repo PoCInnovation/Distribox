@@ -67,8 +67,8 @@ def duplicate_vm(vm_id: str):
     dependencies=[Depends(require_policy("vms:cleanRecoverableVmById"))],
     responses={403: {"model": MissingPoliciesResponse}},
 )
-def remove_recoverable_vm(vm_id: str, storage_id: str | None = None):
-    return VmService.remove_recoverable_vm(vm_id, storage_id)
+def remove_recoverable_vm(vm_id: str):
+    return VmService.remove_recoverable_vm(vm_id)
 
 
 @router.delete(

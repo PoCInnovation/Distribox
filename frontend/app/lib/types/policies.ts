@@ -5,8 +5,6 @@ export enum Policy {
   AUTH_ME_GET = "auth:me:get",
   AUTH_CHANGE_PASSWORD = "auth:changePassword",
   HOST_GET = "host:get",
-  STORAGE_GET = "storage:get",
-  STORAGE_MANAGE = "storage:manage",
   IMAGES_GET = "images:get",
   POLICIES_GET = "policies:get",
   USERS_GET = "users:get",
@@ -51,10 +49,6 @@ export const POLICY_DESCRIPTIONS: Record<Policy, string> = {
     "Allows a user to fetch their own authenticated profile.",
   [Policy.AUTH_CHANGE_PASSWORD]: "Allows a user to change their own password.",
   [Policy.HOST_GET]: "Allows the user to fetch the host resources.",
-  [Policy.STORAGE_GET]:
-    "Allows the user to view storage locations and mounted partitions.",
-  [Policy.STORAGE_MANAGE]:
-    "Allows the user to add, rename, and enable storage locations.",
   [Policy.IMAGES_GET]:
     "Allows the user to fetch images metadata from the registry.",
   [Policy.POLICIES_GET]: "Allows the user to fetch policies.",
@@ -128,18 +122,6 @@ export const POLICY_COLORS = {
     border: "border-slate-500",
     hover: "hover:bg-slate-500/30",
     text: "text-slate-600 dark:text-slate-400",
-  },
-  [Policy.STORAGE_GET]: {
-    bg: "bg-cyan-500/20",
-    border: "border-cyan-500",
-    hover: "hover:bg-cyan-500/30",
-    text: "text-cyan-600 dark:text-cyan-400",
-  },
-  [Policy.STORAGE_MANAGE]: {
-    bg: "bg-teal-500/20",
-    border: "border-teal-500",
-    hover: "hover:bg-teal-500/30",
-    text: "text-teal-600 dark:text-teal-400",
   },
   [Policy.IMAGES_GET]: {
     bg: "bg-sky-500/20",

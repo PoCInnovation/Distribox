@@ -19,8 +19,6 @@ Distribox is a self-hosted platform for creating, managing, and sharing virtual 
 ## VM Creation and Management
 Create virtual machines with custom specs: CPU cores, RAM, disk size, and operating system. Control VMs with start, stop, restart, duplicate, rename, and delete. Connect to any VM directly from your browser.
 
-VM disks and downloaded images can live on another mounted partition. Auto selects the available location with the most free space, or hosts can choose a location when creating a VM.
-
 <div align="center">
   <img src=".github/assets/create-vm.png" alt="VM Creation" width="700"/>
 </div>
@@ -156,22 +154,6 @@ docker compose --profile dev up --build
 ```
 
 To run a slave node on another machine, use the `slave` and follow the guide on the frontend:
-
-### Store VMs on another partition
-
-Open **Settings → Storage**, choose the host, and enable an available mounted partition such as `/data`. Each partition shows its path and available capacity. Give it a name if useful. It becomes available immediately, without a separate command or container restart. Storage management uses the application's `storage:manage` permission; accounts with `storage:get` can view the locations.
-
-When creating a VM, leave **Storage location** on **Auto (most free space)** or choose an enabled location. Downloads and VM disks use that location together. Creation checks space for the image download, the VM disk copy and its growth, plus 1 GiB of headroom. These checks do not reserve future space for sparse disks; monitor free space as VMs grow.
-
-Disabling a location stops new allocations there. Existing VMs and cached images remain available, and their files are never moved or deleted by storage settings. Renaming a location preserves its identity.
-
-The existing Linux `setup.sh` installs the small `distribox-storage` host service alongside libvirt. It discovers supported local filesystems already mounted by the operating system, creates only their dedicated `distribox/images` and `distribox/vms` directories, and exposes those directories under `/var/lib/distribox/storage`. The backend receives new mounts through its existing storage volume. The service listens on a root-only Unix socket and accepts discovered partition IDs; it does not expose a network listener or accept arbitrary paths. Container and host libvirt use the same absolute paths. Docker never receives access to the host root filesystem or Docker socket.
-
-Partitions must already be mounted at persistent paths. This feature does not partition or format disks. The mount may belong to an ordinary user; its parent directories and Distribox's dedicated directories must be root-owned and protected from changes by other accounts. Supported filesystems include ext4, XFS, Btrfs and ZFS; temporary, system and read-only filesystems cannot be enabled. A missing mount or mismatched identity marker blocks use of the location. The host service restores registered mounts on startup and retries returning partitions every 30 seconds.
-
-For an existing installation upgrading to this version, rerun the normal `bash setup.sh` once and recreate the backend with the usual Docker Compose command. Subsequent partition choices happen entirely in Settings. Dynamic partition management requires a Linux host with systemd and Docker Engine; Docker Desktop does not propagate host mounts. The default storage location remains usable without partition management. Previously configured locations retain their existing configuration and mounts.
-
-Back up `/var/lib/distribox/storage.json` and each storage directory, including its `.distribox-storage-id` marker. Keep the original `/var/lib/distribox` directory: it also holds existing VMs, configuration, and the SSH gateway host key. Hosts with custom AppArmor or SELinux rules may need to allow libvirt access to the managed storage paths.
 
 ## Configuration
 

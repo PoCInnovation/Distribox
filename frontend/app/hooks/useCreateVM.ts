@@ -10,7 +10,6 @@ export function useCreateVM() {
     onSuccess: () => {
       // Invalidate and refetch VMs list
       queryClient.invalidateQueries({ queryKey: ["vms"] });
-      queryClient.invalidateQueries({ queryKey: ["host", "storage"] });
     },
   });
 }

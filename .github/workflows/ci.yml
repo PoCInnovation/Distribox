@@ -70,7 +70,7 @@ jobs:
         run: pnpm build
 
   backend-ssh-tests:
-    name: Test backend and storage setup
+    name: Test SSH access
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -82,7 +82,6 @@ jobs:
       - run: PYTHONPATH=backend pytest backend/tests -q
         env:
           AWS_EC2_METADATA_DISABLED: 'true'
-      - run: python -m unittest discover -s host/tests -v
 
   backend-format:
     name: Check Backend Format

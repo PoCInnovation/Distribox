@@ -22,14 +22,6 @@ POLICIES: list[dict[str, str]] = [
         "description": "Allows the user to fetch the host resources.",
     },
     {
-        "policy": "storage:get",
-        "description": "Allows the user to view storage settings and available host partitions.",
-    },
-    {
-        "policy": "storage:manage",
-        "description": "Allows the user to add storage locations, rename them, and enable or disable them for new VMs.",
-    },
-    {
         "policy": "images:get",
         "description": "Allows the user to fetch images metadata from the registry.",
     },

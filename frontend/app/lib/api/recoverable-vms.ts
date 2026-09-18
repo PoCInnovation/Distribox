@@ -13,14 +13,10 @@ export async function recoverVM(payload: RecoverVMPayload): Promise<void> {
   });
 }
 
-export async function cleanRecoverableVM(
-  vmId: string,
-  storageId: string,
-): Promise<void> {
-  await apiRequest<void>(
-    `/vms/clean/${vmId}?storage_id=${encodeURIComponent(storageId)}`,
-    { method: "DELETE" },
-  );
+export async function cleanRecoverableVM(vmId: string): Promise<void> {
+  await apiRequest<void>(`/vms/clean/${vmId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function cleanAllRecoverableVMs(): Promise<void> {

@@ -6,72 +6,11 @@ from app.services.slave_service import SlaveService
 from app.services.slave_client import slave_get_host_info
 from app.models.host import HostInfoBase, ClusterHostInfo, ClusterTotals, NodeHostInfo
 from app.models.user_management import MissingPoliciesResponse
-from app.utils.auth import require_policy, get_current_user, user_has_policy
-from app.orm.user import UserORM
-from app.models.storage import StorageOverview, StorageSettings, StorageAdd, StorageUpdate
-from app.services.storage_service import StorageService
-from app.services.storage_management import StorageManagementService
+from app.utils.auth import require_policy
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def require_storage_read(user: UserORM = Depends(get_current_user)):
-    if not any(user_has_policy(user, policy) for policy in ("storage:get", "storage:manage")):
-        raise HTTPException(403, {"message": "Missing required policies",
-                                  "missing_policies": ["storage:get"]})
-    return user
-
-
-def storage_slave(slave_id: UUID):
-    slave = SlaveService.get_slave(str(slave_id))
-    if not slave:
-        raise HTTPException(404, "Slave not found")
-    if slave.status != "online":
-        raise HTTPException(503, "Slave is offline")
-    return slave
-
-
-@router.get("/storage/settings", response_model=StorageSettings,
-            dependencies=[Depends(require_storage_read)],
-            responses={403: {"model": MissingPoliciesResponse}})
-def get_storage_settings(slave_id: UUID | None = None):
-    if slave_id is None:
-        return StorageManagementService.settings()
-    from app.services.slave_client import slave_get_storage_settings
-    return slave_get_storage_settings(storage_slave(slave_id))
-
-
-@router.post("/storage/locations", response_model=StorageSettings,
-             status_code=status.HTTP_201_CREATED,
-             dependencies=[Depends(require_policy("storage:manage"))],
-             responses={403: {"model": MissingPoliciesResponse}})
-def add_storage(payload: StorageAdd, slave_id: UUID | None = None):
-    if slave_id is None:
-        return StorageManagementService.add(payload)
-    from app.services.slave_client import slave_add_storage
-    return slave_add_storage(storage_slave(slave_id), payload.model_dump(exclude_none=True))
-
-
-@router.patch("/storage/locations/{storage_id}", response_model=StorageSettings,
-              dependencies=[Depends(require_policy("storage:manage"))],
-              responses={403: {"model": MissingPoliciesResponse}})
-def update_storage(storage_id: str, payload: StorageUpdate, slave_id: UUID | None = None):
-    if slave_id is None:
-        return StorageManagementService.update(storage_id, payload)
-    from app.services.slave_client import slave_update_storage
-    return slave_update_storage(storage_slave(slave_id), storage_id, payload.model_dump(exclude_none=True))
-
-
-@router.get("/storage", response_model=StorageOverview,
-            dependencies=[Depends(require_policy("vms:create"))],
-            responses={403: {"model": MissingPoliciesResponse}})
-def get_storage(slave_id: UUID | None = None):
-    if slave_id is None:
-        return StorageService.overview()
-    from app.services.slave_client import slave_get_storage
-    return slave_get_storage(storage_slave(slave_id))
 
 
 @router.get("/info", status_code=status.HTTP_200_OK,

@@ -8,8 +8,6 @@ export const VirtualMachineMetadataSchema = z.object({
   vcpus: z.number().int().nonnegative(),
   mem: z.number().nonnegative(),
   disk_size: z.number().nonnegative(),
-  storage_id: z.string().default("default"),
-  storage_path: z.string().nullable().optional(),
   os: z.string(),
   keyboard_layout: z.string().nullable().optional(),
   ipv4: z.string().nullable(),

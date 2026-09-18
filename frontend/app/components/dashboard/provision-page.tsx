@@ -25,14 +25,13 @@ import {
 } from "lucide-react";
 import { useTargetHostInfo, useClusterHostInfo } from "@/hooks/useHostInfo";
 import { useCreateVM } from "@/hooks/useCreateVM";
-import { useHostStorage } from "@/hooks/useHostStorage";
 import { useSlaves } from "@/hooks/useSlaves";
 import {
   CompactCPUInfo,
   CompactMemoryInfo,
   CompactDiskInfo,
 } from "@/components/dashboard/host-info";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { VMImageSelect } from "~/components/dashboard/vm-image-picker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Policy } from "@/lib/types";
@@ -43,7 +42,6 @@ import { useSettings } from "@/hooks/useSettings";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { KEYBOARD_LAYOUTS, getKeyboardLabel } from "@/lib/keyboard-layouts";
 import { SshAccessSwitch } from "@/components/ssh-access-switch";
-import { StorageLocationSelect } from "@/components/dashboard/storage-location-select";
 
 // "auto" = auto-place (master-first), null = master only, string = specific slave
 type TargetSelection = "auto" | null | string;
@@ -68,21 +66,11 @@ export default function ProvisionPage() {
     hasSlaves ? "auto" : null,
   );
   const [hasInitializedTarget, setHasInitializedTarget] = useState(hasSlaves);
-  const [selectedStorageId, setSelectedStorageId] = useState<string | null>(
-    null,
-  );
-
-  const selectTarget = (target: TargetSelection) => {
-    setSelectedTarget(target);
-    setSelectedStorageId(null);
-    setHasInitializedTarget(true);
-  };
 
   // Default to auto when slaves first come online (but don't override user choice)
   useEffect(() => {
     if (hasSlaves && !hasInitializedTarget) {
       setSelectedTarget("auto");
-      setSelectedStorageId(null);
       setHasInitializedTarget(true);
     }
   }, [hasSlaves, hasInitializedTarget]);
@@ -96,19 +84,6 @@ export default function ProvisionPage() {
     targetSlaveId,
     canReadHost && !isAutoMode,
   );
-  const storageQuery = useHostStorage(
-    targetSlaveId,
-    hasCreatePolicy && !isAutoMode,
-  );
-  const storageLocation = storageQuery.data?.locations.find(
-    (location) =>
-      location.id === (selectedStorageId ?? storageQuery.data?.recommended_id),
-  );
-  const storageReady =
-    isAutoMode ||
-    (storageQuery.isSuccess &&
-      storageLocation?.available === true &&
-      storageLocation.enabled);
 
   const { data: userSettings } = useSettings();
   const createVM = useCreateVM();
@@ -153,21 +128,22 @@ export default function ProvisionPage() {
         : targetHostInfo.mem.total - targetHostInfo.mem.used
       : 0;
 
-  const availableDiskGiB = !isAutoMode
-    ? storageLocation?.available_gib
-    : undefined;
+  const availableDiskGB = isAutoMode
+    ? (clusterInfo?.totals.disk_available ?? 0)
+    : targetHostInfo
+      ? targetHostInfo.disk.available > 0
+        ? targetHostInfo.disk.available
+        : targetHostInfo.disk.total - targetHostInfo.disk.used
+      : 0;
 
   const totalCPUs = isAutoMode
     ? (clusterInfo?.totals.cpu_count ?? 0)
     : (targetHostInfo?.cpu.cpu_count ?? 0);
 
   // Validation
-  const hasHostInfo =
-    canReadHost && Boolean(isAutoMode ? clusterInfo : targetHostInfo);
-  const memExceedsAvailable = hasHostInfo && memNum > availableMemGB;
-  const diskExceedsAvailable =
-    availableDiskGiB !== undefined && diskNum > availableDiskGiB;
-  const cpuExceedsAvailable = hasHostInfo && vcpusNum > totalCPUs;
+  const memExceedsAvailable = memNum > availableMemGB;
+  const diskExceedsAvailable = diskNum > availableDiskGB;
+  const cpuExceedsAvailable = vcpusNum > totalCPUs;
   const isNameEmpty = name.trim() === "";
 
   const isFormValid =
@@ -176,7 +152,6 @@ export default function ProvisionPage() {
     vcpusNum > 0 &&
     memNum > 0 &&
     diskNum > 0 &&
-    storageReady &&
     !memExceedsAvailable &&
     !diskExceedsAvailable &&
     !cpuExceedsAvailable;
@@ -191,7 +166,6 @@ export default function ProvisionPage() {
         vcpus: vcpusNum,
         mem: memNum,
         disk_size: diskNum,
-        storage_id: isAutoMode ? null : selectedStorageId,
         keyboard_layout: keyboardLayout || null,
         activate_at_start: autoStart,
         ssh_enabled: canManageSsh && sshEnabled,
@@ -251,7 +225,7 @@ export default function ProvisionPage() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => selectTarget("auto")}
+              onClick={() => setSelectedTarget("auto")}
               className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm transition-colors ${
                 isAutoMode
                   ? "border border-primary/40 bg-primary/10 text-foreground"
@@ -266,7 +240,7 @@ export default function ProvisionPage() {
             </button>
             <button
               type="button"
-              onClick={() => selectTarget(null)}
+              onClick={() => setSelectedTarget(null)}
               className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm transition-colors ${
                 selectedTarget === null
                   ? "border border-primary/40 bg-primary/10 text-foreground"
@@ -283,7 +257,7 @@ export default function ProvisionPage() {
               <button
                 key={slave.id}
                 type="button"
-                onClick={() => selectTarget(slave.id)}
+                onClick={() => setSelectedTarget(slave.id)}
                 className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm transition-colors ${
                   selectedTarget === slave.id
                     ? "border border-primary/40 bg-primary/10 text-foreground"
@@ -449,16 +423,15 @@ export default function ProvisionPage() {
                   id="vcpus"
                   type="number"
                   min="1"
-                  max={hasHostInfo ? totalCPUs : undefined}
+                  max={totalCPUs}
                   value={vcpus}
                   onChange={(e) => setVcpus(e.target.value)}
                   className={cpuExceedsAvailable ? "border-accent" : ""}
                 />
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
-                    {hasHostInfo
-                      ? `Available: ${totalCPUs} cores${isAutoMode ? " (cluster)" : ""}`
-                      : "Host CPU information is unavailable."}
+                    Available: {totalCPUs} cores
+                    {isAutoMode ? " (cluster)" : ""}
                   </span>
                   {cpuExceedsAvailable && (
                     <span className="text-accent flex items-center gap-1">
@@ -484,9 +457,8 @@ export default function ProvisionPage() {
                 />
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
-                    {hasHostInfo
-                      ? `Available: ${availableMemGB.toFixed(2)} GB${isAutoMode ? " (cluster)" : ""}`
-                      : "Host memory information is unavailable."}
+                    Available: {availableMemGB.toFixed(2)} GB
+                    {isAutoMode ? " (cluster)" : ""}
                   </span>
                   {memExceedsAvailable && (
                     <span className="text-accent flex items-center gap-1">
@@ -497,48 +469,10 @@ export default function ProvisionPage() {
                 </div>
               </div>
 
-              {isAutoMode ? (
-                <div className="space-y-2">
-                  <p className="flex items-center gap-2 text-sm font-medium">
-                    <HardDrive className="h-4 w-4" />
-                    Storage location
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    The host and storage location are selected automatically. VM
-                    disks and downloaded images stay on the selected storage.
-                    Choose a target host above to pick a location yourself.
-                  </p>
-                </div>
-              ) : (
-                <StorageLocationSelect
-                  data={storageQuery.data}
-                  selectedId={selectedStorageId}
-                  location={storageLocation}
-                  onChange={(storageId) => {
-                    setSelectedStorageId(storageId);
-                    setHasInitializedTarget(true);
-                  }}
-                  isLoading={storageQuery.isPending}
-                  isFetching={storageQuery.isFetching}
-                  error={storageQuery.error}
-                  onRetry={() => void storageQuery.refetch()}
-                />
-              )}
-
-              {(authz.hasPolicy(Policy.STORAGE_GET) ||
-                authz.hasPolicy(Policy.STORAGE_MANAGE)) && (
-                <Link
-                  to="/dashboard/settings#storage"
-                  className="w-fit text-sm text-primary underline underline-offset-4 focus-visible:outline focus-visible:outline-ring"
-                >
-                  Manage storage in Settings
-                </Link>
-              )}
-
               <div className="space-y-2">
                 <Label htmlFor="disk" className="flex items-center gap-2">
                   <HardDrive className="h-4 w-4" />
-                  Disk Size (GiB)
+                  Disk Size (GB)
                 </Label>
                 <Input
                   id="disk"
@@ -548,11 +482,10 @@ export default function ProvisionPage() {
                   onChange={(e) => setDiskSize(e.target.value)}
                   className={diskExceedsAvailable ? "border-accent" : ""}
                 />
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">
-                    {availableDiskGiB !== undefined
-                      ? `Available: ${availableDiskGiB.toFixed(1)} GiB`
-                      : "Storage capacity is checked when creating the VM."}
+                    Available: {availableDiskGB.toFixed(2)} GB
+                    {isAutoMode ? " (cluster)" : ""}
                   </span>
                   {diskExceedsAvailable && (
                     <span className="text-accent flex items-center gap-1">
@@ -561,10 +494,6 @@ export default function ProvisionPage() {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Free space is an estimate. Image downloads and reserved space
-                  are also checked before creation.
-                </p>
               </div>
             </CardContent>
           </Card>
@@ -668,20 +597,6 @@ export default function ProvisionPage() {
                     </span>
                   </div>
                 )}
-                <div className="flex items-start justify-between gap-3">
-                  <span className="text-sm text-muted-foreground">Storage</span>
-                  <span className="text-sm text-right max-w-[65%] break-all">
-                    {isAutoMode
-                      ? "Auto"
-                      : storageQuery.isError
-                        ? "Storage check failed"
-                        : storageQuery.isPending
-                          ? "Checking..."
-                          : storageLocation?.available
-                            ? `${selectedStorageId === null ? "Auto: " : ""}${storageLocation.path}`
-                            : "Unavailable"}
-                  </span>
-                </div>
               </div>
 
               <Separator />
@@ -711,7 +626,7 @@ export default function ProvisionPage() {
                     <span className="text-sm">Disk</span>
                   </div>
                   <span className="font-mono text-sm">
-                    {diskNum > 0 ? `${diskNum} GiB` : "-"}
+                    {diskNum > 0 ? `${diskNum} GB` : "-"}
                   </span>
                 </div>
               </div>

@@ -30,12 +30,8 @@ export function useRecoverableVMs() {
     },
   });
 
-  const cleanMutation = useMutation<
-    void,
-    Error,
-    { vmId: string; storageId: string }
-  >({
-    mutationFn: ({ vmId, storageId }) => cleanRecoverableVM(vmId, storageId),
+  const cleanMutation = useMutation<void, Error, { vmId: string }>({
+    mutationFn: ({ vmId }) => cleanRecoverableVM(vmId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recoverable-vms"] });
     },

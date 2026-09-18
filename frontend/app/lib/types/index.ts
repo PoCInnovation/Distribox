@@ -11,4 +11,3 @@ export * from "./recoverable-vm";
 export * from "./event";
 export * from "./user-settings";
 export * from "./slave";
-export * from "./storage";

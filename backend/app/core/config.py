@@ -66,10 +66,6 @@ def init_db():
             vm_columns = {
                 col["name"] for col in inspector.get_columns("vms")
             }
-            if "storage_id" not in vm_columns:
-                conn.execute(text(
-                    "ALTER TABLE vms ADD COLUMN storage_id VARCHAR NOT NULL DEFAULT 'default'"
-                ))
             if "ssh_enabled" not in vm_columns:
                 conn.execute(text(
                     "ALTER TABLE vms ADD COLUMN ssh_enabled BOOLEAN NOT NULL DEFAULT FALSE"

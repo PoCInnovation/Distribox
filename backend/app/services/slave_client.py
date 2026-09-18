@@ -2,7 +2,6 @@
 import logging
 from typing import Optional
 import httpx
-from urllib.parse import quote
 from fastapi import HTTPException
 from app.orm.slave import SlaveORM
 
@@ -90,20 +89,3 @@ def slave_get_screenshot(slave: SlaveORM, vm_id: str) -> bytes:
 def slave_get_host_info(slave: SlaveORM) -> dict:
     """Get host info from a slave node."""
     return slave_request(slave, "GET", "/host/info")
-
-
-def slave_get_storage(slave: SlaveORM) -> dict:
-    """Read only the storage locations configured on the selected node."""
-    return slave_request(slave, "GET", "/host/storage")
-
-
-def slave_get_storage_settings(slave: SlaveORM) -> dict:
-    return slave_request(slave, "GET", "/host/storage/settings")
-
-
-def slave_add_storage(slave: SlaveORM, payload: dict) -> dict:
-    return slave_request(slave, "POST", "/host/storage/locations", json=payload)
-
-
-def slave_update_storage(slave: SlaveORM, storage_id: str, payload: dict) -> dict:
-    return slave_request(slave, "PATCH", f"/host/storage/locations/{quote(storage_id, safe='')}", json=payload)

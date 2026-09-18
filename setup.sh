@@ -28,7 +28,7 @@ arch() {
     blue "\nArch system detected"
     init
     set -x
-    sudo pacman -Sy libvirt qemu-desktop virt-manager virt-viewer python util-linux
+    sudo pacman -Sy libvirt qemu-desktop virt-manager virt-viewer
     set +x
 }
 
@@ -37,7 +37,7 @@ ubuntu() {
     init
     set -x
     sudo apt update
-    sudo apt install -y qemu-kvm libvirt-daemon-system genisoimage libvirt-clients bridge-utils virtinst pkg-config libvirt-dev python3-dev libguestfs-tools python3 util-linux
+    sudo apt install -y qemu-kvm libvirt-daemon-system genisoimage libvirt-clients bridge-utils virtinst pkg-config libvirt-dev python3-dev libguestfs-tools
     set +x
 }
 
@@ -82,37 +82,16 @@ else
     sudo groupadd -f distribox
     sudo groupadd -f libvirt
     sudo usermod -aG distribox,libvirt,kvm $(whoami)
+    newgrp distribox
 fi
 
-# Keep storage configuration administrator-owned; existing VM files keep their owners.
-sudo chown 0:0 /var/lib/distribox
-sudo chown root:distribox /var/lib/distribox/images
+sudo chown -R root:distribox /var/lib/distribox
+sudo chown -R root:distribox /var/lib/distribox/images
 
 if [[ "$(uname)" != "Darwin" ]]; then
-    # Ubuntu and Arch use different QEMU accounts. Existing disks keep their
-    # ownership; libvirt manages permissions for each VM when it starts.
-    qemu_account="root"
-    for account in libvirt-qemu qemu; do
-        if getent passwd "$account" >/dev/null; then
-            qemu_account="$account"
-            break
-        fi
-    done
-    sudo chown "$qemu_account":kvm /var/lib/distribox/vms
+    sudo chown -R libvirt-qemu:kvm /var/lib/distribox/vms
 fi
 
-sudo chmod 755 /var/lib/distribox
+sudo chmod 2775 /var/lib/distribox
 sudo chmod 2775 /var/lib/distribox/images
 sudo chmod 2775 /var/lib/distribox/vms
-
-if [[ "$(uname)" != "Darwin" ]]; then
-    # Installed with the normal host dependencies; storage choices stay in the app.
-    setup_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-    sudo install -d -m 755 /usr/local/libexec/distribox
-    sudo install -m 755 "$setup_dir/host/storage_broker.py" /usr/local/libexec/distribox/storage_broker.py
-    sudo install -m 644 "$setup_dir/host/distribox-storage.service" /etc/systemd/system/distribox-storage.service
-    sudo systemctl daemon-reload
-    sudo systemctl enable distribox-storage.service
-    sudo systemctl restart distribox-storage.service
-    echo "Choose additional mounted partitions in Settings → Storage."
-fi
