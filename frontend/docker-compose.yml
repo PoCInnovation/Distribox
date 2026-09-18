@@ -6,11 +6,13 @@ services:
       target: production-stage
       args:
         - VITE_API_DOMAIN=${VITE_API_DOMAIN:-http://localhost:8080}
+        - VITE_TUNNEL_URL=${VITE_TUNNEL_URL:-}
         - VITE_PORT=${VITE_PORT:-3000}
         - VITE_FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
     container_name: distribox-frontend
     environment:
       - VITE_API_DOMAIN=${VITE_API_DOMAIN:-http://localhost:8080}
+      - VITE_TUNNEL_URL=${VITE_TUNNEL_URL:-}
       - VITE_PORT=${VITE_PORT:-3000}
       - VITE_FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
     ports:
@@ -31,6 +33,7 @@ services:
     container_name: distribox-frontend-dev
     environment:
       - VITE_API_DOMAIN=${VITE_API_DOMAIN:-http://localhost:8080}
+      - VITE_TUNNEL_URL=${VITE_TUNNEL_URL:-}
       - VITE_PORT=${VITE_PORT:-3000}
       - VITE_FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
     ports:

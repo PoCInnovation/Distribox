@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type Guacamole from "guacamole-common-js";
-import { API_BASE_URL } from "~/lib/api";
+import { TUNNEL_URL } from "~/lib/api";
 
 export type GuacamoleConnectionState =
   "connecting" | "connected" | "error" | "disconnected";
@@ -105,8 +105,6 @@ export function useGuacamoleClient(
       const w = 1920;
       const h = 1080;
 
-      const tunnelUrl = `${API_BASE_URL.replace(/^http/, "ws")}/tunnel`;
-
       let connectParams: string;
       if (options.mode === "credential") {
         connectParams = `credential=${encodeURIComponent(options.credential)}&width=${w}&height=${h}`;
@@ -114,7 +112,7 @@ export function useGuacamoleClient(
         connectParams = `vm_id=${encodeURIComponent(options.vmId)}&token=${encodeURIComponent(options.token)}&width=${w}&height=${h}`;
       }
 
-      const tunnel = new Guacamole.WebSocketTunnel(tunnelUrl);
+      const tunnel = new Guacamole.WebSocketTunnel(TUNNEL_URL);
       client = new Guacamole.Client(tunnel);
       clientRef.current = client;
 
