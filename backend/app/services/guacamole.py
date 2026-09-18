@@ -154,7 +154,7 @@ async def guacd_handshake(
     writer.write(build_instruction("video").encode())
     await writer.drain()
     writer.write(build_instruction(
-        "image", "image/png", "image/jpeg").encode())
+        "image", "image/png", "image/jpeg", "image/webp").encode())
     await writer.drain()
 
     writer.write(build_instruction(*connect_values).encode())
