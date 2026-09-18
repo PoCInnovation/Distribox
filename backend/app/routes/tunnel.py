@@ -1,11 +1,12 @@
 from app.utils.vnc import get_vnc_port
 from app.utils.auth import decode_access_token, user_has_policy
-from app.services.guacamole import guacd_handshake
+from app.services.guacamole import complete_instructions_end, guacd_handshake
 from app.services.vm_service import VmService
 from app.orm.user import UserORM
 from app.core.config import engine, GUACD_HOST, GUACD_PORT, VNC_HOST
 from sqlmodel import Session
 import asyncio
+import codecs
 import logging
 from uuid import UUID
 
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
+READ_SIZE = 256 * 1024
 
 
 def _is_internal_instruction(message: str) -> bool:
@@ -27,18 +29,6 @@ def _is_internal_instruction(message: str) -> bool:
         return int(message[:first_dot]) == 0
     except (ValueError, IndexError):
         return False
-
-
-def _extract_opcode(message: str) -> str | None:
-    """Extract first Guacamole opcode from a single-instruction message."""
-    try:
-        first_dot = message.index(".")
-        opcode_len = int(message[:first_dot])
-        start = first_dot + 1
-        end = start + opcode_len
-        return message[start:end]
-    except (ValueError, IndexError):
-        return None
 
 
 def _find_vm_for_credential(token: str) -> str | None:
@@ -178,36 +168,21 @@ async def vm_tunnel(
         return
 
     ws_send_lock = asyncio.Lock()
-    browser_opcode_logs_remaining = 40
 
     async def send_ws_text(message: str) -> None:
         async with ws_send_lock:
             await websocket.send_text(message)
 
     async def browser_to_guacd():
-        nonlocal browser_opcode_logs_remaining
         try:
             async for msg in websocket.iter_text():
                 if _is_internal_instruction(msg):
                     await send_ws_text(msg)
                     continue
-                opcode = _extract_opcode(msg)
-                if browser_opcode_logs_remaining > 0:
-                    logger.warning(
-                        "Tunnel browser->guacd opcode=%s size=%s",
-                        opcode,
-                        len(msg),
-                    )
-                    browser_opcode_logs_remaining -= 1
-                if opcode in {"disconnect", "error"}:
-                    logger.warning("Tunnel browser->guacd opcode=%s", opcode)
                 writer.write(msg.encode())
-            await writer.drain()
+                await writer.drain()
         except WebSocketDisconnect as exc:
-            logger.warning(
-                "Tunnel browser_to_guacd websocket disconnected code=%s",
-                exc.code,
-            )
+            logger.info("Tunnel websocket disconnected code=%s", exc.code)
         except Exception:
             logger.exception("Tunnel browser_to_guacd relay failed")
         finally:
@@ -218,31 +193,24 @@ async def vm_tunnel(
                 pass
 
     async def guacd_to_browser():
-        buf = b""
+        decoder = codecs.getincrementaldecoder("utf-8")()
+        pending = ""
         try:
             if first_instruction:
-                initial_opcode = _extract_opcode(first_instruction)
-                logger.warning(
-                    "Tunnel initial guacd->browser opcode=%s", initial_opcode)
                 await send_ws_text(first_instruction)
             while True:
-                chunk = await reader.read(65536)
+                chunk = await reader.read(READ_SIZE)
                 if not chunk:
                     raise ConnectionError("guacd closed connection")
-                buf += chunk
-                last_semi = buf.rfind(b";")
-                if last_semi == -1:
-                    continue
-                to_send = buf[:last_semi + 1]
-                buf = buf[last_semi + 1:]
-                await send_ws_text(to_send.decode("utf-8"))
+                pending += decoder.decode(chunk)
+                end = complete_instructions_end(pending)
+                if end:
+                    await send_ws_text(pending[:end])
+                    pending = pending[end:]
         except ConnectionError:
-            logger.warning("Tunnel guacd_to_browser EOF from guacd")
+            logger.info("Tunnel guacd closed connection")
         except WebSocketDisconnect as exc:
-            logger.warning(
-                "Tunnel guacd_to_browser websocket disconnected code=%s",
-                exc.code,
-            )
+            logger.info("Tunnel websocket disconnected code=%s", exc.code)
         except Exception:
             logger.exception("Tunnel guacd_to_browser relay failed")
         finally:

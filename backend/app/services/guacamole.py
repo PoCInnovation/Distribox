@@ -9,6 +9,21 @@ def build_instruction(*args: str) -> str:
     return ",".join(f"{len(a)}.{a}" for a in args) + ";"
 
 
+def complete_instructions_end(text: str) -> int:
+    end = 0
+    pos = 0
+    while True:
+        dot = text.find(".", pos)
+        if dot == -1:
+            return end
+        element_end = dot + 1 + int(text[pos:dot])
+        if element_end >= len(text):
+            return end
+        pos = element_end + 1
+        if text[element_end] == ";":
+            end = pos
+
+
 async def read_instruction(reader: asyncio.StreamReader) -> list[str]:
     """Read one Guacamole instruction using length-prefix parsing.
 
