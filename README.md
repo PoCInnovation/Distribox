@@ -137,6 +137,8 @@ When an event reaches its deadline, the share link stops working, all VM credent
 
 ## Quickstart
 
+To keep VM data on another partition, follow the [storage setup](#store-vm-data-on-another-partition) after `setup.sh` and before starting Compose.
+
 ```bash
 bash setup.sh
 
@@ -154,6 +156,95 @@ docker compose --profile dev up --build
 ```
 
 To run a slave node on another machine, use the `slave` and follow the guide on the frontend:
+
+### Store VM data on another partition
+
+If the system partition is nearly full and `/data` has room, store Distribox's data in `/data/distribox` and **bind mount that directory at `/var/lib/distribox` on the host**. Downloaded images, VM disks, and the SSH gateway key then live on `/data`. The application and host libvirt keep using their existing paths, so existing VM definitions remain valid.
+
+Keep the Compose volume `/var/lib/distribox:/var/lib/distribox` unchanged. Mapping `/data/distribox` directly to `/var/lib/distribox` only inside Docker would leave host libvirt looking at the wrong files. This is a one-time host configuration: users create VMs normally, with no partition picker or additional service. Configure each master or slave host separately. The database's Docker volume is unaffected.
+
+The instructions below assume Linux with systemd, native Docker Engine, and an existing writable partition mounted at `/data`. Use a filesystem that supports Unix permissions and sparse files, such as ext4 or XFS. They do not format or repartition disks. For a fresh installation, run `bash setup.sh` and configure `.env` as in the Quickstart, then follow these steps before starting Compose. For an existing installation, arrange downtime and back up the data first. Run each step only after the preceding one succeeds.
+
+If you previously used the experimental partition-management feature, do not apply this migration to an installation with additional storage pools in `storage.json` or mounts below `/var/lib/distribox`. Those pools and their VM records require a separate migration. A running experimental `distribox-storage` service must also be removed from the host before using this configuration.
+
+1. **Check the source partition and available space.** `/data` must already have a persistent mount entry in `/etc/fstab`, preferably identified by filesystem UUID. Confirm its device is the intended partition, rather than the system filesystem:
+
+   ```bash
+   findmnt --mountpoint /data
+   df -h /data /var/lib/distribox
+   sudo du -sh /var/lib/distribox
+   ```
+
+   Stop if `/data` is not mounted. The destination `/data/distribox` and backup path `/var/lib/distribox.before-storage-move` must not already exist. Also check `findmnt --mountpoint /var/lib/distribox`: these migration commands expect an ordinary source directory, not an existing mount point.
+
+2. **Stop writes before copying.** For an existing installation, stop the backend, then gracefully shut down every Distribox VM using its ID:
+
+   ```bash
+   docker compose --profile master stop backend
+   sudo virsh -c qemu:///system list --all
+   sudo virsh -c qemu:///system shutdown VM_ID
+   ```
+
+   Replace `VM_ID` with the VM's ID, repeat for each running Distribox VM, and wait until each reports `shut off` in `virsh list --all`. Stopping Docker does **not** stop VMs running under host libvirt. Resume paused VMs with `sudo virsh -c qemu:///system resume VM_ID` before requesting shutdown. Leave the backend stopped throughout the copy and mount change. For development, substitute profile `dev` and service `backend-dev`; for a slave, use profile `slave` and service `slave` in the Compose commands throughout this guide.
+
+3. **Copy and verify the data.** Install `rsync` if needed. These options preserve sparse disk images, owners, permissions, hard links, ACLs, and extended attributes:
+
+   ```bash
+   sudo mkdir /data/distribox
+   sudo rsync -aHAXS --numeric-ids /var/lib/distribox/ /data/distribox/
+   sudo rsync -aHAXScn --numeric-ids --itemize-changes /var/lib/distribox/ /data/distribox/
+   ```
+
+   The final command checks file contents without changing anything; it should report no differences. Resolve any errors before continuing. Keep the original directory as a temporary rollback copy, using an unused backup path:
+
+   ```bash
+   sudo mv -T /var/lib/distribox /var/lib/distribox.before-storage-move
+   sudo install -d -m 755 /var/lib/distribox
+   ```
+
+4. **Make the host mount persistent and order startup.** Back up `/etc/fstab`, then add this line with `sudoedit /etc/fstab`:
+
+   ```fstab
+   /data/distribox /var/lib/distribox none bind,x-systemd.requires=data.mount 0 0
+   ```
+
+   The explicit dependency requires `/data` to be mounted before the bind mount. Do not add `nofail` to these storage mounts. With `sudo systemctl edit docker.service` and `sudo systemctl edit libvirtd.service`, add this drop-in to **both** services:
+
+   ```ini
+   [Unit]
+   Requires=var-lib-distribox.mount
+   After=var-lib-distribox.mount
+   ```
+
+   These dependencies prevent startup against an empty directory on the system disk when the data mount is unavailable. They apply to all workloads managed by those Docker and libvirt services. Hosts using the modular libvirt daemons should apply the libvirt drop-in to `virtqemud.service` instead. For another mount path, adjust the mount unit names with `systemd-escape --path --suffix=mount /your/path`.
+
+   Load the configuration and mount the directory:
+
+   ```bash
+   sudo findmnt --verify --verbose
+   sudo systemctl daemon-reload
+   sudo systemctl start var-lib-distribox.mount
+   findmnt --mountpoint /var/lib/distribox
+   df -h /data /var/lib/distribox
+   ```
+
+   Both paths must now report the capacity of the data partition. Files in `/var/lib/distribox/images` and `/var/lib/distribox/vms` must match their counterparts under `/data/distribox`.
+
+5. **Recreate the backend and verify it before starting VMs.** Existing containers can retain the previous directory mount; recreate them after the host mount is in place:
+
+   ```bash
+   docker compose --profile master up -d --force-recreate backend
+   docker compose --profile master exec backend df -h /var/lib/distribox
+   docker compose --profile master exec backend ls /var/lib/distribox/images /var/lib/distribox/vms
+   ```
+
+   For a fresh installation, start the full application with `docker compose --profile master up -d --build` as in the Quickstart. Confirm the container reports the data partition's capacity and the expected files. Start a VM and check that it works, then verify a new VM and its downloaded image appear under `/data/distribox`. On hosts with custom AppArmor or SELinux policies, preserve the copied security attributes and resolve any access denials through the host's policy; do not make the directories world-writable.
+
+The rollback copy at `/var/lib/distribox.before-storage-move` still consumes system-disk space. Keep it until verification succeeds; then archive it elsewhere or deliberately remove **that backup directory only** to reclaim the space. Do not leave the original files hidden underneath the new mount. Continue backing up `/data/distribox`, the database, and the installation's encryption secret. Verify mount ordering after the next planned reboot.
+
+To roll back before any data changes, stop the backend and all Distribox VMs again, stop `var-lib-distribox.mount`, remove the added fstab entry and the dependency lines added to the service overrides, and reload systemd. Preserve any unrelated service overrides. Stopping the required mount also stops Docker and libvirt services, so schedule this for the whole host. Remove the now-empty `/var/lib/distribox` mount point with `rmdir`, rename the backup directory to `/var/lib/distribox`, restart the host services, and recreate the backend. If VMs or images changed after migration, the backup is stale: preserve and copy back the current data while everything is stopped before switching paths.
+
+See the [systemd mount documentation](https://www.freedesktop.org/software/systemd/man/latest/systemd.mount.html) for boot dependencies and [Docker bind mount documentation](https://docs.docker.com/engine/storage/bind-mounts/) for container mount behavior.
 
 ## Configuration
 
