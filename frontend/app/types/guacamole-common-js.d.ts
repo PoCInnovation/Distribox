@@ -12,8 +12,7 @@ declare module "guacamole-common-js" {
       scale(scale: number): void;
       showCursor(shown: boolean): void;
       oncursor:
-        | ((canvas: HTMLCanvasElement, x: number, y: number) => void)
-        | null;
+        ((canvas: HTMLCanvasElement, x: number, y: number) => void) | null;
       onresize: ((width: number, height: number) => void) | null;
     }
 
