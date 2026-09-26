@@ -158,7 +158,11 @@ For development with hot-reloading:
 docker compose --profile dev up --build
 ```
 
-To run a slave node on another machine, use the `slave` and follow the guide on the frontend:
+To run a slave node on another machine, follow the guide on the **Slaves** page of the dashboard. It ends with:
+
+```bash
+docker compose --profile slave up -d
+```
 
 ### Store VM data on another partition
 
@@ -246,7 +250,6 @@ Check your files and start a VM before removing `/var/lib/distribox.before-stora
 - **Modular libvirt:** edit `virtqemud.service` instead of `libvirtd.service`.
 - **Different mount path:** replace `/data` and find its unit name with `systemd-escape --path --suffix=mount /your/path`.
 - **Custom security policies:** preserve file labels and resolve AppArmor or SELinux denials through the host policy. Do not use world-writable permissions.
-- **Experimental storage service:** remove it before migrating; additional storage pools need a separate migration.
 
 To roll back, stop the backend and all Distribox VMs, then stop `var-lib-distribox.mount`. This also stops Docker and libvirt, so plan downtime for the whole host. Remove the fstab line and the service override lines added above, then reload systemd. Use `rmdir` on the empty mount point, restore the backup to `/var/lib/distribox`, restart services, and recreate the backend. If data changed after migration, copy the current data back while everything is stopped; the backup is stale.
 
@@ -266,8 +269,17 @@ Copy `.env.example` to `.env` and adjust as needed. Key variables:
 | `ADMIN_USERNAME` | `admin` | Default admin username |
 | `ADMIN_PASSWORD` | `admin` | Default admin password |
 | `DISTRIBOX_SECRET` | `secret` | Encryption key for sensitive data |
+| `JWT_SECRET_KEY` | derived | JWT signing key, derived from `DISTRIBOX_SECRET` when empty |
 | `BACKEND_PORT` | `8080` | Backend API port |
 | `VITE_PORT` | `3000` | Frontend port |
+| `VITE_API_DOMAIN` | `http://localhost:8080` | Backend URL as seen from the browser |
+| `VITE_TUNNEL_URL` | - | WebSocket URL for VM streaming, defaults to `VITE_API_DOMAIN` + `/tunnel` |
+| `FRONTEND_URL` | `http://localhost:3000` | Frontend URL, used for CORS |
+| `GUACD_HOST` / `GUACD_PORT` | `host.docker.internal` / `4822` | Where the backend reaches guacd |
+| `VIRT_TYPE` | `kvm` | `kvm`, or `qemu` for software emulation |
+| `SSH_*` | disabled | See [SSH gateway](#ssh-gateway) |
+
+`VITE_*` values are baked into the frontend at build time. After changing them, rebuild it with `docker compose --profile master up -d --build frontend`.
 
 ## Deployment
 

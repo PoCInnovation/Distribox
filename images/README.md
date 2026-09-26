@@ -2,16 +2,13 @@
 
 First of all, you need to install the `libvirt` package on your host system.
 
-Please use the following script to install the dependencies:
+Please use the following script, from the repository root, to install the dependencies:
 
 ```bash
-cd images
-
-chmod +x libvirt-install.sh
-./libvirt-install.sh
+bash setup.sh
 ```
 
-> Note: This script is only works on debian-based systems. Other distributions are in the backlog.
+> Note: This script supports Debian-based systems, Arch Linux and macOS. Other distributions are in the backlog.
 
 ## Create an image
 
@@ -157,7 +154,7 @@ Distribox uses [Apache Guacamole](https://guacamole.apache.org/) to stream VM de
 Browser (guacamole-common-js)
   │  WebSocket  ws://backend/tunnel?credential=X
   │
-FastAPI backend (Docker, distribox-network)
+FastAPI backend (Docker, network_mode: host)
   │  TCP host.docker.internal:4822
   │
 guacd (Docker, network_mode: host — guacamole/guacd:1.6.0)
@@ -166,7 +163,7 @@ guacd (Docker, network_mode: host — guacamole/guacd:1.6.0)
 QEMU/KVM VM (host)
 ```
 
-- `guacd` is started automatically by Docker Compose as part of the `prod` and `dev` profiles.
+- `guacd` is started automatically by Docker Compose as part of the `master`, `dev` and `slave` profiles.
 - `guacd` runs with `network_mode: host` so it can reach VNC bound to `127.0.0.1` on the host.
 - The backend reaches `guacd` via `host.docker.internal:4822` (Docker bridge gateway).
 - VNC ports are never exposed outside the host.
@@ -221,4 +218,4 @@ You can see the VM's state manually by running the following command
 virsh -c qemu:///system domstate 01fd7cb3-d4f4-45c2-bd0f-3da1722fc6ac
 ```
 
-You will need to install the `virt-viewer` package to connect to the VM on your host system, this should be done by the `libvrit-install.sh` script but you will have to turn to your package manager for more information if it is not supported.
+You will need to install the `virt-viewer` package to connect to the VM on your host system, this should be done by the `setup.sh` script but you will have to turn to your package manager for more information if it is not supported.
