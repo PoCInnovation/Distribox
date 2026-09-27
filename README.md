@@ -297,15 +297,16 @@ sudo nginx -t && sudo systemctl reload nginx
 
 This configuration:
 - Listens on port **80** and routes traffic to the frontend (port 3000) and backend (port 8080)
-- Proxies WebSocket connections for VM streaming (`/tunnel`)
-- All other backend routes (`/auth`, `/vms`, `/images`, etc.) are forwarded to the API
+- Serves the backend API under `/api`, stripping the prefix (`/api/vms/` reaches `/vms/`)
+- Proxies WebSocket connections for VM streaming (`/api/tunnel`)
+- Sends every other path to the frontend
 
 > Note: If you change port configuration for the deployment, we trust you will update the reverse proxy configuration accordingly.
 
 After enabling the reverse proxy, update your `.env` so the frontend calls the backend through nginx instead of directly:
 
 ```env
-VITE_API_DOMAIN=http://your-domain.com
+VITE_API_DOMAIN=http://your-domain.com/api
 FRONTEND_URL=http://your-domain.com
 ```
 
@@ -362,7 +363,7 @@ Certbot will automatically modify your nginx configuration to:
 After running Certbot, update your `.env`:
 
 ```env
-VITE_API_DOMAIN=https://your-domain.com
+VITE_API_DOMAIN=https://your-domain.com/api
 FRONTEND_URL=https://your-domain.com
 ```
 

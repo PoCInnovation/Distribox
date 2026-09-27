@@ -19,7 +19,7 @@ export function getVmScreenshotUrl(vmId: string): string {
 }
 
 export async function getVMs(): Promise<VirtualMachineMetadata[]> {
-  return apiRequest("/vms", {}, VirtualMachineMetadataSchema.array());
+  return apiRequest("/vms/", {}, VirtualMachineMetadataSchema.array());
 }
 
 export async function createVM(payload: CreateVMPayload): Promise<void> {
@@ -29,7 +29,7 @@ export async function createVM(payload: CreateVMPayload): Promise<void> {
     "/vms",
   );
 
-  await apiRequest("/vms", {
+  await apiRequest("/vms/", {
     method: "POST",
     body: JSON.stringify(validatedPayload),
   });
