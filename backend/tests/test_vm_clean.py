@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import libvirt
 import pytest
+from fastapi import HTTPException
 
 from app.services import vm_service
 
@@ -14,11 +15,15 @@ def host(monkeypatch, tmp_path):
     domain.isActive.return_value = 1
     connection = Mock()
     connection.lookupByName.return_value = domain
+    recoverable = []
     monkeypatch.setattr(vm_service.QEMUConfig, "get_connection",
                         lambda: connection)
     monkeypatch.setattr(vm_service, "VMS_DIR", tmp_path)
+    monkeypatch.setattr(vm_service.VmService, "get_recoverable_vms", lambda: [
+        SimpleNamespace(vm_id=name) for name in recoverable
+    ])
     return SimpleNamespace(domain=domain, connection=connection,
-                           vms_dir=tmp_path)
+                           vms_dir=tmp_path, recoverable=recoverable)
 
 
 def libvirt_error(code):
@@ -27,9 +32,11 @@ def libvirt_error(code):
     return error
 
 
-def vm_dir(host):
+def vm_dir(host, recoverable=True):
     directory = host.vms_dir / str(uuid4())
     directory.mkdir()
+    if recoverable:
+        host.recoverable.append(directory.name)
     return directory
 
 
@@ -60,6 +67,19 @@ def test_clean_keeps_folder_when_libvirt_fails(host):
     with pytest.raises(libvirt.libvirtError):
         vm_service.VmService.remove_recoverable_vm(directory.name)
     assert directory.exists()
+
+
+def test_clean_rejects_tracked_vm(host):
+    tracked = vm_dir(host, recoverable=False)
+    recoverable = vm_dir(host)
+    with pytest.raises(HTTPException) as error:
+        vm_service.VmService.remove_recoverable_vm(tracked.name)
+    assert error.value.status_code == 404
+    host.connection.lookupByName.assert_not_called()
+    assert tracked.exists()
+    vm_service.VmService.remove_recoverable_vm(recoverable.name)
+    host.connection.lookupByName.assert_called_once_with(recoverable.name)
+    assert not recoverable.exists()
 
 
 def test_clean_all_undefines_only_recoverable_domains(host, monkeypatch):
