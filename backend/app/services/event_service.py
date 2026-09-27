@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
-from sqlmodel import Session, select, func, delete
+from sqlmodel import Session, select, func, delete, col
 
 from app.core.config import engine
 from app.models.event import (
@@ -34,7 +34,8 @@ def _revoke_vm_access(session: Session, vm_id: uuid.UUID) -> None:
     if vm:
         vm.ssh_enabled = False
         session.add(vm)
-    session.exec(delete(VmCredentialORM).where(VmCredentialORM.vm_id == vm_id))
+    session.exec(delete(VmCredentialORM).where(
+        col(VmCredentialORM.vm_id) == vm_id))
 
 
 def _event_to_read(event: EventORM, participants: list[EventParticipantORM] | None = None) -> EventRead:
@@ -81,7 +82,7 @@ class EventService:
     def list_events() -> list[EventRead]:
         with Session(engine) as session:
             events = session.exec(
-                select(EventORM).order_by(EventORM.created_at.desc())
+                select(EventORM).order_by(col(EventORM.created_at).desc())
             ).all()
             return [_event_to_read(e) for e in events]
 
@@ -96,7 +97,7 @@ class EventService:
             participants = session.exec(
                 select(EventParticipantORM)
                 .where(EventParticipantORM.event_id == event.id)
-                .order_by(EventParticipantORM.created_at)
+                .order_by(col(EventParticipantORM.created_at))
             ).all()
             return _event_to_read(event, list(participants))
 
@@ -112,7 +113,7 @@ class EventService:
             participants = session.exec(
                 select(EventParticipantORM)
                 .where(EventParticipantORM.event_id == event.id)
-                .order_by(EventParticipantORM.created_at)
+                .order_by(col(EventParticipantORM.created_at))
             ).all()
             return _event_to_read(event, list(participants))
 
@@ -295,7 +296,7 @@ class EventService:
             participants = session.exec(
                 select(EventParticipantORM)
                 .where(EventParticipantORM.event_id == event.id)
-                .order_by(EventParticipantORM.created_at)
+                .order_by(col(EventParticipantORM.created_at))
             ).all()
             return _event_to_read(event, list(participants))
 

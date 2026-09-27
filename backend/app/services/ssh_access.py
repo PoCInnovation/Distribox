@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlmodel import Session, select
+from sqlmodel import Session, select, col
 
 from app.core.config import engine
 from app.orm.event import EventORM, EventParticipantORM
@@ -24,7 +24,7 @@ def credential_is_active(session: Session, credential: VmCredentialORM) -> bool:
             return False
     event = session.exec(
         select(EventORM)
-        .join(EventParticipantORM, EventParticipantORM.event_id == EventORM.id)
+        .join(EventParticipantORM, col(EventParticipantORM.event_id) == EventORM.id)
         .where(EventParticipantORM.vm_id == credential.vm_id)
     ).first()
     if event is None:

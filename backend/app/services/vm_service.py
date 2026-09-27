@@ -14,7 +14,7 @@ from app.models.image import ImageRead
 from app.core.xml_builder import build_xml, upgrade_display_devices
 from app.core.config import QEMUConfig, engine
 from sqlalchemy import func
-from sqlmodel import Session, select, delete
+from sqlmodel import Session, select, delete, col
 from app.orm.vm import VmORM
 from app.orm.vm_credential import VmCredentialORM
 from app.orm.event import EventParticipantORM
@@ -61,6 +61,9 @@ def undefine_domain(vm_id: str):
 
 
 class Vm:
+    slave_id: Optional[uuid.UUID]
+    slave_name: Optional[str]
+
     @staticmethod
     def _resolve_image_name(os_value: str) -> str:
         if not os_value.endswith(".qcow2"):
@@ -373,13 +376,14 @@ class VmService:
 
         statement = select(
             func.count(
-                VmORM.id)).where(
-            VmORM.name.like(search_pattern))
+                col(VmORM.id))).where(
+            col(VmORM.name).like(search_pattern))
         count = session.exec(statement).one()
         if count == 0:
             return base_name
         return f"{base_name}({count})"
 
+    @staticmethod
     def get_vm_list():
         with Session(engine) as session:
             vm_records = session.scalars(select(VmORM)).all()
@@ -426,6 +430,7 @@ class VmService:
                         "Failed to get VM %s from libvirt", vm_record.id)
         return vm_list
 
+    @staticmethod
     def get_vm(vm_id: str):
         slave = VmService._get_slave_for_vm(vm_id)
         if slave:
@@ -458,11 +463,13 @@ class VmService:
         vm = Vm.get(vm_id)
         return vm
 
+    @staticmethod
     def get_state(vm_id: str):
         vm = Vm.get(vm_id)
         state = vm.get_state()
         return state
 
+    @staticmethod
     def create_vm(vm_create: VmCreate):
         if vm_create.slave_id:
             return VmService._create_vm_on_slave(vm_create)
@@ -560,6 +567,7 @@ class VmService:
         result["slave_name"] = slave.name
         return result
 
+    @staticmethod
     def start_vm(vm_id: str):
         slave = VmService._get_slave_for_vm(vm_id)
         if slave:
@@ -574,6 +582,7 @@ class VmService:
         vm = Vm.get(vm_id)
         return vm.start()
 
+    @staticmethod
     def stop_vm(vm_id: str):
         slave = VmService._get_slave_for_vm(vm_id)
         if slave:
@@ -588,6 +597,7 @@ class VmService:
         vm = Vm.get(vm_id)
         return vm.stop()
 
+    @staticmethod
     def remove_vm(vm_id: str):
         slave = VmService._get_slave_for_vm(vm_id)
         if slave:
@@ -602,23 +612,24 @@ class VmService:
             with Session(engine) as session:
                 session.exec(
                     delete(EventParticipantORM).where(
-                        EventParticipantORM.vm_id == uuid.UUID(vm_id)
+                        col(EventParticipantORM.vm_id) == uuid.UUID(vm_id)
                     )
                 )
                 session.exec(
                     delete(VmCredentialORM).where(
-                        VmCredentialORM.vm_id == uuid.UUID(vm_id)
+                        col(VmCredentialORM.vm_id) == uuid.UUID(vm_id)
                     )
                 )
                 session.exec(
-                    delete(VmORM).where(VmORM.id == uuid.UUID(vm_id))
+                    delete(VmORM).where(col(VmORM.id) == uuid.UUID(vm_id))
                 )
                 session.commit()
             return
         vm = Vm.get(vm_id)
         vm.remove()
 
-    def restart_vm(vm_id):
+    @staticmethod
+    def restart_vm(vm_id: str):
         slave = VmService._get_slave_for_vm(vm_id)
         if slave:
             if slave.status != "online":
@@ -675,7 +686,7 @@ class VmService:
             statement = (
                 select(VmCredentialORM)
                 .where(VmCredentialORM.vm_id == vm_record.id)
-                .order_by(VmCredentialORM.created_at)
+                .order_by(col(VmCredentialORM.created_at))
             )
             credentials = session.exec(statement).all()
             return [
@@ -734,7 +745,7 @@ class VmService:
                 )
             session.exec(
                 delete(VmCredentialORM).where(
-                    VmCredentialORM.id == parsed_credential_id
+                    col(VmCredentialORM.id) == parsed_credential_id
                 )
             )
             session.commit()
