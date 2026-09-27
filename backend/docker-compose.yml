@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
       target: production-stage
     container_name: distribox-backend
+    restart: unless-stopped
     environment:
       - DISTRIBOX_MODE=${DISTRIBOX_MODE:-master}
       - POSTGRES_HOST=${POSTGRES_HOST:-database}
@@ -106,6 +107,7 @@ services:
       dockerfile: Dockerfile
       target: production-stage
     container_name: distribox-slave
+    restart: unless-stopped
     environment:
       - DISTRIBOX_MODE=slave
       - POSTGRES_HOST=${POSTGRES_HOST:-database}
