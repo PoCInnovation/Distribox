@@ -2,7 +2,7 @@ from typing import Optional
 from sqlalchemy import Column, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import SQLModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 
@@ -21,7 +21,8 @@ class EventORM(SQLModel, table=True):
     ssh_enabled: bool = Field(default=False)
     deadline: datetime
     max_vms: int
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
 
 
@@ -44,4 +45,5 @@ class EventParticipantORM(SQLModel, table=True):
             nullable=False,
         )
     )
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc))

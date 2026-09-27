@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import uuid
 
@@ -21,5 +21,6 @@ class VmCredentialORM(SQLModel, table=True):
     )
     name: str
     password: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc))
     expires_at: Optional[datetime] = Field(default=None, nullable=True)

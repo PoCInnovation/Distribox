@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -119,7 +119,7 @@ async def change_password(
 
         user.hashed_password = hash_password(password_data.new_password)
         user.password = encrypt_secret(password_data.new_password)
-        user.last_activity = datetime.utcnow()
+        user.last_activity = datetime.now(timezone.utc)
         session.add(user)
         session.commit()
 

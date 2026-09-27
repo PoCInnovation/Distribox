@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
@@ -14,7 +14,7 @@ class EventCreate(BaseModel):
     vm_disk_size: int = Field(gt=0)
     keyboard_layout: Optional[str] = None
     ssh_enabled: bool = False
-    deadline: datetime
+    deadline: AwareDatetime
     max_vms: int = Field(gt=0)
 
 
@@ -27,7 +27,7 @@ class EventUpdate(BaseModel):
     vm_disk_size: Optional[int] = Field(default=None, gt=0)
     keyboard_layout: Optional[str] = None
     ssh_enabled: bool = False
-    deadline: Optional[datetime] = None
+    deadline: Optional[AwareDatetime] = None
     max_vms: Optional[int] = Field(default=None, gt=0)
 
 

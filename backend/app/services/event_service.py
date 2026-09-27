@@ -1,7 +1,7 @@
 import logging
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlmodel import Session, select, func, delete
@@ -368,7 +368,7 @@ class EventService:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
                                     f"Event '{slug}' not found")
 
-            if datetime.utcnow() > event.deadline:
+            if datetime.now(timezone.utc) > event.deadline:
                 raise HTTPException(status.HTTP_410_GONE,
                                     "This event has expired")
 

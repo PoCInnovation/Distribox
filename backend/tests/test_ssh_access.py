@@ -110,7 +110,7 @@ def test_event_changes_apply_to_existing_vms_and_credentials(database):
     with Session(engine) as session:
         assert not session.get(VmORM, vm_id).ssh_enabled
         assert session.get(
-            VmCredentialORM, credential_id).expires_at == deadline.replace(tzinfo=None)
+            VmCredentialORM, credential_id).expires_at == deadline
     assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
 
 
