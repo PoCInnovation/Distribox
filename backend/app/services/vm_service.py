@@ -47,6 +47,19 @@ def ensure_default_network():
         )
 
 
+def undefine_domain(vm_id: str):
+    try:
+        conn = QEMUConfig.get_connection()
+        vm = conn.lookupByName(vm_id)
+    except libvirt.libvirtError as e:
+        if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+            return
+        raise
+    if vm.isActive() == 1:
+        vm.destroy()
+    vm.undefineFlags(libvirt.VIR_DOMAIN_UNDEFINE_NVRAM)
+
+
 class Vm:
     @staticmethod
     def _resolve_image_name(os_value: str) -> str:
@@ -278,10 +291,7 @@ class Vm:
 
     def remove(self):
         try:
-            self.stop()
-            conn = QEMUConfig.get_connection()
-            vm = conn.lookupByName(str(self.id))
-            vm.undefineFlags(libvirt.VIR_DOMAIN_UNDEFINE_NVRAM)
+            undefine_domain(str(self.id))
         except Exception:
             pass
 
@@ -788,6 +798,7 @@ class VmService:
         vm_root = Path(VMS_DIR)
         for v in vm_root.iterdir():
             if v.name == vm_id:
+                undefine_domain(v.name)
                 rmtree(VMS_DIR / v.name)
                 return
         raise HTTPException(
@@ -802,6 +813,7 @@ class VmService:
         for v in vm_root.iterdir():
             for x in vms_to_delete:
                 if v.name == str(x.vm_id):
+                    undefine_domain(v.name)
                     rmtree(VMS_DIR / v.name)
                     break
         return
