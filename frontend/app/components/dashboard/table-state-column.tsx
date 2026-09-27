@@ -16,6 +16,7 @@ function badgeColor(state: VMState): string {
     case VMState.PMSUSPENDED:
       return "border-accent bg-accent/10 text-accent";
     case VMState.NOSTATE:
+    case VMState.UNKNOWN:
       return "border-muted bg-muted/10 text-muted-foreground";
   }
 }
