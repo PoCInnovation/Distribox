@@ -795,15 +795,14 @@ class VmService:
 
     @staticmethod
     def remove_recoverable_vm(vm_id: str):
-        vm_root = Path(VMS_DIR)
-        for v in vm_root.iterdir():
-            if v.name == vm_id:
-                undefine_domain(v.name)
-                rmtree(VMS_DIR / v.name)
+        for v in VmService.get_recoverable_vms():
+            if v.vm_id == vm_id:
+                undefine_domain(v.vm_id)
+                rmtree(VMS_DIR / v.vm_id)
                 return
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
-            f"Vm {vm_id} not found in database"
+            f"Recoverable vm {vm_id} not found"
         )
 
     @staticmethod
