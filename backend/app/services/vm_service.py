@@ -1,4 +1,6 @@
 import uuid
+import json
+import math
 import secrets
 import subprocess
 import logging
@@ -56,6 +58,16 @@ class Vm:
         return os_value
 
     @staticmethod
+    def _min_disk_size(image_path: Path) -> int:
+        result = subprocess.run(
+            ["qemu-img", "info", "--output=json", str(image_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return math.ceil(json.loads(result.stdout)["virtual-size"] / 2**30)
+
+    @staticmethod
     def has_revision_changed(metadata_filename: str) -> bool:
         local_image = ImageService.get_local_image(metadata_filename)
         if local_image is None:
@@ -96,6 +108,12 @@ class Vm:
                     self.os,
                     distribox_image_dir)
 
+            min_disk_size = self._min_disk_size(distribox_image_dir)
+            if self.disk_size < min_disk_size:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Disk size must be at least {min_disk_size} GB",
+                )
             vm_dir.mkdir(parents=True, exist_ok=True)
             ensure_seed_iso(
                 keyboard_layout=self.keyboard_layout,
@@ -104,7 +122,7 @@ class Vm:
             copy(distribox_image_dir, vm_dir)
             vm_path = vm_dir / self.os
             subprocess.run(
-                ["qemu-img", "resize", vm_path, f"+{self.disk_size}G"],
+                ["qemu-img", "resize", vm_path, f"{self.disk_size}G"],
                 check=True,
             )
             vm_xml = build_xml(VmCreateXML(
