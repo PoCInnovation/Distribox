@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field
 from uuid import UUID
 from datetime import datetime
 from app.models.image import ImageRead
@@ -41,7 +41,7 @@ class VmRename(BaseModel):
 class VmCredentialCreateRequest(BaseModel):
     name: str = Field(min_length=1)
     password: Optional[str] = None
-    expires_at: Optional[datetime] = None
+    expires_at: Optional[AwareDatetime] = None
 
 
 class VmCredentialRead(BaseModel):

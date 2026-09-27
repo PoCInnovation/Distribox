@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 from typing import Optional
 from sqlalchemy import JSON, Column
@@ -13,7 +13,8 @@ class UserORM(SQLModel, table=True):
     hashed_password: str
     password: Optional[str] = Field(default=None)
     is_admin: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc))
     created_by: Optional[str] = Field(default=None)
     last_activity: Optional[datetime] = Field(default=None)
     policies: list[str] = Field(

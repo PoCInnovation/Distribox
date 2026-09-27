@@ -51,7 +51,7 @@ def init_db():
                 text("ALTER TABLE users ADD COLUMN created_by VARCHAR"))
         if "last_activity" not in columns:
             conn.execute(
-                text("ALTER TABLE users ADD COLUMN last_activity TIMESTAMP"))
+                text("ALTER TABLE users ADD COLUMN last_activity TIMESTAMPTZ"))
         if "password" not in columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN password VARCHAR"))
         if "policies" not in columns:
@@ -107,9 +107,21 @@ def init_db():
                 conn.execute(
                     text(
                         "ALTER TABLE vm_credentials "
-                        "ADD COLUMN expires_at TIMESTAMP"
+                        "ADD COLUMN expires_at TIMESTAMPTZ"
                     )
                 )
+
+        naive_columns = conn.execute(text(
+            "SELECT table_name, column_name FROM information_schema.columns "
+            "WHERE table_schema = current_schema() "
+            "AND data_type = 'timestamp without time zone'"
+        )).all()
+        for table, column in naive_columns:
+            if table in SQLModel.metadata.tables:
+                conn.execute(text(
+                    f"ALTER TABLE {table} ALTER COLUMN {column} "
+                    f"TYPE TIMESTAMPTZ USING {column} AT TIME ZONE 'UTC'"
+                ))
 
 
 class QEMUConfig:

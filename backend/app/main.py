@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
@@ -151,7 +151,7 @@ async def _enforce_event_deadlines():
             with Session(engine) as session:
                 expired_events = session.exec(
                     select(EventORM).where(
-                        EventORM.deadline < datetime.utcnow())
+                        EventORM.deadline < datetime.now(timezone.utc))
                 ).all()
                 for ev in expired_events:
                     participants = session.exec(

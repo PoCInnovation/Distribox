@@ -2,7 +2,7 @@
 import uuid
 import logging
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -96,7 +96,7 @@ class SlaveService:
                     detail=f"Slave {slave_id} not found",
                 )
             slave.status = "online"
-            slave.last_heartbeat = datetime.utcnow()
+            slave.last_heartbeat = datetime.now(timezone.utc)
             slave.total_cpu = heartbeat.total_cpu
             slave.total_mem = heartbeat.total_mem
             slave.total_disk = heartbeat.total_disk
@@ -172,7 +172,7 @@ class SlaveService:
     @staticmethod
     def check_stale_slaves() -> None:
         """Mark slaves as offline if their heartbeat is too old."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         with Session(engine) as session:
             online_slaves = session.exec(
                 select(SlaveORM).where(SlaveORM.status == "online")
