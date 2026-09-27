@@ -257,6 +257,18 @@ export const POLICY_COLORS = {
     hover: "hover:bg-amber-600/30",
     text: "text-amber-700 dark:text-amber-400",
   },
+  [Policy.VMS_DUPLICATE]: {
+    bg: "bg-teal-600/20",
+    border: "border-teal-600",
+    hover: "hover:bg-teal-600/30",
+    text: "text-teal-700 dark:text-teal-400",
+  },
+  [Policy.VMS_RENAME]: {
+    bg: "bg-yellow-600/20",
+    border: "border-yellow-600",
+    hover: "hover:bg-yellow-600/30",
+    text: "text-yellow-700 dark:text-yellow-400",
+  },
   [Policy.VMS_RECOVER]: {
     bg: "bg-emerald-600/20",
     border: "border-emerald-600",
