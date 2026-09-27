@@ -12,7 +12,7 @@ import {
 import { apiRequest, validateWithSchema } from "./core";
 
 export async function getEvents(): Promise<Event[]> {
-  return apiRequest("/events", {}, EventSchema.array());
+  return apiRequest("/events/", {}, EventSchema.array());
 }
 
 export async function getEvent(eventId: string): Promise<Event> {
@@ -26,7 +26,7 @@ export async function createEvent(payload: CreateEventPayload): Promise<Event> {
     "/events",
   );
   return apiRequest(
-    "/events",
+    "/events/",
     { method: "POST", body: JSON.stringify(validated) },
     EventSchema,
   );

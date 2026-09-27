@@ -5,7 +5,7 @@ import { API_BASE_URL, apiRequest, getAuthToken } from "./core";
 const CHUNK_SIZE = 16 * 1024 * 1024;
 
 export async function getImages(): Promise<ImageMetadata[]> {
-  return apiRequest("/images", {}, ImageMetadataSchema.array());
+  return apiRequest("/images/", {}, ImageMetadataSchema.array());
 }
 
 function readErrorDetail(body: string, status: number): string {
