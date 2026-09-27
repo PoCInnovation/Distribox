@@ -275,6 +275,7 @@ Copy `.env.example` to `.env` and adjust as needed. Key variables:
 | `VITE_API_DOMAIN` | `http://localhost:8080` | Backend URL as seen from the browser |
 | `VITE_TUNNEL_URL` | - | WebSocket URL for VM streaming, defaults to `VITE_API_DOMAIN` + `/tunnel` |
 | `FRONTEND_URL` | `http://localhost:3000` | Frontend URL, used for CORS |
+| `ROOT_PATH` | - | Path prefix the reverse proxy serves the API under, `/api` with the provided `nginx.conf` |
 | `GUACD_HOST` / `GUACD_PORT` | `host.docker.internal` / `4822` | Where the backend reaches guacd |
 | `VIRT_TYPE` | `kvm` | `kvm`, or `qemu` for software emulation |
 | `SSH_*` | disabled | See [SSH gateway](#ssh-gateway) |
@@ -303,11 +304,12 @@ This configuration:
 
 > Note: If you change port configuration for the deployment, we trust you will update the reverse proxy configuration accordingly.
 
-After enabling the reverse proxy, update your `.env` so the frontend calls the backend through nginx instead of directly:
+After enabling the reverse proxy, update your `.env` so the frontend calls the backend through nginx instead of directly, and the API docs load at `/api/docs` and `/api/redoc`:
 
 ```env
 VITE_API_DOMAIN=http://your-domain.com/api
 FRONTEND_URL=http://your-domain.com
+ROOT_PATH=/api
 ```
 
 ### Firewall

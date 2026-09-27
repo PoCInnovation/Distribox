@@ -15,13 +15,13 @@ from app.orm.event import EventORM, EventParticipantORM  # noqa: F401
 from app.orm.user_settings import UserSettingsORM  # noqa: F401
 from app.orm.slave import SlaveORM  # noqa: F401
 from app.utils.auth import hash_password
-from app.core.config import engine, get_env_or_default, init_db, DISTRIBOX_MODE, QEMUConfig
+from app.core.config import engine, get_env_or_default, init_db, DISTRIBOX_MODE, QEMUConfig, ROOT_PATH
 from app.utils.crypto import encrypt_secret, is_encrypted_secret
 from app.services.vm_service import VmService
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+app = FastAPI(root_path=ROOT_PATH)
 ssh_listener = None
 
 frontend_url = get_env_or_default("FRONTEND_URL", "http://localhost:3000")
