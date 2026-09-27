@@ -29,7 +29,7 @@ def connection_settings(enabled: bool) -> dict:
         "enabled": enabled,
         "available": bool(host and fingerprint),
         "host": host,
-        "port": int(os.getenv("SSH_PUBLIC_PORT") or os.getenv("SSH_PORT", "2222")),
+        "port": int(os.getenv("SSH_PUBLIC_PORT") or os.environ.get("SSH_PORT", "2222")),
         "host_key_fingerprint": fingerprint,
     }
 

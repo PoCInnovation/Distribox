@@ -120,7 +120,7 @@ def _target_address(connection, domain) -> str:
                 continue
             addresses.append(ipaddress.IPv4Interface(
                 f"{element.get('address')}/{prefix}"))
-        mac_address = mac.get("address").lower()
+        mac_address = mac.get("address", "").lower()
         for lease in network.DHCPLeases(mac_address):
             if lease.get("mac", "").lower() != mac_address:
                 continue
@@ -161,8 +161,7 @@ def _load_private_key(vm_id: str) -> Ed25519PrivateKey:
         raise HTTPException(409, "The VM storage is unavailable for SSH")
     key_path = vm_dir / "ssh-client-key.enc"
     if not key_path.exists():
-        key = Ed25519PrivateKey.generate()
-        plaintext = key.private_bytes(
+        plaintext = Ed25519PrivateKey.generate().private_bytes(
             serialization.Encoding.PEM, serialization.PrivateFormat.OpenSSH,
             serialization.NoEncryption(),
         ).decode()

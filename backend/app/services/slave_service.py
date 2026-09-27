@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, select, col
 
 from app.core.config import engine
 from app.orm.slave import SlaveORM
@@ -24,7 +24,7 @@ class SlaveService:
     @staticmethod
     def list_slaves() -> list[SlaveORM]:
         with Session(engine) as session:
-            return list(session.exec(select(SlaveORM).order_by(SlaveORM.created_at)).all())
+            return list(session.exec(select(SlaveORM).order_by(col(SlaveORM.created_at))).all())
 
     @staticmethod
     def get_slave(slave_id: str) -> SlaveORM:

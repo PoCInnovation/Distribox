@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 from app.core.config import engine
 from app.core.policies import expand_policies
-from app.models.user_management import MissingPoliciesResponse, UserResponse
+from app.models.user_management import MissingPoliciesResponse, PolicyResponse, UserResponse
 from app.orm.user import UserORM
 from app.orm.user_settings import UserSettingsORM
 from app.models.user_settings import UserSettingsResponse, UpdateUserSettingsRequest
@@ -42,7 +42,8 @@ def to_user_response(user: UserORM) -> UserResponse:
         created_at=user.created_at,
         created_by=user.created_by,
         last_activity=user.last_activity,
-        policies=expand_policies(user.policies),
+        policies=[PolicyResponse(**policy)
+                  for policy in expand_policies(user.policies)],
     )
 
 
