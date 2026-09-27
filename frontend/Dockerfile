@@ -2,8 +2,8 @@ FROM node:24-alpine as base
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
-COPY ./package.json ./pnpm-lock.yaml /app/
+RUN corepack enable && corepack prepare pnpm@12.4.2 --activate
+COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml /app/
 RUN pnpm install --frozen-lockfile
 
 FROM base as dev-stage
