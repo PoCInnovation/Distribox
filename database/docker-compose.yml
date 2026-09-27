@@ -3,6 +3,7 @@ services:
   database:
     image: postgres:15-alpine
     container_name: distribox-database
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_NAME:-distribox}
       POSTGRES_USER: ${POSTGRES_USER:-distribox_user}
