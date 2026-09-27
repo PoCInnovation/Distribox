@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-CLOUD_IMG_URL=https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-GenericCloud-x86_64-10-20260818.0.x86_64.qcow2
+CLOUD_IMG_URL=https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-GenericCloud-10-latest.x86_64.qcow2
 DISTRIBOX_IMG_PATH="/var/lib/distribox/images/"
 CLOUD_IMG_SOURCE="${CLOUD_IMG_URL##*/}"
 
