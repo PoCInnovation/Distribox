@@ -154,3 +154,5 @@ SLAVE_API_KEY = get_env_or_default("SLAVE_API_KEY", "")
 
 # Virtualization type: "kvm" (default, hardware accel) or "qemu" (software emulation)
 VIRT_TYPE = get_env_or_default("VIRT_TYPE", "kvm")
+
+ROOT_PATH = get_env_or_default("ROOT_PATH", "")

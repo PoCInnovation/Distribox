@@ -15,6 +15,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-distribox_password}
       - BACKEND_PORT=${BACKEND_PORT:-8080}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ROOT_PATH=${ROOT_PATH:-}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - SSH_ENABLED=${SSH_ENABLED:-false}
