@@ -93,6 +93,33 @@ class Vm:
             return False
         return registry_image.revision != local_image.revision
 
+    @classmethod
+    def _download_image(cls, image: str) -> Path:
+        image_path = IMAGES_DIR / image
+        metadata_filename = image.replace("qcow2", "metadata.yaml")
+        if (cls.has_revision_changed(metadata_filename) is True):
+            s3.download_file(
+                distribox_bucket_registry,
+                metadata_filename,
+                IMAGES_DIR / metadata_filename)
+        if (path.exists(image_path)
+                is False or cls.has_revision_changed is True):
+            s3.download_file(
+                distribox_bucket_registry,
+                image,
+                image_path)
+        return image_path
+
+    @classmethod
+    def check_disk_size(cls, os_value: str, disk_size: int):
+        image_path = cls._download_image(cls._resolve_image_name(os_value))
+        min_disk_size = cls._min_disk_size(image_path)
+        if disk_size < min_disk_size:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Disk size must be at least {min_disk_size} GB",
+            )
+
     def __init__(self, vm_create: VmCreate):
         self.id = uuid.uuid4()
         self.name = vm_create.name
@@ -110,26 +137,8 @@ class Vm:
         vm_dir = VMS_DIR / str(self.id)
         distribox_image_dir = IMAGES_DIR / self.os
 
-        metadata_filename = self.os.replace("qcow2", "metadata.yaml")
-        if (self.has_revision_changed(metadata_filename) is True):
-            s3.download_file(
-                distribox_bucket_registry,
-                metadata_filename,
-                IMAGES_DIR / metadata_filename)
         try:
-            if (path.exists(distribox_image_dir)
-                    is False or self.has_revision_changed is True):
-                s3.download_file(
-                    distribox_bucket_registry,
-                    self.os,
-                    distribox_image_dir)
-
-            min_disk_size = self._min_disk_size(distribox_image_dir)
-            if self.disk_size < min_disk_size:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Disk size must be at least {min_disk_size} GB",
-                )
+            self.check_disk_size(self.os, self.disk_size)
             vm_dir.mkdir(parents=True, exist_ok=True)
             ensure_seed_iso(
                 keyboard_layout=self.keyboard_layout,

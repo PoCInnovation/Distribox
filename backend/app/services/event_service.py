@@ -16,7 +16,7 @@ from app.orm.event import EventORM, EventParticipantORM
 from app.orm.vm import VmORM
 from app.orm.vm_credential import VmCredentialORM
 from app.services.host_service import HostService
-from app.services.vm_service import VmService
+from app.services.vm_service import Vm, VmService
 from app.services.slave_service import SlaveService
 from app.services.slave_client import slave_get_host_info
 
@@ -218,6 +218,7 @@ class EventService:
     @staticmethod
     def create_event(payload: EventCreate, created_by: str) -> EventRead:
         EventService._check_host_resources(payload)
+        Vm.check_disk_size(payload.vm_os, payload.vm_disk_size)
 
         with Session(engine) as session:
             existing = session.exec(
@@ -258,9 +259,13 @@ class EventService:
                                     f"Event {event_id} not found")
 
             previous_ssh_enabled = event.ssh_enabled
+            previous_disk = (event.vm_os, event.vm_disk_size)
             update_data = payload.model_dump(exclude_unset=True)
             for key, value in update_data.items():
                 setattr(event, key, value)
+
+            if (event.vm_os, event.vm_disk_size) != previous_disk:
+                Vm.check_disk_size(event.vm_os, event.vm_disk_size)
 
             # If deadline changed, update expires_at on all participant credentials
             if "deadline" in update_data:
