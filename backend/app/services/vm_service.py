@@ -11,7 +11,7 @@ from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML, VmRename
 from app.models.image import ImageRead
-from app.core.xml_builder import build_xml, upgrade_display_devices
+from app.core.xml_builder import build_xml, configure_vnc_keyboard, upgrade_display_devices
 from app.core.config import QEMUConfig, engine
 from sqlalchemy import func
 from sqlmodel import Session, select, delete, col
@@ -250,9 +250,25 @@ class Vm:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
             if vm.isActive() == 0:
-                upgraded = upgrade_display_devices(vm.XMLDesc())
-                if upgraded:
-                    conn.defineXML(upgraded)
+                has_saved_state = vm.hasManagedSaveImage(0)
+                original_xml = vm.XMLDesc(
+                    libvirt.VIR_DOMAIN_XML_INACTIVE | libvirt.VIR_DOMAIN_XML_SECURE)
+                domain_xml = original_xml
+                # Saved memory requires the same guest devices on restore.
+                if not has_saved_state:
+                    domain_xml = upgrade_display_devices(
+                        domain_xml) or domain_xml
+                domain_xml = configure_vnc_keyboard(
+                    domain_xml, self.keyboard_layout) or domain_xml
+                if domain_xml != original_xml:
+                    conn.defineXML(domain_xml)
+                if has_saved_state:
+                    saved_xml = vm.managedSaveGetXMLDesc(
+                        libvirt.VIR_DOMAIN_SAVE_IMAGE_XML_SECURE)
+                    updated_saved_xml = configure_vnc_keyboard(
+                        saved_xml, self.keyboard_layout)
+                    if updated_saved_xml:
+                        vm.managedSaveDefineXML(updated_saved_xml, 0)
                 vm.create()
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:

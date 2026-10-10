@@ -128,6 +128,19 @@ def build_xml(vm_read: VmCreateXML):
     return xml_string
 
 
+def configure_vnc_keyboard(
+        domain_xml: str, keyboard_layout: str | None) -> str | None:
+    keymap = LAYOUT_TO_KEYMAP.get(keyboard_layout or "")
+    if keymap is None:
+        return None
+    root = etree.fromstring(domain_xml.encode())
+    graphics = root.find('./devices/graphics[@type="vnc"]')
+    if graphics is None or graphics.get("keymap") == keymap:
+        return None
+    graphics.set("keymap", keymap)
+    return etree.tostring(root, encoding="utf-8").decode()
+
+
 def upgrade_display_devices(domain_xml: str) -> str | None:
     root = etree.fromstring(domain_xml.encode())
     model = root.find("./devices/video/model")

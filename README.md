@@ -80,6 +80,10 @@ OS images are hosted in a remote S3-based registry. When a VM is created, the ba
 ### Local images
 Bring your own images: click **Upload** in the image picker and choose a qcow2, VMDK, VDI or raw disk, or a zip archive holding one. Distribox converts it, keeps it on the host and lists it next to the registry images. Tick the UEFI option for machines exported from VirtualBox or VMware with EFI enabled.
 
+When provisioning an imported image, choose a **Keyboard Layout** that matches the desktop inside the image. For a French AZERTY desktop such as GLO-2000 Lab, select **French - AZERTY**. Set your default under **Settings** to preselect it for new VMs. Distribox applies the saved layout to QEMU's VNC keyboard translation on each start, including when restoring a saved desktop session. This works without cloud-init or a guest agent. Images that support cloud-init also receive the keyboard setting inside the guest.
+
+**None (VM default)** leaves the existing VNC keymap unchanged. Imported images keep their guest keyboard settings, so selecting a different layout in Distribox requires matching the layout inside the guest as well.
+
 ---
 
 ## Master / Slave Architecture
