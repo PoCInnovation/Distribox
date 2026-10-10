@@ -1,5 +1,5 @@
 from unittest.mock import Mock
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import libvirt
 import pytest
@@ -7,6 +7,8 @@ from lxml import etree
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
+from app.core import xml_builder
+from app.models.vm import VmCreateXML
 from app.orm.vm import VmORM
 from app.services import vm_service
 
@@ -96,10 +98,19 @@ def test_start_uses_saved_keyboard_layout(vm_start, old_keymap, layout, keymap):
     assert root.find('./devices/graphics').get("listen") == "127.0.0.1"
 
 
-@pytest.mark.parametrize("layout", [None, "", "unrecognized"])
-def test_unconfigured_layout_preserves_existing_keymap(vm_start, layout):
+@pytest.mark.parametrize("layout", [
+    None, "", "unrecognized", "es-latam-qwerty", "ro-ro-qwerty", "ko-kr-qwerty",
+])
+@pytest.mark.parametrize("old_keymap", [None, "fr"])
+@pytest.mark.parametrize("saved", [False, True])
+def test_unmapped_layout_preserves_existing_keymap(
+        vm_start, layout, old_keymap, saved):
     vm_id, engine, domain, connection, state = vm_start
-    state["xml"] = DOMAIN_XML.replace("type='vnc'", "type='vnc' keymap='fr'")
+    if old_keymap:
+        state["xml"] = DOMAIN_XML.replace(
+            "type='vnc'", f"type='vnc' keymap='{old_keymap}'")
+    state["saved_xml"] = state["xml"]
+    domain.hasManagedSaveImage.return_value = saved
     with Session(engine) as session:
         record = session.get(VmORM, UUID(vm_id))
         record.keyboard_layout = layout
@@ -108,8 +119,25 @@ def test_unconfigured_layout_preserves_existing_keymap(vm_start, layout):
 
     vm_service.VmService.start_vm(vm_id)
 
-    assert vnc_keymap(state["starts"][0][0]) == "fr"
+    persistent, saved_xml = state["starts"][0]
+    assert vnc_keymap(persistent) == old_keymap
+    assert vnc_keymap(saved_xml) == old_keymap
     connection.defineXML.assert_not_called()
+    domain.managedSaveDefineXML.assert_not_called()
+
+
+@pytest.mark.parametrize("layout", [
+    "es-latam-qwerty", "ro-ro-qwerty", "ko-kr-qwerty",
+])
+def test_creation_omits_unsupported_vnc_keymaps(tmp_path, monkeypatch, layout):
+    monkeypatch.setattr(xml_builder, "image_firmware", lambda name: "bios")
+    monkeypatch.setattr(xml_builder, "VMS_DIR", tmp_path)
+    vm = VmCreateXML(
+        id=uuid4(), name="Course VM", os="course.qcow2", mem=4,
+        vcpus=2, disk_size=20, keyboard_layout=layout,
+    )
+
+    assert vnc_keymap(xml_builder.build_xml(vm)) is None
 
 
 def test_restore_applies_layout_without_changing_saved_guest_devices(vm_start):

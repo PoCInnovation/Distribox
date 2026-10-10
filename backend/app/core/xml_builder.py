@@ -4,6 +4,8 @@ from app.core.constants import VMS_DIR, IMAGES_DIR
 from app.core.config import VIRT_TYPE
 from app.services.image_service import ImageService
 
+# QEMU VNC keymaps differ from guest XKB layouts. Only use bundled QEMU maps;
+# unsupported selections must not prevent VM startup.
 LAYOUT_TO_KEYMAP = {
     "en-us-qwerty": "en-us",
     "en-gb-qwerty": "en-gb",
@@ -13,7 +15,6 @@ LAYOUT_TO_KEYMAP = {
     "de-de-qwertz": "de",
     "de-ch-qwertz": "de-ch",
     "es-es-qwerty": "es",
-    "es-latam-qwerty": "latam",
     "it-it-qwerty": "it",
     "pt-br-qwerty": "pt-br",
     "pt-pt-qwerty": "pt",
@@ -25,10 +26,8 @@ LAYOUT_TO_KEYMAP = {
     "pl-pl-qwerty": "pl",
     "cs-cz-qwertz": "cz",
     "hu-hu-qwertz": "hu",
-    "ro-ro-qwerty": "ro",
     "ru-ru-qwerty": "ru",
     "ja-jp-qwerty": "ja",
-    "ko-kr-qwerty": "ko",
     "tr-tr-qwerty": "tr",
 }
 
