@@ -4,6 +4,8 @@ from app.core.constants import VMS_DIR, IMAGES_DIR
 from app.core.config import VIRT_TYPE
 from app.services.image_service import ImageService
 
+# QEMU VNC keymaps differ from guest XKB layouts. Only use bundled QEMU maps;
+# unsupported selections must not prevent VM startup.
 LAYOUT_TO_KEYMAP = {
     "en-us-qwerty": "en-us",
     "en-gb-qwerty": "en-gb",
@@ -13,7 +15,6 @@ LAYOUT_TO_KEYMAP = {
     "de-de-qwertz": "de",
     "de-ch-qwertz": "de-ch",
     "es-es-qwerty": "es",
-    "es-latam-qwerty": "latam",
     "it-it-qwerty": "it",
     "pt-br-qwerty": "pt-br",
     "pt-pt-qwerty": "pt",
@@ -25,10 +26,8 @@ LAYOUT_TO_KEYMAP = {
     "pl-pl-qwerty": "pl",
     "cs-cz-qwertz": "cz",
     "hu-hu-qwertz": "hu",
-    "ro-ro-qwerty": "ro",
     "ru-ru-qwerty": "ru",
     "ja-jp-qwerty": "ja",
-    "ko-kr-qwerty": "ko",
     "tr-tr-qwerty": "tr",
 }
 
@@ -126,6 +125,19 @@ def build_xml(vm_read: VmCreateXML):
     xml_string = etree.tostring(
         domain, pretty_print=True, encoding="utf-8").decode()
     return xml_string
+
+
+def configure_vnc_keyboard(
+        domain_xml: str, keyboard_layout: str | None) -> str | None:
+    keymap = LAYOUT_TO_KEYMAP.get(keyboard_layout or "")
+    if keymap is None:
+        return None
+    root = etree.fromstring(domain_xml.encode())
+    graphics = root.find('./devices/graphics[@type="vnc"]')
+    if graphics is None or graphics.get("keymap") == keymap:
+        return None
+    graphics.set("keymap", keymap)
+    return etree.tostring(root, encoding="utf-8").decode()
 
 
 def upgrade_display_devices(domain_xml: str) -> str | None:
