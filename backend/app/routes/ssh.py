@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 from urllib.parse import urlparse
@@ -10,7 +11,8 @@ from app.core.config import engine
 from app.models.ssh import SshConnection, SshConnectionRequest, SshSettings, SshSettingsUpdate
 from app.orm.user import UserORM
 from app.orm.vm import VmORM
-from app.services.ssh_access import find_credential
+from app.services.ssh_access import begin_ssh_update, complete_ssh_enablement, find_credential
+from app.services.ssh_transport import preparation_status, prepare_guest_connection
 from app.utils.auth import get_current_user, require_policy, user_has_policy
 
 router = APIRouter()
@@ -69,12 +71,25 @@ def get_ssh_settings(
 
 @router.patch("/vms/{vm_id}/ssh", response_model=SshSettings,
               dependencies=[Depends(require_policy("vms:ssh:manage"))])
-def update_ssh_settings(vm_id: UUID, payload: SshSettingsUpdate):
-    with Session(engine) as session:
-        vm = session.get(VmORM, vm_id)
-        if vm is None:
-            raise HTTPException(404, "VM not found")
-        vm.ssh_enabled = payload.enabled
-        session.add(vm)
-        session.commit()
-        return connection_settings(vm.ssh_enabled)
+async def update_ssh_settings(vm_id: UUID, payload: SshSettingsUpdate):
+    revision = await asyncio.to_thread(begin_ssh_update, vm_id)
+    if not payload.enabled:
+        return connection_settings(False)
+    try:
+        _, details = await asyncio.wait_for(prepare_guest_connection(
+            str(vm_id), refresh=True, defer_if_stopped=True,
+        ), 120)
+        status = preparation_status(details, allow_pending=True)
+    except HTTPException:
+        raise
+    except TimeoutError as exc:
+        raise HTTPException(
+            504, "SSH setup timed out; check the VM host and try again") from exc
+    except Exception as exc:
+        raise HTTPException(
+            503, "Cannot prepare SSH; check the VM host, guest agent, OpenSSH server and user account") from exc
+    await asyncio.to_thread(complete_ssh_enablement, vm_id, revision)
+    return {
+        **connection_settings(True),
+        "preparation_status": status,
+    }

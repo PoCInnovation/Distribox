@@ -147,6 +147,66 @@ def test_stopped_vm_is_not_prepared(guest, monkeypatch):
     assert not list(guest.directory.iterdir())
 
 
+def test_stopped_vm_can_defer_setup_without_creating_keys(guest, monkeypatch):
+    guest.domain.isActive.return_value = False
+    agent = Mock()
+    monkeypatch.setattr(ssh_guest.libvirt_qemu, "qemuAgentCommand", agent)
+
+    assert ssh_guest.prepare_guest(
+        guest.id, refresh=True, defer_if_stopped=True) == {"pending": True}
+    agent.assert_not_called()
+    assert not list(guest.directory.iterdir())
+
+
+def test_running_vm_without_dhcp_lease_does_not_defer_setup(guest, monkeypatch):
+    guest.network.DHCPLeases.return_value = []
+    agent = Mock()
+    monkeypatch.setattr(ssh_guest.libvirt_qemu, "qemuAgentCommand", agent)
+
+    with pytest.raises(HTTPException) as failure:
+        ssh_guest.prepare_guest(guest.id, refresh=True, defer_if_stopped=True)
+
+    assert failure.value.status_code == 409
+    assert "DHCP lease" in failure.value.detail
+    agent.assert_not_called()
+    assert not list(guest.directory.iterdir())
+
+
+def test_refresh_runs_setup_again_instead_of_using_connection_cache(guest, monkeypatch):
+    agent = agent_response(monkeypatch, public_key())
+    ssh_guest.prepare_guest(guest.id)
+    agent.reset_mock()
+
+    ssh_guest.prepare_guest(guest.id, refresh=True)
+
+    requests = [json.loads(call.args[1])["execute"] for call in agent.call_args_list]
+    assert requests == ["guest-exec", "guest-exec-status"]
+
+
+def test_failed_refresh_invalidates_old_connection_cache(guest, monkeypatch):
+    agent_response(monkeypatch, public_key())
+    ssh_guest.prepare_guest(guest.id)
+    agent = Mock(side_effect=libvirt.libvirtError("guest agent disconnected"))
+    monkeypatch.setattr(ssh_guest.libvirt_qemu, "qemuAgentCommand", agent)
+
+    with pytest.raises(HTTPException):
+        ssh_guest.prepare_guest(guest.id, refresh=True)
+    with pytest.raises(HTTPException):
+        ssh_guest.prepare_guest(guest.id)
+    assert agent.call_count == 2
+
+
+@pytest.mark.parametrize("exitcode", list(ssh_guest.GUEST_SETUP_ERRORS))
+def test_setup_errors_explain_prerequisites_without_guest_output(guest, monkeypatch, exitcode):
+    agent_response(monkeypatch, "sensitive guest diagnostics", exitcode)
+
+    with pytest.raises(HTTPException) as failure:
+        ssh_guest.prepare_guest(guest.id)
+
+    assert failure.value.status_code == 409
+    assert failure.value.detail == ssh_guest.GUEST_SETUP_ERRORS[exitcode]
+
+
 def test_invalid_uuid_never_reaches_libvirt(guest):
     with pytest.raises(HTTPException) as failure:
         ssh_guest.prepare_guest("../../other-vm")

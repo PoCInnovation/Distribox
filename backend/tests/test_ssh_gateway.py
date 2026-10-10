@@ -84,7 +84,7 @@ async def gateway(monkeypatch, tmp_path):
     monkeypatch.setattr(ssh_gateway, "ssh_access_valid",
                         lambda credential_id, vm_id: allowed.get(credential_id, False))
     monkeypatch.setattr(ssh_gateway, "ACCESS_CHECK_INTERVAL", 0.02)
-    monkeypatch.setattr(ssh_transport, "_prepare_guest", prepare)
+    monkeypatch.setattr(ssh_transport, "prepare_guest_connection", prepare)
     monkeypatch.setenv("SSH_ENABLED", "true")
     monkeypatch.setenv("SSH_LISTEN_HOST", "127.0.0.1")
     monkeypatch.setenv("SSH_PORT", "0")
@@ -251,7 +251,7 @@ async def test_slave_transport_preserves_ssh_and_sftp(gateway, monkeypatch):
         async def prepare(vm_id):
             return slave, gateway.details[vm_id]
 
-        monkeypatch.setattr(ssh_transport, "_prepare_guest", prepare)
+        monkeypatch.setattr(ssh_transport, "prepare_guest_connection", prepare)
         async with gateway.connect() as client:
             result = await asyncio.wait_for(client.run("binary"), 3)
             assert result.stdout == b"\x00\xff\x80output"
@@ -310,7 +310,7 @@ def test_slave_endpoints_require_token_and_valid_vm_id(monkeypatch):
     monkeypatch.setattr(slave_auth, "SLAVE_API_KEY", "private-slave-token")
     monkeypatch.setattr(ssh_slave, "resolve_guest_target", resolve)
     monkeypatch.setattr(ssh_slave, "prepare_guest",
-                        lambda vm_id: {"vm_id": vm_id})
+                        lambda vm_id, **kwargs: {"vm_id": vm_id})
     app = FastAPI()
     app.include_router(ssh_slave.router)
     vm_id = "ac09cd51-c9ed-498a-bfab-4c95ed9732e6"
@@ -321,6 +321,9 @@ def test_slave_endpoints_require_token_and_valid_vm_id(monkeypatch):
             f"/vms/{vm_id}/ssh/prepare", headers={"X-Slave-Token": "wrong"}).status_code == 401
         assert client.post(f"/vms/{vm_id}/ssh/prepare",
                            headers=headers).json() == {"vm_id": vm_id}
+        assert client.post(
+            f"/vms/{vm_id}/ssh/prepare?refresh=true&defer_if_stopped=true",
+            headers=headers).json() == {"vm_id": vm_id, "refresh_applied": True}
         assert client.post("/vms/invalid/ssh/prepare",
                            headers=headers).status_code == 422
         with pytest.raises(WebSocketDisconnect):

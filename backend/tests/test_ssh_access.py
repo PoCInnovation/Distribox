@@ -1,6 +1,10 @@
+import asyncio
+
+import httpx
+
 from app.utils.crypto import encrypt_secret
 from app.utils.auth import get_current_user
-from app.services import event_service, ssh_access, ssh_gateway, vm_service
+from app.services import event_service, ssh_access, ssh_gateway, ssh_transport, vm_service
 from app.routes import ssh
 from app.orm.vm_credential import VmCredentialORM
 from app.orm.vm import VmORM
@@ -16,6 +20,7 @@ from fastapi import FastAPI, HTTPException
 import pytest
 import os
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 os.environ.setdefault("AWS_EC2_METADATA_DISABLED", "true")
@@ -137,6 +142,7 @@ def test_connection_details_require_secret_and_never_return_guest_keys(client, d
         "enabled": True, "available": True, "host": "ssh.example.com", "port": 2222,
         "host_key_fingerprint": "SHA256:test", "credential_id": str(credential_id),
         "vm_name": "Participant VM", "expires_at": None,
+        "preparation_status": None,
     }
     assert client.post(
         "/ssh/connection", json={"credential": str(credential_id)}).status_code == 401
@@ -153,6 +159,183 @@ def test_only_host_policy_can_enable_ssh(client, database):
     response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": False})
     assert response.status_code == 200
     assert not response.json()["enabled"]
+
+
+@pytest.fixture
+def ssh_manager(client, monkeypatch):
+    client.app.dependency_overrides[get_current_user] = lambda: UserORM(
+        username="host", hashed_password="unused", policies=["vms:ssh:manage"]
+    )
+    prepare = AsyncMock(return_value=(None, {
+        "private_key": "must-not-leak", "host_keys": ["guest-host-key"],
+        "host": "192.168.122.42", "port": 22, "username": "user",
+    }))
+    monkeypatch.setattr(ssh_transport, "prepare_guest_connection",
+                        prepare, raising=False)
+    monkeypatch.setattr(ssh, "prepare_guest_connection", prepare)
+    return client, prepare
+
+
+def test_enabling_ssh_prepares_before_granting_access(ssh_manager, database):
+    client, prepare = ssh_manager
+    engine, vm_id, credential_id = database
+
+    async def setup(*args, **kwargs):
+        assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
+        return prepare.return_value
+
+    prepare.side_effect = setup
+    response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": True})
+
+    assert response.status_code == 200
+    assert response.json()["enabled"]
+    assert response.json()["preparation_status"] == "ready"
+    assert "must-not-leak" not in response.text
+    prepare.assert_awaited_once_with(
+        str(vm_id), refresh=True, defer_if_stopped=True)
+    assert ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
+
+
+@pytest.mark.parametrize("code,detail", [
+    (503, "SSH requires a running QEMU guest agent with guest-exec enabled"),
+    (409, "SSH setup failed; install OpenSSH server in the VM"),
+    (409, "SSH setup failed; create the user account in the VM"),
+    (503, "VM host is offline"),
+])
+def test_failed_enablement_leaves_access_revoked(ssh_manager, database, code, detail):
+    client, prepare = ssh_manager
+    engine, vm_id, credential_id = database
+    prepare.side_effect = HTTPException(code, detail)
+
+    response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": True})
+
+    assert response.status_code == code
+    assert response.json()["detail"] == detail
+    assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
+
+
+@pytest.mark.parametrize("details", [None, [], "must-not-leak", {}, {"pending": "true"}])
+def test_malformed_preparation_cannot_grant_access(ssh_manager, database, details):
+    client, prepare = ssh_manager
+    _, vm_id, credential_id = database
+    prepare.return_value = (None, details)
+
+    response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": True})
+
+    assert response.status_code == 503
+    assert "must-not-leak" not in response.text
+    assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
+
+
+@pytest.mark.parametrize("change", ["disabled", "failed_enablement"])
+def test_event_edits_preserve_individual_vm_revocation(ssh_manager, database, change):
+    client, prepare = ssh_manager
+    engine, vm_id, credential_id = database
+    event_id = add_event(engine, vm_id, datetime.now(timezone.utc) + timedelta(hours=1))
+    if change == "failed_enablement":
+        prepare.side_effect = HTTPException(503, "Guest agent required")
+    response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": change == "failed_enablement"})
+    assert response.status_code == (503 if change == "failed_enablement" else 200)
+
+    event_service.EventService.update_event(
+        str(event_id), EventUpdate(name="Renamed", ssh_enabled=True))
+
+    assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
+
+
+def test_unrelated_event_edit_preserves_individually_enabled_vm(ssh_manager, database):
+    client, prepare = ssh_manager
+    engine, vm_id, credential_id = database
+    event_id = add_event(engine, vm_id, datetime.now(timezone.utc) + timedelta(hours=1))
+    event_service.EventService.update_event(str(event_id), EventUpdate(ssh_enabled=False))
+    response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": True})
+    assert response.status_code == 200
+
+    # The editor omits the unchanged SSH preference when saving other fields.
+    event_service.EventService.update_event(str(event_id), EventUpdate(name="Renamed"))
+
+    assert ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
+
+
+def test_stopped_vm_retains_preference_with_pending_setup(ssh_manager, database):
+    client, prepare = ssh_manager
+    engine, vm_id, credential_id = database
+    prepare.return_value = (None, {"pending": True})
+
+    response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": True})
+
+    assert response.status_code == 200
+    assert response.json()["enabled"]
+    assert response.json()["preparation_status"] == "pending"
+
+
+def test_disabling_does_not_contact_guest(ssh_manager, database):
+    client, prepare = ssh_manager
+    engine, vm_id, credential_id = database
+
+    response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": False})
+
+    assert response.status_code == 200
+    assert not response.json()["enabled"]
+    prepare.assert_not_awaited()
+    assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
+
+
+@pytest.mark.asyncio
+async def test_later_disable_supersedes_enablement_in_progress(ssh_manager, database):
+    client, prepare = ssh_manager
+    engine, vm_id, credential_id = database
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def setup(*args, **kwargs):
+        started.set()
+        await release.wait()
+        return prepare.return_value
+
+    prepare.side_effect = setup
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=client.app),
+                                 base_url="http://test") as requests:
+        enable = asyncio.create_task(requests.patch(
+            f"/vms/{vm_id}/ssh", json={"enabled": True}))
+        try:
+            await asyncio.wait_for(started.wait(), 2)
+            disable = await asyncio.wait_for(requests.patch(
+                f"/vms/{vm_id}/ssh", json={"enabled": False}), 2)
+            assert disable.status_code == 200
+            assert not disable.json()["enabled"]
+            assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
+        finally:
+            release.set()
+            response = await asyncio.wait_for(enable, 2)
+
+    assert response.status_code == 409
+    assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
+
+
+@pytest.mark.parametrize("revocation", ["disable", "remove_participant"])
+def test_event_revocation_supersedes_enablement_in_progress(
+        ssh_manager, database, revocation):
+    client, prepare = ssh_manager
+    engine, vm_id, credential_id = database
+    event_id = add_event(engine, vm_id, datetime.now(timezone.utc) + timedelta(hours=1))
+    event_service.EventService.update_event(str(event_id), EventUpdate(ssh_enabled=False))
+
+    async def setup(*args, **kwargs):
+        if revocation == "disable":
+            event_service.EventService.update_event(
+                str(event_id), EventUpdate(ssh_enabled=False))
+        else:
+            with Session(engine) as session:
+                event_service._revoke_vm_access(session, vm_id)
+                session.commit()
+        return prepare.return_value
+
+    prepare.side_effect = setup
+    response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": True})
+
+    assert response.status_code == 409
+    assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
 
 
 def test_public_lookup_rejects_ambiguous_or_expired_secrets(database):

@@ -150,7 +150,10 @@ export function EventDetailPage() {
           vm_disk_size: Number.parseInt(editDisk) || undefined,
           max_vms: Number.parseInt(editMaxVms) || undefined,
           deadline: editDeadline ? editDeadline.toISOString() : undefined,
-          ssh_enabled: canManageSsh ? editSshEnabled : undefined,
+          ssh_enabled:
+            canManageSsh && editSshEnabled !== event.ssh_enabled
+              ? editSshEnabled
+              : undefined,
         },
       });
       setEditing(false);

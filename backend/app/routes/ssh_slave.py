@@ -12,9 +12,14 @@ router = APIRouter()
 
 
 @router.post("/vms/{vm_id}/ssh/prepare", dependencies=[Depends(require_slave_token)])
-def prepare_vm_ssh(vm_id: UUID, response: Response):
+def prepare_vm_ssh(vm_id: UUID, response: Response, refresh: bool = False,
+                   defer_if_stopped: bool = False):
     response.headers["Cache-Control"] = "no-store"
-    return prepare_guest(str(vm_id))
+    details = prepare_guest(str(vm_id), refresh=refresh,
+                            defer_if_stopped=defer_if_stopped)
+    if refresh:
+        details = {**details, "refresh_applied": True}
+    return details
 
 
 @router.websocket("/vms/{vm_id}/ssh/tunnel")

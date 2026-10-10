@@ -25,8 +25,8 @@ from app.utils.crypto import decrypt_secret, encrypt_secret
 GUEST_SETUP = r'''
 set -eu
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-command -v sshd >/dev/null
-id user >/dev/null
+command -v sshd >/dev/null || exit 10
+id user >/dev/null || exit 11
 guest_home=$(awk -F: '$1 == "user" { print $6 }' /etc/passwd)
 case "$guest_home" in /*) ;; *) exit 1 ;; esac
 umask 077
@@ -52,18 +52,30 @@ if [ "$(head -n 1 /etc/ssh/sshd_config)" != "$include" ]; then
     trap - EXIT
 fi
 ssh-keygen -A >/dev/null
-sshd -t
+sshd -t || exit 14
 if command -v systemctl >/dev/null; then
-    systemctl reload-or-restart ssh.service >/dev/null 2>&1 || systemctl reload-or-restart sshd.service >/dev/null 2>&1
-elif command -v rc-service >/dev/null; then
-    rc-service sshd reload >/dev/null 2>&1 || rc-service sshd start >/dev/null 2>&1
+    if ! (systemctl enable ssh.service && systemctl reload-or-restart ssh.service) >/dev/null 2>&1 &&
+       ! (systemctl enable sshd.service && systemctl reload-or-restart sshd.service) >/dev/null 2>&1; then
+        exit 13
+    fi
+elif command -v rc-service >/dev/null && command -v rc-update >/dev/null; then
+    rc-update add sshd default >/dev/null 2>&1 || exit 13
+    rc-service sshd reload >/dev/null 2>&1 || rc-service sshd restart >/dev/null 2>&1 || exit 13
 else
-    exit 1
+    exit 12
 fi
 cat /etc/ssh/ssh_host_*_key.pub
 '''
 
 
+GUEST_AGENT_REQUIRED = "SSH requires a running QEMU guest agent with guest-exec enabled"
+GUEST_SETUP_ERRORS = {
+    10: "SSH setup failed; install OpenSSH server in the VM",
+    11: "SSH setup failed; create the user account in the VM",
+    12: "SSH setup requires systemd or OpenRC in the VM",
+    13: "SSH setup failed; check that the guest SSH service can be enabled and started",
+    14: "SSH setup failed; check the guest OpenSSH server configuration",
+}
 PREPARED_TTL = 600
 _prepared: dict[str, tuple[object, float, dict]] = {}
 _locks: dict[str, Lock] = {}
@@ -80,7 +92,7 @@ def _get_connection():
     return QEMUConfig.get_connection()
 
 
-def _running_domain(vm_id: str):
+def _running_domain(vm_id: str, *, allow_stopped: bool = False):
     try:
         normalized = str(UUID(vm_id))
     except (ValueError, TypeError, AttributeError) as exc:
@@ -89,6 +101,8 @@ def _running_domain(vm_id: str):
         connection = _get_connection()
         domain = connection.lookupByName(normalized)
         if not domain.isActive():
+            if allow_stopped:
+                return connection, None
             raise HTTPException(409, "Start the VM before connecting with SSH")
         return connection, domain
     except libvirt.libvirtError as exc:
@@ -203,8 +217,7 @@ def _agent_command(domain, command: str, arguments: dict) -> dict:
             raise ValueError("Invalid guest agent response")
         return response["return"]
     except (libvirt.libvirtError, ValueError) as exc:
-        raise HTTPException(
-            503, "SSH requires a running QEMU guest agent with guest-exec enabled") from exc
+        raise HTTPException(503, GUEST_AGENT_REQUIRED) from exc
 
 
 def _install_key(domain, public_key: str) -> list[str]:
@@ -222,8 +235,12 @@ def _install_key(domain, public_key: str) -> list[str]:
             time.sleep(0.2)
             continue
         if result.get("exitcode") != 0 or result.get("out-truncated"):
+            exitcode = result.get("exitcode")
+            fallback = "SSH setup failed; check the guest OpenSSH server and user account"
+            detail = GUEST_SETUP_ERRORS.get(
+                exitcode, fallback) if isinstance(exitcode, int) else fallback
             raise HTTPException(
-                409, "SSH setup failed; the VM needs OpenSSH server and the user account")
+                409, detail)
         try:
             output = base64.b64decode(result.get(
                 "out-data", ""), validate=True).decode()
@@ -242,10 +259,16 @@ def _install_key(domain, public_key: str) -> list[str]:
         504, "The VM took too long to prepare SSH; try again shortly")
 
 
-def prepare_guest(vm_id: str) -> dict:
-    connection, domain = _running_domain(vm_id)
+def prepare_guest(vm_id: str, *, refresh: bool = False,
+                  defer_if_stopped: bool = False) -> dict:
+    connection, domain = _running_domain(vm_id, allow_stopped=defer_if_stopped)
+    if domain is None:
+        return {"pending": True}
     with _vm_lock(vm_id):
         cached = _prepared.get(vm_id)
+        if refresh:
+            _prepared.pop(vm_id, None)
+            cached = None
         if cached and cached[0] == domain.ID() and cached[1] > time.monotonic():
             return cached[2]
         details = _prepare_running_guest(connection, domain, vm_id)

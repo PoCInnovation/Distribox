@@ -1,25 +1,60 @@
 import asyncio
 import socket
 from contextlib import asynccontextmanager
+from typing import Literal
 
 import asyncssh
+from fastapi import HTTPException
 from websockets.asyncio.client import connect
 
 
-async def _prepare_guest(vm_id: str):
-    from app.services.ssh_guest import prepare_guest
+def preparation_status(details: object, *, allow_pending: bool) -> Literal["ready", "pending"]:
+    if isinstance(details, dict):
+        if allow_pending and details.get("pending") is True:
+            return "pending"
+        host_keys = details.get("host_keys")
+        port = details.get("port")
+        if (not details.get("pending") and
+                all(isinstance(details.get(field), str) and details[field] for field in
+                    ("host", "username", "private_key")) and
+                isinstance(port, int) and not isinstance(port, bool) and 0 < port <= 65535 and
+                isinstance(host_keys, list) and host_keys and
+                all(isinstance(key, str) and key for key in host_keys)):
+            return "ready"
+    raise HTTPException(
+        503, "VM host returned incomplete SSH preparation; update the host backend and retry")
+
+
+async def prepare_guest_connection(vm_id: str, *, refresh: bool = False,
+                                   defer_if_stopped: bool = False):
+    from app.services.ssh_guest import prepare_guest, GUEST_AGENT_REQUIRED, GUEST_SETUP_ERRORS
     from app.services.slave_client import slave_request
     from app.services.vm_service import VmService
 
     slave = await asyncio.to_thread(VmService._get_slave_for_vm, vm_id)
     if slave:
         if slave.status != "online":
-            raise ConnectionError("VM host is offline")
-        details = await asyncio.to_thread(
-            slave_request, slave, "POST", f"/vms/{vm_id}/ssh/prepare"
-        )
+            raise HTTPException(503, "VM host is offline")
+        path = f"/vms/{vm_id}/ssh/prepare"
+        if refresh or defer_if_stopped:
+            path += f"?refresh={str(refresh).lower()}&defer_if_stopped={str(defer_if_stopped).lower()}"
+        try:
+            details = await asyncio.to_thread(slave_request, slave, "POST", path)
+        except HTTPException as exc:
+            detail = str(exc.detail).removeprefix("Slave error: ")
+            if detail not in {GUEST_AGENT_REQUIRED, *GUEST_SETUP_ERRORS.values()}:
+                detail = "VM host could not prepare SSH; check its guest agent, OpenSSH server and user account"
+            raise HTTPException(
+                exc.status_code if exc.status_code in {409, 503, 504} else 503,
+                detail,
+            ) from exc
+        if refresh and (not isinstance(details, dict) or details.get("refresh_applied") is not True):
+            raise HTTPException(
+                503, "VM host does not support SSH preparation on enable; update the slave backend")
     else:
-        details = await asyncio.to_thread(prepare_guest, vm_id)
+        details = await asyncio.to_thread(
+            prepare_guest, vm_id, refresh=refresh, defer_if_stopped=defer_if_stopped)
+    preparation_status(details, allow_pending=defer_if_stopped)
     return slave, details
 
 
@@ -50,7 +85,7 @@ async def _relay_socket(sock, websocket):
 
 @asynccontextmanager
 async def connect_guest(vm_id: str):
-    slave, details = await asyncio.wait_for(_prepare_guest(vm_id), 120)
+    slave, details = await asyncio.wait_for(prepare_guest_connection(vm_id), 120)
     host_keys = [asyncssh.import_public_key(
         key) for key in details["host_keys"]]
     if not host_keys:
