@@ -243,6 +243,20 @@ def test_event_edits_preserve_individual_vm_revocation(ssh_manager, database, ch
     assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
 
 
+def test_unrelated_event_edit_preserves_individually_enabled_vm(ssh_manager, database):
+    client, prepare = ssh_manager
+    engine, vm_id, credential_id = database
+    event_id = add_event(engine, vm_id, datetime.now(timezone.utc) + timedelta(hours=1))
+    event_service.EventService.update_event(str(event_id), EventUpdate(ssh_enabled=False))
+    response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": True})
+    assert response.status_code == 200
+
+    # The editor omits the unchanged SSH preference when saving other fields.
+    event_service.EventService.update_event(str(event_id), EventUpdate(name="Renamed"))
+
+    assert ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
+
+
 def test_stopped_vm_retains_preference_with_pending_setup(ssh_manager, database):
     client, prepare = ssh_manager
     engine, vm_id, credential_id = database
