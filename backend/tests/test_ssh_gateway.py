@@ -321,6 +321,9 @@ def test_slave_endpoints_require_token_and_valid_vm_id(monkeypatch):
             f"/vms/{vm_id}/ssh/prepare", headers={"X-Slave-Token": "wrong"}).status_code == 401
         assert client.post(f"/vms/{vm_id}/ssh/prepare",
                            headers=headers).json() == {"vm_id": vm_id}
+        assert client.post(
+            f"/vms/{vm_id}/ssh/prepare?refresh=true&defer_if_stopped=true",
+            headers=headers).json() == {"vm_id": vm_id, "refresh_applied": True}
         assert client.post("/vms/invalid/ssh/prepare",
                            headers=headers).status_code == 422
         with pytest.raises(WebSocketDisconnect):

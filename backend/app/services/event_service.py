@@ -258,6 +258,7 @@ class EventService:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
                                     f"Event {event_id} not found")
 
+            previous_ssh_enabled = event.ssh_enabled
             previous_disk = (event.vm_os, event.vm_disk_size)
             update_data = payload.model_dump(exclude_unset=True)
             for key, value in update_data.items():
@@ -282,7 +283,9 @@ class EventService:
                         cred.expires_at = new_deadline
                         session.add(cred)
 
-            if "ssh_enabled" in update_data:
+            if "ssh_enabled" in update_data and (
+                not event.ssh_enabled or event.ssh_enabled != previous_ssh_enabled
+            ):
                 participants = session.exec(
                     select(EventParticipantORM)
                     .where(EventParticipantORM.event_id == event.id)

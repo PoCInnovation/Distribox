@@ -12,7 +12,7 @@ from app.models.ssh import SshConnection, SshConnectionRequest, SshSettings, Ssh
 from app.orm.user import UserORM
 from app.orm.vm import VmORM
 from app.services.ssh_access import begin_ssh_update, complete_ssh_enablement, find_credential
-from app.services.ssh_transport import prepare_guest_connection
+from app.services.ssh_transport import preparation_status, prepare_guest_connection
 from app.utils.auth import get_current_user, require_policy, user_has_policy
 
 router = APIRouter()
@@ -79,6 +79,7 @@ async def update_ssh_settings(vm_id: UUID, payload: SshSettingsUpdate):
         _, details = await asyncio.wait_for(prepare_guest_connection(
             str(vm_id), refresh=True, defer_if_stopped=True,
         ), 120)
+        status = preparation_status(details, allow_pending=True)
     except HTTPException:
         raise
     except TimeoutError as exc:
@@ -90,5 +91,5 @@ async def update_ssh_settings(vm_id: UUID, payload: SshSettingsUpdate):
     await asyncio.to_thread(complete_ssh_enablement, vm_id, revision)
     return {
         **connection_settings(True),
-        "preparation_status": "pending" if details.get("pending") else "ready",
+        "preparation_status": status,
     }

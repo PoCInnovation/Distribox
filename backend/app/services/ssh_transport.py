@@ -1,10 +1,28 @@
 import asyncio
 import socket
 from contextlib import asynccontextmanager
+from typing import Literal
 
 import asyncssh
 from fastapi import HTTPException
 from websockets.asyncio.client import connect
+
+
+def preparation_status(details: object, *, allow_pending: bool) -> Literal["ready", "pending"]:
+    if isinstance(details, dict):
+        if allow_pending and details.get("pending") is True:
+            return "pending"
+        host_keys = details.get("host_keys")
+        port = details.get("port")
+        if (not details.get("pending") and
+                all(isinstance(details.get(field), str) and details[field] for field in
+                    ("host", "username", "private_key")) and
+                isinstance(port, int) and not isinstance(port, bool) and 0 < port <= 65535 and
+                isinstance(host_keys, list) and host_keys and
+                all(isinstance(key, str) and key for key in host_keys)):
+            return "ready"
+    raise HTTPException(
+        503, "VM host returned incomplete SSH preparation; update the host backend and retry")
 
 
 async def prepare_guest_connection(vm_id: str, *, refresh: bool = False,
@@ -30,9 +48,13 @@ async def prepare_guest_connection(vm_id: str, *, refresh: bool = False,
                 exc.status_code if exc.status_code in {409, 503, 504} else 503,
                 detail,
             ) from exc
+        if refresh and (not isinstance(details, dict) or details.get("refresh_applied") is not True):
+            raise HTTPException(
+                503, "VM host does not support SSH preparation on enable; update the slave backend")
     else:
         details = await asyncio.to_thread(
             prepare_guest, vm_id, refresh=refresh, defer_if_stopped=defer_if_stopped)
+    preparation_status(details, allow_pending=defer_if_stopped)
     return slave, details
 
 

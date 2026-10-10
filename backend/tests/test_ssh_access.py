@@ -168,6 +168,7 @@ def ssh_manager(client, monkeypatch):
     )
     prepare = AsyncMock(return_value=(None, {
         "private_key": "must-not-leak", "host_keys": ["guest-host-key"],
+        "host": "192.168.122.42", "port": 22, "username": "user",
     }))
     monkeypatch.setattr(ssh_transport, "prepare_guest_connection",
                         prepare, raising=False)
@@ -181,7 +182,7 @@ def test_enabling_ssh_prepares_before_granting_access(ssh_manager, database):
 
     async def setup(*args, **kwargs):
         assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
-        return None, {"private_key": "must-not-leak"}
+        return prepare.return_value
 
     prepare.side_effect = setup
     response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": True})
@@ -210,6 +211,35 @@ def test_failed_enablement_leaves_access_revoked(ssh_manager, database, code, de
 
     assert response.status_code == code
     assert response.json()["detail"] == detail
+    assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
+
+
+@pytest.mark.parametrize("details", [None, [], "must-not-leak", {}, {"pending": "true"}])
+def test_malformed_preparation_cannot_grant_access(ssh_manager, database, details):
+    client, prepare = ssh_manager
+    _, vm_id, credential_id = database
+    prepare.return_value = (None, details)
+
+    response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": True})
+
+    assert response.status_code == 503
+    assert "must-not-leak" not in response.text
+    assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
+
+
+@pytest.mark.parametrize("change", ["disabled", "failed_enablement"])
+def test_event_edits_preserve_individual_vm_revocation(ssh_manager, database, change):
+    client, prepare = ssh_manager
+    engine, vm_id, credential_id = database
+    event_id = add_event(engine, vm_id, datetime.now(timezone.utc) + timedelta(hours=1))
+    if change == "failed_enablement":
+        prepare.side_effect = HTTPException(503, "Guest agent required")
+    response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": change == "failed_enablement"})
+    assert response.status_code == (503 if change == "failed_enablement" else 200)
+
+    event_service.EventService.update_event(
+        str(event_id), EventUpdate(name="Renamed", ssh_enabled=True))
+
     assert not ssh_access.ssh_access_valid(str(credential_id), str(vm_id))
 
 
@@ -247,7 +277,7 @@ async def test_later_disable_supersedes_enablement_in_progress(ssh_manager, data
     async def setup(*args, **kwargs):
         started.set()
         await release.wait()
-        return None, {}
+        return prepare.return_value
 
     prepare.side_effect = setup
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=client.app),
@@ -285,7 +315,7 @@ def test_event_revocation_supersedes_enablement_in_progress(
             with Session(engine) as session:
                 event_service._revoke_vm_access(session, vm_id)
                 session.commit()
-        return None, {}
+        return prepare.return_value
 
     prepare.side_effect = setup
     response = client.patch(f"/vms/{vm_id}/ssh", json={"enabled": True})
