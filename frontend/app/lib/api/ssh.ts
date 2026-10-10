@@ -11,6 +11,7 @@ const SshSettingsSchema = z.object({
     .nullable(),
   port: z.number().int().min(1).max(65535),
   host_key_fingerprint: z.string().nullable(),
+  preparation_status: z.enum(["ready", "pending"]).nullable().optional(),
 });
 
 const SshConnectionSchema = SshSettingsSchema.extend({

@@ -3,7 +3,8 @@ import secrets
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlmodel import Session, select, col
+from fastapi import HTTPException
+from sqlmodel import Session, select, update, col
 
 from app.core.config import engine
 from app.orm.event import EventORM, EventParticipantORM
@@ -12,6 +13,32 @@ from app.orm.vm_credential import VmCredentialORM
 from app.utils.crypto import decrypt_secret
 
 logger = logging.getLogger(__name__)
+
+
+def begin_ssh_update(vm_id: UUID) -> int:
+    with Session(engine) as session:
+        revision = session.exec(
+            update(VmORM).where(col(VmORM.id) == vm_id).values(
+                ssh_enabled=False,
+                ssh_settings_revision=col(VmORM.ssh_settings_revision) + 1,
+            ).returning(col(VmORM.ssh_settings_revision))
+        ).scalar_one_or_none()
+        if revision is None:
+            raise HTTPException(404, "VM not found")
+        session.commit()
+        return revision
+
+
+def complete_ssh_enablement(vm_id: UUID, revision: int) -> None:
+    with Session(engine) as session:
+        result = session.exec(update(VmORM).where(
+            col(VmORM.id) == vm_id,
+            col(VmORM.ssh_settings_revision) == revision,
+        ).values(ssh_enabled=True))
+        if result.rowcount != 1:
+            raise HTTPException(
+                409, "SSH settings changed during setup; refresh the VM and try again")
+        session.commit()
 
 
 def credential_is_active(session: Session, credential: VmCredentialORM) -> bool:

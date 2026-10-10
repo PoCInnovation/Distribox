@@ -1,5 +1,6 @@
 from datetime import datetime
 from uuid import UUID
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -10,6 +11,7 @@ class SshSettings(BaseModel):
     host: str | None
     port: int
     host_key_fingerprint: str | None
+    preparation_status: Literal["ready", "pending"] | None = None
 
 
 class SshSettingsUpdate(BaseModel):

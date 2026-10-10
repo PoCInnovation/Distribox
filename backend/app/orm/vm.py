@@ -13,6 +13,7 @@ class VmORM(SQLModel, table=True, ):
     vcpus: int
     disk_size: int
     ssh_enabled: bool = Field(default=False)
+    ssh_settings_revision: int = Field(default=0)
     keyboard_layout: Optional[str] = Field(default=None)
     slave_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="slaves.id")

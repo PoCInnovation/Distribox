@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
-from sqlmodel import Session, select, func, delete, col
+from sqlmodel import Session, select, func, delete, update, col
 
 from app.core.config import engine
 from app.models.event import (
@@ -30,10 +30,10 @@ def _sanitize_name(name: str) -> str:
 
 
 def _revoke_vm_access(session: Session, vm_id: uuid.UUID) -> None:
-    vm = session.get(VmORM, vm_id)
-    if vm:
-        vm.ssh_enabled = False
-        session.add(vm)
+    session.exec(update(VmORM).where(col(VmORM.id) == vm_id).values(
+        ssh_enabled=False,
+        ssh_settings_revision=col(VmORM.ssh_settings_revision) + 1,
+    ))
     session.exec(delete(VmCredentialORM).where(
         col(VmCredentialORM.vm_id) == vm_id))
 
@@ -258,7 +258,6 @@ class EventService:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
                                     f"Event {event_id} not found")
 
-            previous_ssh_enabled = event.ssh_enabled
             previous_disk = (event.vm_os, event.vm_disk_size)
             update_data = payload.model_dump(exclude_unset=True)
             for key, value in update_data.items():
@@ -283,16 +282,19 @@ class EventService:
                         cred.expires_at = new_deadline
                         session.add(cred)
 
-            if event.ssh_enabled != previous_ssh_enabled:
+            if "ssh_enabled" in update_data:
                 participants = session.exec(
                     select(EventParticipantORM)
                     .where(EventParticipantORM.event_id == event.id)
                 ).all()
                 for participant in participants:
-                    vm = session.get(VmORM, participant.vm_id)
-                    if vm:
-                        vm.ssh_enabled = event.ssh_enabled
-                        session.add(vm)
+                    session.exec(update(VmORM).where(
+                        col(VmORM.id) == participant.vm_id,
+                    ).values(
+                        ssh_enabled=event.ssh_enabled,
+                        ssh_settings_revision=col(
+                            VmORM.ssh_settings_revision) + 1,
+                    ))
 
             session.add(event)
             session.commit()

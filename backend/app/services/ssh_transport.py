@@ -3,23 +3,36 @@ import socket
 from contextlib import asynccontextmanager
 
 import asyncssh
+from fastapi import HTTPException
 from websockets.asyncio.client import connect
 
 
-async def _prepare_guest(vm_id: str):
-    from app.services.ssh_guest import prepare_guest
+async def prepare_guest_connection(vm_id: str, *, refresh: bool = False,
+                                   defer_if_stopped: bool = False):
+    from app.services.ssh_guest import prepare_guest, GUEST_AGENT_REQUIRED, GUEST_SETUP_ERRORS
     from app.services.slave_client import slave_request
     from app.services.vm_service import VmService
 
     slave = await asyncio.to_thread(VmService._get_slave_for_vm, vm_id)
     if slave:
         if slave.status != "online":
-            raise ConnectionError("VM host is offline")
-        details = await asyncio.to_thread(
-            slave_request, slave, "POST", f"/vms/{vm_id}/ssh/prepare"
-        )
+            raise HTTPException(503, "VM host is offline")
+        path = f"/vms/{vm_id}/ssh/prepare"
+        if refresh or defer_if_stopped:
+            path += f"?refresh={str(refresh).lower()}&defer_if_stopped={str(defer_if_stopped).lower()}"
+        try:
+            details = await asyncio.to_thread(slave_request, slave, "POST", path)
+        except HTTPException as exc:
+            detail = str(exc.detail).removeprefix("Slave error: ")
+            if detail not in {GUEST_AGENT_REQUIRED, *GUEST_SETUP_ERRORS.values()}:
+                detail = "VM host could not prepare SSH; check its guest agent, OpenSSH server and user account"
+            raise HTTPException(
+                exc.status_code if exc.status_code in {409, 503, 504} else 503,
+                detail,
+            ) from exc
     else:
-        details = await asyncio.to_thread(prepare_guest, vm_id)
+        details = await asyncio.to_thread(
+            prepare_guest, vm_id, refresh=refresh, defer_if_stopped=defer_if_stopped)
     return slave, details
 
 
@@ -50,7 +63,7 @@ async def _relay_socket(sock, websocket):
 
 @asynccontextmanager
 async def connect_guest(vm_id: str):
-    slave, details = await asyncio.wait_for(_prepare_guest(vm_id), 120)
+    slave, details = await asyncio.wait_for(prepare_guest_connection(vm_id), 120)
     host_keys = [asyncssh.import_public_key(
         key) for key in details["host_keys"]]
     if not host_keys:

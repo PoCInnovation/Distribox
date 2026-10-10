@@ -70,6 +70,10 @@ def init_db():
                 conn.execute(text(
                     "ALTER TABLE vms ADD COLUMN ssh_enabled BOOLEAN NOT NULL DEFAULT FALSE"
                 ))
+            if "ssh_settings_revision" not in vm_columns:
+                conn.execute(text(
+                    "ALTER TABLE vms ADD COLUMN ssh_settings_revision INTEGER NOT NULL DEFAULT 0"
+                ))
             if "keyboard_layout" not in vm_columns:
                 conn.execute(
                     text(

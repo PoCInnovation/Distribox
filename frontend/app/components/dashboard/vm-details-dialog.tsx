@@ -89,11 +89,20 @@ export function VMDetailsDialog({
       updateVMSshSettings(vmId, enabled),
     onSuccess: (settings, { vmId }) => {
       queryClient.setQueryData(["vm-ssh", vmId], settings);
-      queryClient.invalidateQueries({ queryKey: ["vms"] });
-      queryClient.invalidateQueries({ queryKey: ["ssh-connection"] });
-      toast.success(settings.enabled ? "SSH enabled" : "SSH disabled");
+      if (settings.enabled && settings.preparation_status === "pending") {
+        toast.info("SSH allowed. Start the VM, then connect to finish setup.");
+      } else {
+        toast.success(settings.enabled ? "SSH enabled" : "SSH disabled");
+      }
     },
     onError: (error) => toast.error(error.message),
+    onSettled: (_settings, error, { vmId }) => {
+      if (error) {
+        queryClient.invalidateQueries({ queryKey: ["vm-ssh", vmId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["vms"] });
+      queryClient.invalidateQueries({ queryKey: ["ssh-connection"] });
+    },
   });
 
   const credentialsQuery = useQuery({
