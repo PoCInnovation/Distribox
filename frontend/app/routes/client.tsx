@@ -36,7 +36,7 @@ export default function ClientRoute() {
         </main>
       );
     }
-    return <GuacamoleDisplay mode="vm" vmId={vmId} token={token} />;
+    return <GuacamoleDisplay key={vmId} mode="vm" vmId={vmId} token={token} />;
   }
 
   if (!credential.trim()) return <NoCredentialPage />;

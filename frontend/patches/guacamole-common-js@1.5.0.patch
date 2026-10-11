@@ -1,0 +1,30 @@
+diff --git a/dist/cjs/guacamole-common.js b/dist/cjs/guacamole-common.js
+index 9117f2cc1034393fcee219d51b86f92ab60b012a..924a64896a82c0f846ea224e3eed06a44423c1b0 100644
+--- a/dist/cjs/guacamole-common.js
++++ b/dist/cjs/guacamole-common.js
+@@ -7147,8 +7147,8 @@ Guacamole.Keyboard = function Keyboard(element) {
+             this.keysym = keysym_from_key_identifier(this.keyIdentifier, this.location, this.modifiers.shift);
+ 
+         // If a key is pressed while meta is held down, the keyup will
+-        // never be sent in Chrome (bug #108404)
+-        if (this.modifiers.meta && this.keysym !== 0xFFE7 && this.keysym !== 0xFFE8)
++        // never be sent in Chrome (bug #108404). Modifiers still get theirs.
++        if (this.modifiers.meta && !(this.keysym >= 0xFFE1 && this.keysym <= 0xFFEE) && this.keysym !== 0xFE03)
+             this.keyupReliable = false;
+ 
+         // We cannot rely on receiving keyup for Caps Lock on certain platforms
+diff --git a/dist/esm/guacamole-common.js b/dist/esm/guacamole-common.js
+index 0eb036296ba0bdac76b602a432f3483c1b1f12b8..7062e9267de604f4e04066cce35fda9157ef18ee 100644
+--- a/dist/esm/guacamole-common.js
++++ b/dist/esm/guacamole-common.js
+@@ -7147,8 +7147,8 @@ Guacamole.Keyboard = function Keyboard(element) {
+             this.keysym = keysym_from_key_identifier(this.keyIdentifier, this.location, this.modifiers.shift);
+ 
+         // If a key is pressed while meta is held down, the keyup will
+-        // never be sent in Chrome (bug #108404)
+-        if (this.modifiers.meta && this.keysym !== 0xFFE7 && this.keysym !== 0xFFE8)
++        // never be sent in Chrome (bug #108404). Modifiers still get theirs.
++        if (this.modifiers.meta && !(this.keysym >= 0xFFE1 && this.keysym <= 0xFFEE) && this.keysym !== 0xFE03)
+             this.keyupReliable = false;
+ 
+         // We cannot rely on receiving keyup for Caps Lock on certain platforms
