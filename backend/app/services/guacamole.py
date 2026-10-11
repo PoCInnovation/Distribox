@@ -58,6 +58,7 @@ async def guacd_handshake(
     vnc_port: int,
     width: int = 1920,
     height: int = 1080,
+    resize: bool = True,
 ) -> str:
     """Perform the Guacamole VNC handshake with guacd up to and including
     the `connect` instruction.
@@ -111,6 +112,7 @@ async def guacd_handshake(
         "cursor": "local",
         "encodings": "copyrect raw hextile tight zrle",
         "color-depth": "24",
+        "disable-display-resize": "false" if resize else "true",
         "autoretry": "",
         "username": "",
         "server-layout": "",
