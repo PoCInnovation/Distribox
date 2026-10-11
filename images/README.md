@@ -168,6 +168,21 @@ QEMU/KVM VM (host)
 - The backend reaches `guacd` via `host.docker.internal:4822` (Docker bridge gateway).
 - VNC ports are never exposed outside the host.
 
+### Display resizing in X11 guests
+
+X11 desktops, such as KDE Plasma on X11, ignore the size the web client requests unless `images/guest/distribox-display-resize` runs at login. Install it into an image before creating VMs from it, or into a stopped VM's disk under `/var/lib/distribox/vms/<id>/`:
+
+```bash
+sudo virt-customize -a <disk>.qcow2 \
+    --copy-in images/guest/distribox-display-resize:/usr/local/bin \
+    --copy-in images/guest/distribox-display-resize.desktop:/etc/xdg/autostart \
+    --chmod 0755:/usr/local/bin/distribox-display-resize \
+    --chown 0:0:/usr/local/bin/distribox-display-resize \
+    --chown 0:0:/etc/xdg/autostart/distribox-display-resize.desktop
+```
+
+The guest needs `xrandr` and `udevadm`. Without the helper, the desktop keeps its resolution and the client scales it to fit the window.
+
 ### VM OS login credentials
 
 Cloud-init sets the default OS user inside each VM:
