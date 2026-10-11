@@ -157,7 +157,7 @@ Browser (guacamole-common-js)
 FastAPI backend (Docker, network_mode: host)
   │  TCP host.docker.internal:4822
   │
-guacd (Docker, network_mode: host — guacamole/guacd:1.6.0)
+guacd (Docker, network_mode: host — guacamole/guacd:1.6.0 patched in guacd/)
   │  VNC  127.0.0.1:590x
   │
 QEMU/KVM VM (host)
