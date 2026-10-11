@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useGuacamoleClient } from "@/hooks/useGuacamoleClient";
 import { Image } from "@unpic/react";
 import { SshConnectionButton } from "@/components/ssh-connection-button";
+import { ClipboardDialog } from "./ClipboardDialog";
 
 const KEYSYM = {
   CTRL_L: 0xffe3,
@@ -57,6 +58,7 @@ type GuacamoleDisplayProps =
 export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sshOpen, setSshOpen] = useState(false);
+  const [clipboardOpen, setClipboardOpen] = useState(false);
 
   const options =
     "vmId" in props
@@ -65,18 +67,20 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
           vmId: props.vmId,
           token: props.token,
           containerRef,
-          keyboardEnabled: !sshOpen,
+          keyboardEnabled: !sshOpen && !clipboardOpen,
         }
       : {
           mode: "credential" as const,
           credential: props.credential,
           containerRef,
-          keyboardEnabled: !sshOpen,
+          keyboardEnabled: !sshOpen && !clipboardOpen,
         };
 
   const {
     state,
     error,
+    clipboardText,
+    sendClipboard,
     sendKeyEvent,
     requestFullscreen,
     exitFullscreen,
@@ -255,6 +259,15 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
               </span>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                className="rounded bg-white/15 px-2 py-0.5 text-xs text-white hover:bg-white/25 transition-colors"
+                onClick={() => {
+                  setClipboardOpen(true);
+                  if (isFullscreen) void exitFullscreen();
+                }}
+              >
+                Clipboard
+              </button>
               {"credential" in props && (
                 <SshConnectionButton
                   credential={props.credential}
@@ -353,6 +366,14 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
           )}
         </div>
       </div>
+      <ClipboardDialog
+        key={"credential" in props ? props.credential : props.vmId}
+        open={clipboardOpen}
+        onOpenChange={setClipboardOpen}
+        clipboardText={clipboardText}
+        sendClipboard={sendClipboard}
+        connected={state === "connected"}
+      />
     </div>
   );
 }

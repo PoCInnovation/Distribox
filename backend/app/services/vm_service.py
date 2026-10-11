@@ -11,8 +11,8 @@ from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML, VmRename
 from app.models.image import ImageRead
-from app.core.xml_builder import build_xml, configure_vnc_keyboard, upgrade_display_devices
-from app.core.config import QEMUConfig, engine
+from app.core.xml_builder import build_xml, configure_vnc_clipboard, configure_vnc_keyboard, upgrade_display_devices
+from app.core.config import QEMUConfig, VIRT_TYPE, engine
 from sqlalchemy import func
 from sqlmodel import Session, select, delete, col
 from app.orm.vm import VmORM
@@ -30,6 +30,44 @@ from pathlib import Path
 from sqlalchemy.orm import make_transient
 
 logger = logging.getLogger(__name__)
+
+
+def supports_vnc_clipboard(conn: libvirt.virConnect) -> bool:
+    try:
+        libvirt_version = conn.getLibVersion()
+        qemu_version = conn.getVersion()
+    except libvirt.libvirtError:
+        logger.warning(
+            "Cannot determine host support for guest clipboard sharing")
+        return False
+    # libvirt versions use major * 1,000,000 + minor * 1,000 + release.
+    supported = libvirt_version >= 8_004_000 and qemu_version >= 6_001_000
+    if not supported:
+        logger.info(
+            "Guest clipboard sharing requires libvirt 8.4 and QEMU 6.1 "
+            "(host libvirt=%s QEMU=%s)", libvirt_version, qemu_version)
+        return False
+    # Domain capabilities can omit qemu-vdagent even on supported hosts.
+    # Exporting a minimal domain checks the actual QEMU binary without defining
+    # a VM or starting it, including builds without SPICE protocol support.
+    probe_xml = f"""<domain type='{VIRT_TYPE}'>
+      <name>distribox-clipboard-capability</name>
+      <memory unit='MiB'>64</memory><vcpu>1</vcpu>
+      <os><type arch='x86_64' machine='pc'>hvm</type></os>
+      <devices>
+        <graphics type='vnc' port='-1' autoport='yes'/>
+        <channel type='qemu-vdagent'>
+          <source><clipboard copypaste='yes'/><mouse mode='server'/></source>
+          <target type='virtio' name='com.redhat.spice.0'/>
+        </channel>
+      </devices>
+    </domain>"""
+    try:
+        conn.domainXMLToNative("qemu-argv", probe_xml, 0)
+    except libvirt.libvirtError:
+        logger.info("Guest clipboard sharing is unavailable on this host")
+        return False
+    return True
 
 
 def ensure_default_network():
@@ -150,6 +188,7 @@ class Vm:
                 ["qemu-img", "resize", vm_path, f"{self.disk_size}G"],
                 check=True,
             )
+            conn = QEMUConfig.get_connection()
             vm_xml = build_xml(VmCreateXML(
                 id=self.id,
                 os=self.os,
@@ -158,8 +197,7 @@ class Vm:
                 vcpus=self.vcpus,
                 disk_size=self.disk_size,
                 keyboard_layout=self.keyboard_layout,
-            ))
-            conn = QEMUConfig.get_connection()
+            ), clipboard_supported=supports_vnc_clipboard(conn))
             conn.defineXML(vm_xml)
             with Session(engine) as session:
                 vm_record = VmORM(
@@ -258,6 +296,9 @@ class Vm:
                 if not has_saved_state:
                     domain_xml = upgrade_display_devices(
                         domain_xml) or domain_xml
+                    if supports_vnc_clipboard(conn):
+                        domain_xml = configure_vnc_clipboard(
+                            domain_xml) or domain_xml
                 domain_xml = configure_vnc_keyboard(
                     domain_xml, self.keyboard_layout) or domain_xml
                 if domain_xml != original_xml:
@@ -866,9 +907,12 @@ class VmService:
             src_dir = VMS_DIR / vm_id
             dest_path = VMS_DIR / str(duplicate_vm.id)
 
-            vm_xml = build_xml(VmCreateXML(**duplicate_vm.model_dump()))
-
             try:
+                conn = QEMUConfig.get_connection()
+                vm_xml = build_xml(
+                    VmCreateXML(**duplicate_vm.model_dump()),
+                    clipboard_supported=supports_vnc_clipboard(conn),
+                )
                 session.add(duplicate_vm)
                 session.commit()
 
@@ -878,7 +922,6 @@ class VmService:
                 if seed_src.exists():
                     copy(seed_src, dest_path / "seed.iso")
 
-                conn = QEMUConfig.get_connection()
                 conn.defineXML(vm_xml)
             except Exception as e:
                 if dest_path.exists():

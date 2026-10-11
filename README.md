@@ -32,6 +32,18 @@ Distribox uses Apache Guacamole to stream VM desktops over WebSocket. The browse
   <img src=".github/assets/vm-streaming.png" alt="VM Streaming" width="700"/>
 </div>
 
+### Shared text clipboard
+
+Copy text in the VM to share it with the system clipboard when the browser permits access. Paste into the VM with **Ctrl+V** (or **Cmd+V** on macOS); use **Ctrl+Shift+V** for a Linux terminal. The browser sends the text before the guest paste shortcut. Returning to the browser also updates the VM clipboard when clipboard read permission is available.
+
+The **Clipboard** button in the desktop's top toolbar provides a manual transfer path. Paste or type text into **Send to VM**, send it, then paste in a guest application. Text copied inside the VM appears under **Copied in VM**. **Copy to system** copies it, or selects it for a normal copy shortcut if the browser blocks clipboard access. Typing in this dialog stays in the browser.
+
+Sharing requires libvirt 8.4+, QEMU 6.1+ built with SPICE protocol support, and `spice-vdagent` running in the guest's graphical session. The Ubuntu desktop image builder and new cloud-init seeds install the guest package. For existing or imported Ubuntu/Debian desktops, install it with `sudo apt install spice-vdagent`, then log out and back in. Other guests need the equivalent package and a desktop session supported by that agent. The QEMU guest agent used for SSH is a separate service.
+
+New VMs receive the clipboard channel automatically. Existing VMs receive it after a full shutdown and start through Distribox; restoring a saved session preserves its original devices. Older hosts keep starting VMs without clipboard sharing. Custom clipboard channels are preserved. This feature shares text; it does not transfer files or images.
+
+Compose builds Distribox's guacd image from `backend/Dockerfile.guacd`. It includes two targeted patches for QEMU's extended clipboard negotiation and UTF-8 text. Rebuild guacd when upgrading; the stock `guacamole/guacd:1.6.0` image cannot receive QEMU clipboard updates. See [the transport notes](backend/guacd/README.md) for the patches and the isolated transport check.
+
 ---
 
 ## Authentication and Authorization
@@ -358,8 +370,7 @@ New event and VM access secrets use 32 random bytes. Credential IDs alone no lon
 
 Distribox should be served over HTTPS. Without SSL:
 
-- **Clipboard will not work.** The browser Clipboard API (`navigator.clipboard`) is only available in [secure contexts](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API#security_considerations) (HTTPS). Copying VM credentials, event links, or any other data from the dashboard will silently fail on plain HTTP.
-- **Pasting into VMs will not work.** The Guacamole client uses the Clipboard API to sync your clipboard with the remote VM. Without HTTPS, you will not be able to paste text into a VM session from your browser.
+- Automatic clipboard reads and writes require the [Clipboard API in a secure context](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API#security_considerations). Browsers can also require permission or a user gesture. VM sessions provide native paste and the **Clipboard** dialog for manual text transfer when this API is unavailable.
 
 The easiest way to set up SSL is with [Certbot](https://certbot.eff.org/) (Let's Encrypt):
 

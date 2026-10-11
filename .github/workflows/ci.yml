@@ -69,9 +69,22 @@ jobs:
         working-directory: ./frontend
         run: pnpm typecheck
 
+      - name: Test VM clipboard
+        working-directory: ./frontend
+        run: pnpm test
+
       - name: Build frontend
         working-directory: ./frontend
         run: pnpm build
+
+  clipboard-transport:
+    name: Test QEMU clipboard transport
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y qemu-system-x86
+      - run: docker build -f backend/Dockerfile.guacd -t distribox-guacd-clipboard-test backend
+      - run: python3 backend/guacd/test_clipboard_transport.py
 
   backend-ssh-tests:
     name: Test SSH access

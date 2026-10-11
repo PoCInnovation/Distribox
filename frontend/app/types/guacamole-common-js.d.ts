@@ -29,6 +29,26 @@ declare module "guacamole-common-js" {
       onstatechange: ((state: number) => void) | null;
       onerror: ((error: { message?: string }) => void) | null;
       onrequired: ((required: string[]) => void) | null;
+      onclipboard: ((stream: InputStream, mimetype: string) => void) | null;
+      createClipboardStream(mimetype: string): OutputStream;
+    }
+
+    class InputStream {
+      sendAck(message: string, code: number): void;
+    }
+
+    class OutputStream {}
+
+    class StringReader {
+      constructor(stream: InputStream);
+      ontext: ((text: string) => void) | null;
+      onend: (() => void) | null;
+    }
+
+    class StringWriter {
+      constructor(stream: OutputStream);
+      sendText(text: string): void;
+      sendEnd(): void;
     }
 
     class Keyboard {
@@ -36,6 +56,7 @@ declare module "guacamole-common-js" {
       onkeydown: ((keysym: number) => void) | null;
       onkeyup: ((keysym: number) => void) | null;
       reset(): void;
+      pressed: Record<number, boolean>;
     }
 
     class Mouse {

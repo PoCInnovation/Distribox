@@ -1,0 +1,33 @@
+# Keep the upstream daemon and other protocols; rebuild only its VNC transport.
+FROM guacamole/guacd:1.6.0 AS vnc-builder
+USER root
+RUN apk add --no-cache autoconf automake build-base cairo-dev cmake curl \
+    libjpeg-turbo-dev libpng-dev libtool openssl1.1-compat-dev pulseaudio-dev zlib-dev
+
+WORKDIR /tmp/build
+RUN curl -fsSL https://codeload.github.com/LibVNC/libvncserver/tar.gz/refs/tags/LibVNCServer-0.9.15 -o libvncserver.tar.gz \
+    && echo '62352c7795e231dfce044beb96156065a05a05c974e5de9e023d688d8ff675d7  libvncserver.tar.gz' | sha256sum -c - \
+    && tar -xzf libvncserver.tar.gz
+COPY guacd/libvncclient-qemu-clipboard.patch ./
+RUN cd libvncserver-LibVNCServer-0.9.15 \
+    && patch -p1 < ../libvncclient-qemu-clipboard.patch \
+    && cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/opt/guacamole \
+        -DBUILD_SHARED_LIBS=ON -DWITH_EXAMPLES=OFF -DWITH_TESTS=OFF \
+    && cmake --build build --target vncclient --parallel 2 \
+    && cp -P build/libvncclient.so* /opt/guacamole/lib/
+
+RUN curl -fsSL https://archive.apache.org/dist/guacamole/1.6.0/source/guacamole-server-1.6.0.tar.gz -o guacamole-server.tar.gz \
+    && echo '8bc45675da96d7b6f39728160181e3d4ff3c08f460f6d26de5805b642bf13f2b  guacamole-server.tar.gz' | sha256sum -c - \
+    && tar -xzf guacamole-server.tar.gz
+COPY guacd/guacamole-extended-clipboard.patch ./
+RUN cd guacamole-server-1.6.0 \
+    && patch -p1 < ../guacamole-extended-clipboard.patch \
+    && ./configure --prefix=/opt/guacamole --disable-guacd --disable-guaclog \
+        --without-rdp --without-telnet --without-terminal --with-ssh --with-pulse \
+        --with-vnc CPPFLAGS=-I/opt/guacamole/include LDFLAGS=-L/opt/guacamole/lib \
+    && make -j2 \
+    && cp -P src/protocols/vnc/.libs/libguac-client-vnc.so* /opt/guacamole/lib/
+
+FROM guacamole/guacd:1.6.0
+COPY --from=vnc-builder /opt/guacamole/lib/libvncclient.so* /opt/guacamole/lib/
+COPY --from=vnc-builder /opt/guacamole/lib/libguac-client-vnc.so* /opt/guacamole/lib/
