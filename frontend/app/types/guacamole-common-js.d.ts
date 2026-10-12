@@ -25,6 +25,7 @@ declare module "guacamole-common-js" {
       getDisplay(): Display;
       connect(params?: string): void;
       disconnect(): void;
+      sendSize(width: number, height: number): void;
       sendKeyEvent(pressed: 0 | 1, keysym: number): void;
       sendMouseState(
         mouseState: Mouse.State,

@@ -9,6 +9,22 @@ export type GuacamoleConnectionState =
 /** Delays before each automatic reconnect attempt after a dropped session. */
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 10000, 10000, 10000];
 
+/** Time to let the window settle before asking the guest to resize. */
+const RESIZE_DEBOUNCE_MS = 250;
+
+/**
+ * Identifies this browser to the backend, which lets only the first viewer of
+ * a VM resize it. Reloads, new tabs and reconnects keep the same identity.
+ */
+function getViewerId(): string {
+  let id = localStorage.getItem("guacamole_viewer");
+  if (!id) {
+    id = Math.random().toString(36).slice(2);
+    localStorage.setItem("guacamole_viewer", id);
+  }
+  return id;
+}
+
 type UseGuacamoleClientOptions =
   | {
       mode: "credential";
@@ -114,6 +130,7 @@ export function useGuacamoleClient(
     let client: Guacamole.Client | undefined;
     let keyboard: Guacamole.Keyboard | undefined;
     let resizeObserver: ResizeObserver | undefined;
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     // Remote keysym -> local keysyms holding it (Cmd and Control both send
     // Control_L on macOS): it is released once none of them is held.
@@ -134,14 +151,22 @@ export function useGuacamoleClient(
       const container = options.containerRef.current;
       if (!container) return;
 
-      const w = 1920;
-      const h = 1080;
+      // Ask the guest for the container size in CSS pixels. QEMU's VNC server
+      // rounds widths up to a multiple of 16 and caps the size at 5120x2160.
+      const requestedSize = () => [
+        Math.min(
+          5120,
+          Math.max(640, Math.floor(container.clientWidth / 16) * 16),
+        ),
+        Math.min(2160, Math.max(480, container.clientHeight)),
+      ];
+      let [w, h] = requestedSize();
 
       let connectParams: string;
       if (options.mode === "credential") {
-        connectParams = `credential=${encodeURIComponent(options.credential)}&width=${w}&height=${h}`;
+        connectParams = `credential=${encodeURIComponent(options.credential)}&width=${w}&height=${h}&viewer=${getViewerId()}`;
       } else {
-        connectParams = `vm_id=${encodeURIComponent(options.vmId)}&token=${encodeURIComponent(options.token)}&width=${w}&height=${h}`;
+        connectParams = `vm_id=${encodeURIComponent(options.vmId)}&token=${encodeURIComponent(options.token)}&width=${w}&height=${h}&viewer=${getViewerId()}`;
       }
 
       const tunnel = new Guacamole.WebSocketTunnel(TUNNEL_URL);
@@ -158,19 +183,37 @@ export function useGuacamoleClient(
         display.showCursor(!mouse.setCursor(canvas, x, y));
       };
 
+      // A desktop at the requested size is shown 1:1. On HiDPI screens,
+      // integer scales use nearest-neighbour so that text stays crisp.
       const fit = () => {
         const width = display.getWidth();
         const height = display.getHeight();
         if (!width || !height) return;
-        display.scale(
-          Math.min(
-            container.clientWidth / width,
-            container.clientHeight / height,
-          ),
+        const scale = Math.min(
+          container.clientWidth / width,
+          container.clientHeight / height,
         );
+        const devicePixels = scale * window.devicePixelRatio;
+        display.scale(scale);
+        displayEl.style.imageRendering =
+          Number.isInteger(devicePixels) && devicePixels >= 2
+            ? "pixelated"
+            : "";
+      };
+      // Resize requests sent before the first paint would be dropped; the
+      // first paint sends any change made while connecting.
+      const requestResize = () => {
+        const [width, height] = requestedSize();
+        if (!painted || (width === w && height === h)) return;
+        [w, h] = [width, height];
+        client!.sendSize(w, h);
       };
       display.onresize = fit;
-      resizeObserver = new ResizeObserver(fit);
+      resizeObserver = new ResizeObserver(() => {
+        fit();
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(requestResize, RESIZE_DEBOUNCE_MS);
+      });
       resizeObserver.observe(container);
 
       client.onrequired = () => {};
@@ -195,6 +238,7 @@ export function useGuacamoleClient(
             if (!heldBy.get(keysym)?.size) client!.sendKeyEvent(0, keysym);
           }
           staleKeysRef.current.clear();
+          requestResize();
           everConnectedRef.current = true;
           failedAttemptsRef.current = 0;
           setState("connected");
@@ -288,6 +332,7 @@ export function useGuacamoleClient(
     return () => {
       cancelled = true;
       clearTimeout(retryTimer);
+      clearTimeout(resizeTimer);
       resizeObserver?.disconnect();
       window.removeEventListener("blur", releaseKeys);
       options.containerRef.current?.removeEventListener(
