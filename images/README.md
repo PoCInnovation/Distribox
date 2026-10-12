@@ -157,7 +157,7 @@ Browser (guacamole-common-js)
 FastAPI backend (Docker, network_mode: host)
   │  TCP host.docker.internal:4822
   │
-guacd (Docker, network_mode: host — guacamole/guacd:1.6.0)
+guacd (Docker, network_mode: host — guacamole/guacd:1.6.0 patched in guacd/)
   │  VNC  127.0.0.1:590x
   │
 QEMU/KVM VM (host)
@@ -167,6 +167,21 @@ QEMU/KVM VM (host)
 - `guacd` runs with `network_mode: host` so it can reach VNC bound to `127.0.0.1` on the host.
 - The backend reaches `guacd` via `host.docker.internal:4822` (Docker bridge gateway).
 - VNC ports are never exposed outside the host.
+
+### Display resizing in X11 guests
+
+X11 desktops, such as KDE Plasma on X11, ignore the size the web client requests unless `images/guest/distribox-display-resize` runs at login. Install it into an image before creating VMs from it, or into a stopped VM's disk under `/var/lib/distribox/vms/<id>/`:
+
+```bash
+sudo virt-customize -a <disk>.qcow2 \
+    --copy-in images/guest/distribox-display-resize:/usr/local/bin \
+    --copy-in images/guest/distribox-display-resize.desktop:/etc/xdg/autostart \
+    --chmod 0755:/usr/local/bin/distribox-display-resize \
+    --chown 0:0:/usr/local/bin/distribox-display-resize \
+    --chown 0:0:/etc/xdg/autostart/distribox-display-resize.desktop
+```
+
+The guest needs `xrandr` and `udevadm`. Without the helper, the desktop keeps its resolution and the client scales it to fit the window.
 
 ### VM OS login credentials
 

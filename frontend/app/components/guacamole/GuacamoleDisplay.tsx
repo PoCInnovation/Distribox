@@ -85,6 +85,7 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
     requestFullscreen,
     exitFullscreen,
     isFullscreen,
+    reconnect,
   } = useGuacamoleClient(options);
 
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -202,12 +203,17 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      <div ref={containerRef} className="guacamole-display w-full h-full" />
+      <div
+        ref={containerRef}
+        className="guacamole-display flex w-full h-full items-center justify-center"
+      />
 
-      {state === "connecting" && (
+      {(state === "connecting" || state === "reconnecting") && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white">
           <div className="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
-          <p className="text-lg font-medium">Connecting to VM...</p>
+          <p className="text-lg font-medium">
+            {state === "connecting" ? "Connecting to VM..." : "Reconnecting..."}
+          </p>
         </div>
       )}
 
@@ -221,12 +227,14 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
               {error}
             </p>
           )}
+          <ReconnectButton onClick={reconnect} />
         </div>
       )}
 
       {state === "disconnected" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white">
           <p className="text-lg font-medium">Disconnected</p>
+          <ReconnectButton onClick={reconnect} />
         </div>
       )}
 
@@ -375,5 +383,16 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
         connected={state === "connected"}
       />
     </div>
+  );
+}
+
+function ReconnectButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      className="mt-4 rounded bg-white/15 px-3 py-1 text-sm hover:bg-white/25 transition-colors"
+      onClick={onClick}
+    >
+      Reconnect
+    </button>
   );
 }

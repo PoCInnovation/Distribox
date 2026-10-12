@@ -4,7 +4,26 @@ import type Guacamole from "guacamole-common-js";
 import { TUNNEL_URL } from "~/lib/api";
 
 export type GuacamoleConnectionState =
-  "connecting" | "connected" | "error" | "disconnected";
+  "connecting" | "connected" | "reconnecting" | "error" | "disconnected";
+
+/** Delays before each automatic reconnect attempt after a dropped session. */
+const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 10000, 10000, 10000];
+
+/** Time to let the window settle before asking the guest to resize. */
+const RESIZE_DEBOUNCE_MS = 250;
+
+/**
+ * Identifies this browser to the backend, which lets only the first viewer of
+ * a VM resize it. Reloads, new tabs and reconnects keep the same identity.
+ */
+function getViewerId(): string {
+  let id = localStorage.getItem("guacamole_viewer");
+  if (!id) {
+    id = Math.random().toString(36).slice(2);
+    localStorage.setItem("guacamole_viewer", id);
+  }
+  return id;
+}
 
 type UseGuacamoleClientOptions =
   | {
@@ -30,6 +49,7 @@ interface UseGuacamoleClientResult {
   requestFullscreen: () => Promise<void>;
   exitFullscreen: () => Promise<void>;
   isFullscreen: boolean;
+  reconnect: () => void;
 }
 
 export function useGuacamoleClient(
@@ -44,6 +64,11 @@ export function useGuacamoleClient(
   const clientRef = useRef<Guacamole.Client | null>(null);
   const keyboardRef = useRef<Guacamole.Keyboard | null>(null);
   const keyboardEnabledRef = useRef(true);
+  const [attempt, setAttempt] = useState(0);
+  const everConnectedRef = useRef(false);
+  const failedAttemptsRef = useRef(0);
+  // Keys held when a session drops stay down in the guest until released.
+  const staleKeysRef = useRef(new Set<number>());
 
   useEffect(() => {
     if (options.keyboardEnabled === false) keyboardRef.current?.reset();
@@ -62,11 +87,17 @@ export function useGuacamoleClient(
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handler);
-    return () => document.removeEventListener("fullscreenchange", handler);
+    return () => {
+      document.removeEventListener("fullscreenchange", handler);
+      if ("keyboard" in navigator && "unlock" in (navigator as any).keyboard) {
+        (navigator as any).keyboard.unlock();
+      }
+    };
   }, []);
 
   const requestFullscreen = useCallback(async () => {
-    const container = options.containerRef.current;
+    // The container's parent also holds the toolbar overlay.
+    const container = options.containerRef.current?.parentElement;
     if (!container) return;
     await container.requestFullscreen();
     if ("keyboard" in navigator && "lock" in (navigator as any).keyboard) {
@@ -92,12 +123,17 @@ export function useGuacamoleClient(
     }
   }, []);
 
+  const reconnect = useCallback(() => {
+    failedAttemptsRef.current = 0;
+    setAttempt((n) => n + 1);
+  }, []);
+
   const connectKey =
     options.mode === "credential" ? options.credential : options.vmId;
 
   useEffect(() => {
     if (!connectKey) return;
-    setState("connecting");
+    setState(everConnectedRef.current ? "reconnecting" : "connecting");
     setError(undefined);
     setClipboardText("");
 
@@ -105,6 +141,19 @@ export function useGuacamoleClient(
     let client: Guacamole.Client | undefined;
     let keyboard: Guacamole.Keyboard | undefined;
     let stopClipboardSync: (() => void) | undefined;
+    let resizeObserver: ResizeObserver | undefined;
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    // Remote keysym -> local keysyms holding it (Cmd and Control both send
+    // Control_L on macOS): it is released once none of them is held.
+    const heldBy = new Map<number, Set<number>>();
+    const releaseKeys = () => keyboard?.reset();
+    const dropHorizontalScroll = (e: WheelEvent) => {
+      // Guacamole.Mouse turns horizontal wheel events into vertical scrolls.
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
 
     async function initGuacamole() {
       const { default: Guacamole } = await import("guacamole-common-js");
@@ -114,14 +163,22 @@ export function useGuacamoleClient(
       const container = options.containerRef.current;
       if (!container) return;
 
-      const w = 1920;
-      const h = 1080;
+      // Ask the guest for the container size in CSS pixels. QEMU's VNC server
+      // rounds widths up to a multiple of 16 and caps the size at 5120x2160.
+      const requestedSize = () => [
+        Math.min(
+          5120,
+          Math.max(640, Math.floor(container.clientWidth / 16) * 16),
+        ),
+        Math.min(2160, Math.max(480, container.clientHeight)),
+      ];
+      let [w, h] = requestedSize();
 
       let connectParams: string;
       if (options.mode === "credential") {
-        connectParams = `credential=${encodeURIComponent(options.credential)}&width=${w}&height=${h}`;
+        connectParams = `credential=${encodeURIComponent(options.credential)}&width=${w}&height=${h}&viewer=${getViewerId()}`;
       } else {
-        connectParams = `vm_id=${encodeURIComponent(options.vmId)}&token=${encodeURIComponent(options.token)}&width=${w}&height=${h}`;
+        connectParams = `vm_id=${encodeURIComponent(options.vmId)}&token=${encodeURIComponent(options.token)}&width=${w}&height=${h}&viewer=${getViewerId()}`;
       }
 
       const tunnel = new Guacamole.WebSocketTunnel(TUNNEL_URL);
@@ -162,7 +219,7 @@ export function useGuacamoleClient(
             !(requestPermission && permission?.state === "prompt" && !prompted))
         )
           return;
-        prompted = true;
+        prompted ||= permission?.state === "prompt";
         reading = true;
         const before = lastClipboard;
         try {
@@ -173,6 +230,8 @@ export function useGuacamoleClient(
           ]);
           if (
             !cancelled &&
+            connected &&
+            document.hasFocus() &&
             keyboardEnabledRef.current &&
             lastClipboard === before &&
             text !== undefined &&
@@ -183,8 +242,12 @@ export function useGuacamoleClient(
         } finally {
           reading = false;
           for (const [pressed, keysym] of queuedKeys.splice(0)) {
-            if (!cancelled && (keyboardEnabledRef.current || !pressed)) {
-              client!.sendKeyEvent(pressed, keysym);
+            if (
+              !cancelled &&
+              connected &&
+              ((keyboardEnabledRef.current && document.hasFocus()) || !pressed)
+            ) {
+              sendKey(!!pressed, keysym);
             }
           }
         }
@@ -236,15 +299,19 @@ export function useGuacamoleClient(
       const display = client.getDisplay();
       const displayEl = display.getElement();
       container.appendChild(displayEl);
+
       window.addEventListener("focus", syncClipboard);
       displayEl.addEventListener("pointerdown", enterDisplay, true);
       clipboard?.addEventListener("clipboardchange", syncClipboard);
       stopClipboardSync = () => {
+        reading = false;
+        for (const [pressed, keysym] of queuedKeys.splice(0)) {
+          if (!pressed) sendKey(false, keysym);
+        }
         window.removeEventListener("focus", syncClipboard);
         displayEl.removeEventListener("pointerdown", enterDisplay, true);
         clipboard?.removeEventListener("clipboardchange", syncClipboard);
         if (permission) permission.onchange = null;
-        queuedKeys.length = 0;
       };
 
       const mouse: Guacamole.Mouse = new Guacamole.Mouse(displayEl);
@@ -253,68 +320,146 @@ export function useGuacamoleClient(
         display.showCursor(!mouse.setCursor(canvas, x, y));
       };
 
-      client.getDisplay().onresize = (newWidth: number, newHeight: number) => {
-        const containerEl = options.containerRef.current;
-        if (!containerEl) return;
+      // A desktop at the requested size is shown 1:1. On HiDPI screens,
+      // integer scales use nearest-neighbour so that text stays crisp.
+      const fit = () => {
+        const width = display.getWidth();
+        const height = display.getHeight();
+        if (!width || !height) return;
         const scale = Math.min(
-          containerEl.clientWidth / newWidth,
-          containerEl.clientHeight / newHeight,
+          container.clientWidth / width,
+          container.clientHeight / height,
         );
-        client!.getDisplay().scale(scale);
+        const devicePixels = scale * window.devicePixelRatio;
+        display.scale(scale);
+        displayEl.style.imageRendering =
+          Number.isInteger(devicePixels) && devicePixels >= 2
+            ? "pixelated"
+            : "";
       };
+      // Resize requests sent before the first paint would be dropped; the
+      // first paint sends any change made while connecting.
+      const requestResize = () => {
+        const [width, height] = requestedSize();
+        if (!painted || (width === w && height === h)) return;
+        [w, h] = [width, height];
+        client!.sendSize(w, h);
+      };
+      display.onresize = fit;
+      resizeObserver = new ResizeObserver(() => {
+        fit();
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(requestResize, RESIZE_DEBOUNCE_MS);
+      });
+      resizeObserver.observe(container);
 
       client.onrequired = () => {};
 
-      client.onstatechange = (newState: number) => {
-        connected = newState === 3;
-        if (newState === 3) {
+      // The first frames only carry the cursor: report the session as connected
+      // once a frame that draws on the desktop layer (0) has been painted.
+      let desktopDrawn = false;
+      let painted = false;
+      let dropped = false;
+      const handleInstruction = tunnel.oninstruction;
+      tunnel.oninstruction = (opcode, args) => {
+        if (opcode === "img") desktopDrawn ||= args[2] === "0";
+        if (opcode === "cfill") desktopDrawn ||= args[1] === "0";
+        handleInstruction?.(opcode, args);
+      };
+      client.onsync = () => {
+        if (painted || !desktopDrawn) return;
+        painted = true;
+        display.flush(() => {
+          if (cancelled || dropped) return;
+          for (const keysym of staleKeysRef.current) {
+            if (!heldBy.get(keysym)?.size) client!.sendKeyEvent(0, keysym);
+          }
+          staleKeysRef.current.clear();
+          requestResize();
+          everConnectedRef.current = true;
+          failedAttemptsRef.current = 0;
+          connected = true;
           setState("connected");
           syncClipboard();
-        } else if (newState === 5) {
+        });
+      };
+
+      const handleDrop = (message: string) => {
+        if (cancelled || dropped) return;
+        dropped = true;
+        connected = false;
+        queuedKeys.length = 0;
+        for (const [keysym, sources] of heldBy) {
+          if (sources.size) staleKeysRef.current.add(keysym);
+        }
+        setError(message);
+        if (!everConnectedRef.current) {
+          setState("error");
+          return;
+        }
+        const delay = RECONNECT_DELAYS_MS[failedAttemptsRef.current++];
+        if (delay === undefined) {
           setState("disconnected");
+          return;
         }
+        setState("reconnecting");
+        retryTimer = setTimeout(() => setAttempt((n) => n + 1), delay);
       };
 
-      client.onerror = (err: { message?: string }) => {
-        setState("error");
-        setError(err?.message ?? "Connection error");
+      client.onstatechange = (newState: number) => {
+        if (newState === 5) handleDrop("Disconnected");
       };
-
-      tunnel.onerror = (err: { message?: string }) => {
-        setState("error");
-        setError(err?.message ?? "Tunnel error");
-      };
+      client.onerror = (err: { message?: string }) =>
+        handleDrop(err?.message ?? "Connection error");
+      tunnel.onerror = (err: { message?: string }) =>
+        handleDrop(err?.message ?? "Tunnel error");
       tunnel.onstatechange = (newState: number) => {
-        if (newState === 0 || newState === 1 || newState === 3) return;
-        if (newState === 2) {
-          setState((prev) => (prev === "connected" ? "disconnected" : "error"));
-          setError((prev) => prev ?? "Tunnel closed");
+        if (newState === 2) handleDrop("Connection closed");
+      };
+
+      // Meta is Cmd on macOS, where users expect Cmd+C/V to act as Ctrl+C/V.
+      const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+      const remapKeysym = (keysym: number): number => {
+        if (keysym === 0xffe7) return isMac ? 0xffe3 : 0xffeb;
+        if (keysym === 0xffe8) return isMac ? 0xffe3 : 0xffec;
+        return keysym;
+      };
+      const sendKey = (pressed: boolean, keysym: number) => {
+        const remote = remapKeysym(keysym);
+        const sources = heldBy.get(remote) ?? new Set<number>();
+        const wasHeld = sources.size > 0;
+        if (pressed) sources.add(keysym);
+        else sources.delete(keysym);
+        heldBy.set(remote, sources);
+        if (pressed ? !wasHeld : wasHeld && !sources.size) {
+          client!.sendKeyEvent(pressed ? 1 : 0, remote);
         }
       };
 
-      const remapKeysym = (keysym: number): number => {
-        if (keysym === 0xffe7) return 0xffeb;
-        if (keysym === 0xffe8) return 0xffec;
-        return keysym;
+      const sendKeyboardKey = (pressed: boolean, keysym: number) => {
+        if (dropped) return;
+        hasVmInteraction = true;
+        if (reading) queuedKeys.push([pressed ? 1 : 0, keysym]);
+        else sendKey(pressed, keysym);
       };
 
       keyboard = new Guacamole.Keyboard(document);
       keyboardRef.current = keyboard;
-      const sendKey = (pressed: 0 | 1, keysym: number) => {
-        hasVmInteraction = true;
-        if (reading) queuedKeys.push([pressed, remapKeysym(keysym)]);
-        else client!.sendKeyEvent(pressed, remapKeysym(keysym));
-      };
       keyboard.onkeydown = (keysym: number) => {
         if (!keyboardEnabledRef.current) return true;
-        sendKey(1, keysym);
+        sendKeyboardKey(true, keysym);
         return false;
       };
       keyboard.onkeyup = (keysym: number) => {
         if (!keyboardEnabledRef.current) return true;
-        sendKey(0, keysym);
+        sendKeyboardKey(false, keysym);
         return false;
       };
+      window.addEventListener("blur", releaseKeys);
+      container.addEventListener("wheel", dropHorizontalScroll, {
+        capture: true,
+        passive: false,
+      });
 
       const sendMouse = (mouseState: Guacamole.Mouse.State) =>
         client!.sendMouseState(mouseState, true);
@@ -338,13 +483,23 @@ export function useGuacamoleClient(
       sendClipboardRef.current = null;
       syncClipboardRef.current = null;
       if (client) client.onclipboard = null;
+      clearTimeout(retryTimer);
+      clearTimeout(resizeTimer);
+      resizeObserver?.disconnect();
+      window.removeEventListener("blur", releaseKeys);
+      options.containerRef.current?.removeEventListener(
+        "wheel",
+        dropHorizontalScroll,
+        { capture: true },
+      );
       clientRef.current = null;
-      keyboard?.reset();
-      if (keyboard) keyboard.onkeydown = keyboard.onkeyup = null;
-      keyboardRef.current = null;
-      if ("keyboard" in navigator && "unlock" in (navigator as any).keyboard) {
-        (navigator as any).keyboard.unlock();
+      // Keyboards cannot detach from the document: release the keys, then
+      // remove the handlers so that this one ignores all further events.
+      if (keyboard) {
+        keyboard.reset();
+        keyboard.onkeydown = keyboard.onkeyup = null;
       }
+      keyboardRef.current = null;
       client?.disconnect();
       const container = options.containerRef.current;
       if (container) {
@@ -353,7 +508,7 @@ export function useGuacamoleClient(
         }
       }
     };
-  }, [connectKey, options.containerRef]);
+  }, [connectKey, options.containerRef, attempt]);
 
   return {
     state,
@@ -364,5 +519,6 @@ export function useGuacamoleClient(
     requestFullscreen,
     exitFullscreen,
     isFullscreen,
+    reconnect,
   };
 }

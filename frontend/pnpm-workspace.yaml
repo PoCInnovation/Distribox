@@ -1,3 +1,5 @@
 allowBuilds:
   '@tailwindcss/oxide': true
   esbuild: true
+patchedDependencies:
+  guacamole-common-js@1.5.0: patches/guacamole-common-js@1.5.0.patch

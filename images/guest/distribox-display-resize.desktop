@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Distribox display resize
+Exec=/usr/local/bin/distribox-display-resize
+NoDisplay=true

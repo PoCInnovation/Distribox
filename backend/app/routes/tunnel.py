@@ -8,7 +8,10 @@ from sqlmodel import Session
 import asyncio
 import codecs
 import logging
-from uuid import UUID
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
@@ -17,6 +20,35 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 READ_SIZE = 256 * 1024
+
+# The viewer allowed to resize each VM's guest, its number of open tunnels and
+# when its last tunnel closed. Other viewers, such as an admin opening a
+# student's VM, keep the guest's size.
+_resize_owners: dict[str, tuple[str, int, float]] = {}
+# Time an owner without open tunnels keeps ownership, longer than the client's
+# reconnect backoff so that it wins when every viewer reconnects at once.
+RESIZE_OWNER_GRACE_S = 60
+
+
+@contextmanager
+def _resize_owner(vm_id: str, viewer: str) -> Iterator[bool]:
+    """Yield whether this viewer may resize the guest for the tunnel's lifetime.
+
+    Ownership follows the viewer rather than the tunnel, so a client that
+    reconnects while its stale tunnel is still open keeps it.
+    """
+    owner, tunnels, closed_at = _resize_owners.get(vm_id, (viewer, 0, 0.0))
+    if owner != viewer:
+        if tunnels or time.monotonic() - closed_at < RESIZE_OWNER_GRACE_S:
+            yield False
+            return
+        tunnels = 0
+    _resize_owners[vm_id] = (viewer, tunnels + 1, 0.0)
+    try:
+        yield True
+    finally:
+        owner, tunnels, _ = _resize_owners[vm_id]
+        _resize_owners[vm_id] = (owner, tunnels - 1, time.monotonic())
 
 
 def _is_internal_instruction(message: str) -> bool:
@@ -76,6 +108,7 @@ async def vm_tunnel(
     token: str | None = Query(default=None),
     width: int = Query(default=1920),
     height: int = Query(default=1080),
+    viewer: str | None = Query(default=None),
 ):
     # Resolve VM ID from either credential or vm_id+token
     resolved_vm_id: str | None = None
@@ -127,6 +160,14 @@ async def vm_tunnel(
         slave.hostname if slave else None,
     )
 
+    with _resize_owner(resolved_vm_id, viewer or uuid4().hex) as resize:
+        await _relay(websocket, guacd_host, guacd_port, vnc_host, vnc_port,
+                     width, height, resize)
+
+
+async def _relay(websocket: WebSocket, guacd_host: str, guacd_port: int,
+                 vnc_host: str, vnc_port: int, width: int, height: int,
+                 resize: bool) -> None:
     await websocket.accept(subprotocol="guacamole")
 
     try:
@@ -146,6 +187,7 @@ async def vm_tunnel(
             vnc_port=vnc_port,
             width=width,
             height=height,
+            resize=resize,
         )
         logger.warning(
             "Tunnel connected via vnc host=%s port=%s",

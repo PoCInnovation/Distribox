@@ -4,11 +4,15 @@ declare module "guacamole-common-js" {
       constructor(url: string);
       onerror: ((error: { message?: string }) => void) | null;
       onstatechange: ((state: number) => void) | null;
+      oninstruction: ((opcode: string, args: string[]) => void) | null;
       sendMessage(...elements: string[]): void;
     }
 
     class Display {
       getElement(): HTMLElement;
+      getWidth(): number;
+      getHeight(): number;
+      flush(callback?: () => void): void;
       scale(scale: number): void;
       showCursor(shown: boolean): void;
       oncursor:
@@ -21,6 +25,7 @@ declare module "guacamole-common-js" {
       getDisplay(): Display;
       connect(params?: string): void;
       disconnect(): void;
+      sendSize(width: number, height: number): void;
       sendKeyEvent(pressed: 0 | 1, keysym: number): void;
       sendMouseState(
         mouseState: Mouse.State,
@@ -31,6 +36,7 @@ declare module "guacamole-common-js" {
       onrequired: ((required: string[]) => void) | null;
       onclipboard: ((stream: InputStream, mimetype: string) => void) | null;
       createClipboardStream(mimetype: string): OutputStream;
+      onsync: ((timestamp: number, frames: number) => void) | null;
     }
 
     class InputStream {}

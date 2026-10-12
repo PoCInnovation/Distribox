@@ -91,9 +91,7 @@ services:
 
 
   guacd:
-    build:
-      context: .
-      dockerfile: Dockerfile.guacd
+    build: ../guacd
     container_name: distribox-guacd
     restart: unless-stopped
     # host networking gives guacd access to 127.0.0.1 on the host so it can

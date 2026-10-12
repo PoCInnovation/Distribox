@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  guacamole-common-js@1.5.0: 98bc5c8b51a1f96a5a2ed87b0a7530f7de54d236064f4a9d5c09c02f4a666211
+
 importers:
 
   .:
@@ -67,7 +70,7 @@ importers:
         version: 4.1.0
       guacamole-common-js:
         specifier: 1.5.0
-        version: 1.5.0
+        version: 1.5.0(patch_hash=98bc5c8b51a1f96a5a2ed87b0a7530f7de54d236064f4a9d5c09c02f4a666211)
       isbot:
         specifier: ^5.1.31
         version: 5.1.31
@@ -4306,7 +4309,7 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  guacamole-common-js@1.5.0: {}
+  guacamole-common-js@1.5.0(patch_hash=98bc5c8b51a1f96a5a2ed87b0a7530f7de54d236064f4a9d5c09c02f4a666211): {}
 
   has-symbols@1.1.0: {}
 

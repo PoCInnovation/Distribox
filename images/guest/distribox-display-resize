@@ -1,0 +1,17 @@
+#!/bin/sh
+# Applies the display size requested by the Distribox web client. QEMU offers
+# the requested size as the monitor's preferred mode and sends a DRM change
+# event, but X11 desktops keep their current mode until told otherwise.
+[ "${XDG_SESSION_TYPE:-x11}" = x11 ] || exit 0
+
+apply() {
+    output=$(xrandr --current | awk '/ connected/ { print $1; exit }')
+    [ -n "$output" ] && xrandr --output "$output" --auto
+}
+
+apply
+udevadm monitor --udev --subsystem-match=drm | while read -r line; do
+    case "$line" in
+        *change*) apply ;;
+    esac
+done
