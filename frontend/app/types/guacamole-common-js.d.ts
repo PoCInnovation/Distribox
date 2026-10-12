@@ -4,11 +4,15 @@ declare module "guacamole-common-js" {
       constructor(url: string);
       onerror: ((error: { message?: string }) => void) | null;
       onstatechange: ((state: number) => void) | null;
+      oninstruction: ((opcode: string, args: string[]) => void) | null;
       sendMessage(...elements: string[]): void;
     }
 
     class Display {
       getElement(): HTMLElement;
+      getWidth(): number;
+      getHeight(): number;
+      flush(callback?: () => void): void;
       scale(scale: number): void;
       showCursor(shown: boolean): void;
       oncursor:
@@ -29,6 +33,7 @@ declare module "guacamole-common-js" {
       onstatechange: ((state: number) => void) | null;
       onerror: ((error: { message?: string }) => void) | null;
       onrequired: ((required: string[]) => void) | null;
+      onsync: ((timestamp: number, frames: number) => void) | null;
     }
 
     class Keyboard {
