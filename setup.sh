@@ -65,6 +65,12 @@ else
     sudo systemctl enable --now libvirtd
 fi
 
+if [[ "$(uname)" != "Darwin" ]]; then
+    echo "Keeping TCP congestion windows across idle periods for remote desktops..."
+    echo "net.ipv4.tcp_slow_start_after_idle = 0" | sudo tee /etc/sysctl.d/60-distribox.conf >/dev/null
+    sudo sysctl -q -p /etc/sysctl.d/60-distribox.conf
+fi
+
 sudo mkdir -p /var/lib/distribox/
 sudo mkdir -p /var/lib/distribox/images
 sudo mkdir -p /var/lib/distribox/vms
