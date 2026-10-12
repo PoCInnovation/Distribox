@@ -34,7 +34,7 @@ Distribox uses Apache Guacamole to stream VM desktops over WebSocket. The browse
 
 ### Shared text clipboard
 
-Use **Clipboard** in the VM toolbar to move text in either direction. Paste or type into **Send to VM**, send it, close the dialog, then paste in the guest. Text copied in the guest appears under **Copied in VM** and is copied to the system clipboard when the browser allows it. **Copy to system** selects the text for manual copying if access is blocked. Only text is shared.
+Use **Clipboard** in the VM toolbar to move text in either direction. Paste or type into **Send to VM**, send it, close the dialog, then paste in the guest. Text copied in the guest appears under **Copied in VM** and is copied to the system clipboard when the browser allows it. **Copy** selects the text for manual copying if access is blocked. Only text is shared.
 
 Guests need `spice-vdagent` running in their desktop session. New Ubuntu desktop images and cloud-init seeds install it; for existing/imported Ubuntu or Debian desktops, run `sudo apt install spice-vdagent`, then log out and back in. A full shutdown and start adds the guest channel to existing VMs; saved sessions keep their devices. Unsupported hosts keep working without sharing.
 
@@ -366,7 +366,7 @@ New event and VM access secrets use 32 random bytes. Credential IDs alone no lon
 
 Distribox should be served over HTTPS. Without SSL:
 
-- Automatic clipboard reads and writes require the [Clipboard API in a secure context](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API#security_considerations). Browsers can also require permission or a user gesture. VM sessions provide native paste and the **Clipboard** dialog for manual text transfer when this API is unavailable.
+- Automatic clipboard reads and writes require the [Clipboard API in a secure context](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API#security_considerations). Browsers can also require permission or a user gesture. Use the **Clipboard** dialog for manual text transfer when this API is unavailable.
 
 The easiest way to set up SSL is with [Certbot](https://certbot.eff.org/) (Let's Encrypt):
 
