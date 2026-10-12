@@ -34,7 +34,11 @@ Distribox uses Apache Guacamole to stream VM desktops over WebSocket. The browse
 
 ### Shared text clipboard
 
-Use **Clipboard** in the VM toolbar to move text in either direction. Paste or type into **Send to VM**, send it, close the dialog, then paste in the guest. Text copied in the guest appears under **Copied in VM** and is copied to the system clipboard when the browser allows it. **Copy** selects the text for manual copying if access is blocked. Only text is shared.
+Your system text clipboard is shared with the VM through the browser Clipboard API. In browsers supporting clipboard-read permission, allow access when clicking into the VM. System text is sent on connection, focus and VM clicks; copies in the guest write back to the system clipboard. Paste using the guest's usual shortcut. Browsers supporting `clipboardchange` also synchronize while the VM stays focused. Only text is shared.
+
+Use **Clipboard** in the VM toolbar when browser access is blocked or clipboard-read permission is unsupported (including Firefox and Safari). Paste or type into **Send to VM**, send it, close the dialog, then paste in the guest. **Copied in VM** shows guest text; **Copy** selects it for manual copying if the browser refuses clipboard writes.
+
+The system clipboard takes priority when returning to the VM. Guest copies that the browser could not write remain available in the Clipboard dialog.
 
 Guests need `spice-vdagent` running in their desktop session. New Ubuntu desktop images and cloud-init seeds install it; for existing/imported Ubuntu or Debian desktops, run `sudo apt install spice-vdagent`, then log out and back in. A full shutdown and start adds the guest channel to existing VMs; saved sessions keep their devices. Unsupported hosts keep working without sharing.
 

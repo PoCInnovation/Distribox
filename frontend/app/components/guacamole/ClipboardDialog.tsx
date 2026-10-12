@@ -42,8 +42,8 @@ export function ClipboardDialog({
         <DialogHeader>
           <DialogTitle>VM clipboard</DialogTitle>
           <DialogDescription>
-            Send text to the VM clipboard, then close this window and paste in
-            the VM. Text copied in the VM appears below.
+            Your system clipboard is shared when browser access is allowed. If
+            sharing is blocked, use these fields to move text manually.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
