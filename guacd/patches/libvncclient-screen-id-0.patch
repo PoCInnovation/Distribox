@@ -1,0 +1,22 @@
+From 041ea576c3dddd6c7169935aaf8889673024fbfc Mon Sep 17 00:00:00 2001
+From: vin <xing.han@yuemia.com>
+Date: Mon, 17 Jun 2024 21:54:09 +0800
+Subject: [PATCH] libvncclient: allow screen.id==0 in ExtendedDesktopSize msg
+
+---
+ src/libvncclient/rfbclient.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/libvncclient/rfbclient.c b/src/libvncclient/rfbclient.c
+index cc155b750..f6baf641c 100644
+--- a/src/libvncclient/rfbclient.c
++++ b/src/libvncclient/rfbclient.c
+@@ -2170,7 +2170,7 @@ HandleRFBServerMessage(rfbClient* client)
+           if (!ReadFromRFBServer(client, ((char *)&screen), sz_rfbExtDesktopScreen)) {
+             return FALSE;
+           }
+-          if (screen.id != 0 && screen.width && screen.height) {
++          if (screen.width && screen.height) {
+             client->screen = screen;
+           } else {
+             invalidScreen = TRUE;
