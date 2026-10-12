@@ -13,12 +13,17 @@ from app.orm.vm import VmORM
 from app.services import vm_service
 
 
+CLIPBOARD_CHANNEL = """<channel type='qemu-vdagent'>
+<source><clipboard copypaste='yes'/><mouse mode='server'/></source>
+<target type='virtio' name='com.redhat.spice.0'/>
+</channel>"""
+
 DOMAIN_XML = """<domain type='kvm'><name>course-vm</name><devices>
 <disk type='file' device='disk'><source file='/course/glo-2000.qcow2'/></disk>
 <graphics type='vnc' port='-1' autoport='yes' listen='127.0.0.1'/>
 <input type='keyboard' bus='ps2'/><input type='tablet' bus='virtio'/>
 <video><model type='virtio'/></video>
-</devices></domain>"""
+""" + CLIPBOARD_CHANNEL + "</devices></domain>"
 
 
 def vnc_keymap(xml):
@@ -219,3 +224,46 @@ def test_starting_an_active_vm_does_not_change_its_configuration(vm_start):
     connection.defineXML.assert_not_called()
     domain.managedSaveDefineXML.assert_not_called()
     domain.create.assert_not_called()
+
+
+def clipboard_channels(xml):
+    return etree.fromstring(xml.encode()).findall('./devices/channel')
+
+
+def test_cold_start_adds_guest_clipboard_once(vm_start):
+    vm_id, engine, domain, connection, state = vm_start
+    state["xml"] = DOMAIN_XML.replace(CLIPBOARD_CHANNEL, "")
+    vm_service.VmService.start_vm(vm_id)
+    connection.defineXML.reset_mock()
+    domain.isActive.return_value = 0
+    domain.state.return_value = (libvirt.VIR_DOMAIN_SHUTOFF, 0)
+
+    vm_service.VmService.start_vm(vm_id)
+
+    for persistent, _ in state["starts"]:
+        assert [c.get("type") for c in clipboard_channels(persistent)] == [
+            "qemu-vdagent"]
+    connection.defineXML.assert_not_called()
+
+
+def test_restore_does_not_add_guest_clipboard(vm_start):
+    vm_id, engine, domain, connection, state = vm_start
+    state["xml"] = state["saved_xml"] = DOMAIN_XML.replace(CLIPBOARD_CHANNEL, "")
+    domain.hasManagedSaveImage.return_value = True
+
+    vm_service.VmService.start_vm(vm_id)
+
+    persistent, saved = state["starts"][0]
+    assert clipboard_channels(persistent) == clipboard_channels(saved) == []
+
+
+def test_cold_start_preserves_existing_guest_agent_channel(vm_start):
+    vm_id, engine, domain, connection, state = vm_start
+    channel = """<channel type='unix'><source path='/custom/agent.sock'/>
+<target type='virtio' name='com.redhat.spice.0'/></channel>"""
+    state["xml"] = DOMAIN_XML.replace(CLIPBOARD_CHANNEL, channel)
+
+    vm_service.VmService.start_vm(vm_id)
+
+    channels = clipboard_channels(state["starts"][0][0])
+    assert [c.get("type") for c in channels] == ["unix"]

@@ -2,6 +2,7 @@ import json
 import subprocess
 from unittest.mock import Mock
 
+import libvirt
 import pytest
 from fastapi import HTTPException
 from sqlalchemy.pool import StaticPool
@@ -57,3 +58,20 @@ def test_disk_smaller_than_image_is_rejected(tmp_path, qemu_img):
     assert error.value.detail == "Disk size must be at least 9 GB"
     assert qemu_img.call_count == 1
     assert not (tmp_path / "vms").exists()
+
+
+def test_creation_enables_guest_clipboard(qemu_img):
+    create_vm(9)
+
+    xml = vm_service.QEMUConfig.get_connection().defineXML.call_args.args[0]
+    assert "qemu-vdagent" in xml
+
+
+def test_creation_omits_clipboard_when_host_rejects_it(qemu_img):
+    connection = vm_service.QEMUConfig.get_connection()
+    connection.domainXMLToNative.side_effect = libvirt.libvirtError(
+        "unsupported chardev 'qemu-vdagent'")
+
+    create_vm(9)
+
+    assert "qemu-vdagent" not in connection.defineXML.call_args.args[0]

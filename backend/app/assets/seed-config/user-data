@@ -17,6 +17,8 @@ ssh_pwauth: false
 
 package_update: true
 package_upgrade: true
+packages:
+  - spice-vdagent
 
 # Set VNC framebuffer to 1920x1080 on every boot via XDG autostart
 write_files:

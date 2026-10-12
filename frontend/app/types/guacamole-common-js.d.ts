@@ -34,7 +34,25 @@ declare module "guacamole-common-js" {
       onstatechange: ((state: number) => void) | null;
       onerror: ((error: { message?: string }) => void) | null;
       onrequired: ((required: string[]) => void) | null;
+      onclipboard: ((stream: InputStream, mimetype: string) => void) | null;
+      createClipboardStream(mimetype: string): OutputStream;
       onsync: ((timestamp: number, frames: number) => void) | null;
+    }
+
+    class InputStream {}
+
+    class OutputStream {}
+
+    class ArrayBufferReader {
+      constructor(stream: InputStream);
+      ondata: ((data: ArrayBuffer) => void) | null;
+      onend: (() => void) | null;
+    }
+
+    class ArrayBufferWriter {
+      constructor(stream: OutputStream);
+      sendData(data: ArrayBuffer | Uint8Array): void;
+      sendEnd(): void;
     }
 
     class Keyboard {

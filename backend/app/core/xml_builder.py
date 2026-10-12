@@ -127,6 +127,28 @@ def build_xml(vm_read: VmCreateXML):
     return xml_string
 
 
+def configure_vnc_clipboard(domain_xml: str) -> str | None:
+    root = etree.fromstring(domain_xml.encode())
+    devices = root.find("devices")
+    if devices is None or devices.find('graphics[@type="vnc"]') is None:
+        return None
+    for channel in devices.findall("channel"):
+        target = channel.find("target")
+        name = target.get("name") if target is not None else None
+        # Keep any existing guest agent channel exactly as configured.
+        if name == "com.redhat.spice.0" or (
+                name is None and channel.get("type") in ("qemu-vdagent", "spicevmc")):
+            return None
+    channel = etree.SubElement(devices, "channel", type="qemu-vdagent")
+    source = etree.SubElement(channel, "source")
+    etree.SubElement(source, "clipboard", copypaste="yes")
+    # The existing virtio tablet handles absolute pointer input.
+    etree.SubElement(source, "mouse", mode="server")
+    etree.SubElement(channel, "target", type="virtio",
+                     name="com.redhat.spice.0")
+    return etree.tostring(root, encoding="utf-8").decode()
+
+
 def configure_vnc_keyboard(
         domain_xml: str, keyboard_layout: str | None) -> str | None:
     keymap = LAYOUT_TO_KEYMAP.get(keyboard_layout or "")

@@ -43,6 +43,8 @@ type UseGuacamoleClientOptions =
 interface UseGuacamoleClientResult {
   state: GuacamoleConnectionState;
   error?: string;
+  clipboardText: string;
+  sendClipboard: (text: string) => void;
   sendKeyEvent: (pressed: boolean, keysym: number) => void;
   requestFullscreen: () => Promise<void>;
   exitFullscreen: () => Promise<void>;
@@ -56,6 +58,9 @@ export function useGuacamoleClient(
   const [state, setState] = useState<GuacamoleConnectionState>("connecting");
   const [error, setError] = useState<string | undefined>();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [clipboardText, setClipboardText] = useState("");
+  const sendClipboardRef = useRef<((text: string) => void) | null>(null);
+  const syncClipboardRef = useRef<(() => void) | null>(null);
   const clientRef = useRef<Guacamole.Client | null>(null);
   const keyboardRef = useRef<Guacamole.Keyboard | null>(null);
   const keyboardEnabledRef = useRef(true);
@@ -68,10 +73,15 @@ export function useGuacamoleClient(
   useEffect(() => {
     if (options.keyboardEnabled === false) keyboardRef.current?.reset();
     keyboardEnabledRef.current = options.keyboardEnabled !== false;
+    if (keyboardEnabledRef.current) syncClipboardRef.current?.();
   }, [options.keyboardEnabled]);
 
   const sendKeyEvent = useCallback((pressed: boolean, keysym: number) => {
     clientRef.current?.sendKeyEvent(pressed ? 1 : 0, keysym);
+  }, []);
+
+  const sendClipboard = useCallback((text: string) => {
+    sendClipboardRef.current?.(text);
   }, []);
 
   useEffect(() => {
@@ -125,10 +135,12 @@ export function useGuacamoleClient(
     if (!connectKey) return;
     setState(everConnectedRef.current ? "reconnecting" : "connecting");
     setError(undefined);
+    setClipboardText("");
 
     let cancelled = false;
     let client: Guacamole.Client | undefined;
     let keyboard: Guacamole.Keyboard | undefined;
+    let stopClipboardSync: (() => void) | undefined;
     let resizeObserver: ResizeObserver | undefined;
     let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -173,9 +185,134 @@ export function useGuacamoleClient(
       client = new Guacamole.Client(tunnel);
       clientRef.current = client;
 
+      const clipboard = navigator.clipboard;
+      let connected = false;
+      let hasVmInteraction = false;
+      let lastClipboard: string | undefined;
+      let reading = false;
+      let permission: PermissionStatus | undefined;
+      let prompted = false;
+      const queuedKeys: [0 | 1, number][] = [];
+
+      const sendClipboard = (text: string) => {
+        lastClipboard = text;
+        const writer = new Guacamole.ArrayBufferWriter(
+          client!.createClipboardStream("text/plain"),
+        );
+        writer.sendData(new TextEncoder().encode(text));
+        writer.sendEnd();
+      };
+      sendClipboardRef.current = (text) => {
+        sendClipboard(text);
+        void clipboard?.writeText?.(text).catch(() => {});
+      };
+
+      const readSystemClipboard = async (requestPermission = false) => {
+        if (
+          cancelled ||
+          !connected ||
+          reading ||
+          !clipboard?.readText ||
+          !keyboardEnabledRef.current ||
+          !document.hasFocus() ||
+          (permission?.state !== "granted" &&
+            !(requestPermission && permission?.state === "prompt" && !prompted))
+        )
+          return;
+        prompted ||= permission?.state === "prompt";
+        reading = true;
+        const before = lastClipboard;
+        try {
+          // Bound the wait so an unanswered permission prompt cannot freeze keys.
+          const text = await Promise.race([
+            clipboard.readText().catch(() => undefined),
+            new Promise<undefined>((resolve) => setTimeout(resolve, 300)),
+          ]);
+          if (
+            !cancelled &&
+            connected &&
+            document.hasFocus() &&
+            keyboardEnabledRef.current &&
+            lastClipboard === before &&
+            text !== undefined &&
+            text !== lastClipboard
+          ) {
+            sendClipboard(text);
+          }
+        } finally {
+          reading = false;
+          for (const [pressed, keysym] of queuedKeys.splice(0)) {
+            if (
+              !cancelled &&
+              connected &&
+              ((keyboardEnabledRef.current && document.hasFocus()) || !pressed)
+            ) {
+              sendKey(!!pressed, keysym);
+            }
+          }
+        }
+      };
+      const syncClipboard = () => void readSystemClipboard();
+      syncClipboardRef.current = syncClipboard;
+      const enterDisplay = () => {
+        hasVmInteraction = true;
+        void readSystemClipboard(true);
+      };
+      void Promise.resolve()
+        .then(() =>
+          navigator.permissions?.query({
+            name: "clipboard-read" as PermissionName,
+          }),
+        )
+        .then((status) => {
+          if (cancelled || !status) return;
+          permission = status;
+          permission.onchange = syncClipboard;
+          syncClipboard();
+        })
+        .catch(() => {});
+
+      client.onclipboard = (stream, mimetype) => {
+        if (!mimetype.startsWith("text/plain")) return;
+        const fromInteraction = hasVmInteraction;
+        const reader = new Guacamole.ArrayBufferReader(stream);
+        const decoder = new TextDecoder();
+        let text = "";
+        reader.ondata = (chunk) => {
+          text += decoder.decode(chunk, { stream: true });
+        };
+        reader.onend = () => {
+          if (cancelled) return;
+          text += decoder.decode();
+          setClipboardText(text);
+          if (text === lastClipboard) return;
+          // Refresh from the system on entry after a guest replay or background copy.
+          if (!connected || !fromInteraction || !document.hasFocus()) {
+            lastClipboard = undefined;
+            return;
+          }
+          lastClipboard = text;
+          void clipboard?.writeText?.(text).catch(() => {});
+        };
+      };
+
       const display = client.getDisplay();
       const displayEl = display.getElement();
       container.appendChild(displayEl);
+
+      window.addEventListener("focus", syncClipboard);
+      displayEl.addEventListener("pointerdown", enterDisplay, true);
+      clipboard?.addEventListener("clipboardchange", syncClipboard);
+      stopClipboardSync = () => {
+        reading = false;
+        for (const [pressed, keysym] of queuedKeys.splice(0)) {
+          if (!pressed) sendKey(false, keysym);
+        }
+        window.removeEventListener("focus", syncClipboard);
+        displayEl.removeEventListener("pointerdown", enterDisplay, true);
+        clipboard?.removeEventListener("clipboardchange", syncClipboard);
+        if (permission) permission.onchange = null;
+      };
 
       const mouse: Guacamole.Mouse = new Guacamole.Mouse(displayEl);
       display.showCursor(false);
@@ -241,13 +378,17 @@ export function useGuacamoleClient(
           requestResize();
           everConnectedRef.current = true;
           failedAttemptsRef.current = 0;
+          connected = true;
           setState("connected");
+          syncClipboard();
         });
       };
 
       const handleDrop = (message: string) => {
         if (cancelled || dropped) return;
         dropped = true;
+        connected = false;
+        queuedKeys.length = 0;
         for (const [keysym, sources] of heldBy) {
           if (sources.size) staleKeysRef.current.add(keysym);
         }
@@ -295,16 +436,23 @@ export function useGuacamoleClient(
         }
       };
 
+      const sendKeyboardKey = (pressed: boolean, keysym: number) => {
+        if (dropped) return;
+        hasVmInteraction = true;
+        if (reading) queuedKeys.push([pressed ? 1 : 0, keysym]);
+        else sendKey(pressed, keysym);
+      };
+
       keyboard = new Guacamole.Keyboard(document);
       keyboardRef.current = keyboard;
       keyboard.onkeydown = (keysym: number) => {
         if (!keyboardEnabledRef.current) return true;
-        sendKey(true, keysym);
+        sendKeyboardKey(true, keysym);
         return false;
       };
       keyboard.onkeyup = (keysym: number) => {
         if (!keyboardEnabledRef.current) return true;
-        sendKey(false, keysym);
+        sendKeyboardKey(false, keysym);
         return false;
       };
       window.addEventListener("blur", releaseKeys);
@@ -331,6 +479,10 @@ export function useGuacamoleClient(
 
     return () => {
       cancelled = true;
+      stopClipboardSync?.();
+      sendClipboardRef.current = null;
+      syncClipboardRef.current = null;
+      if (client) client.onclipboard = null;
       clearTimeout(retryTimer);
       clearTimeout(resizeTimer);
       resizeObserver?.disconnect();
@@ -361,6 +513,8 @@ export function useGuacamoleClient(
   return {
     state,
     error,
+    clipboardText,
+    sendClipboard,
     sendKeyEvent,
     requestFullscreen,
     exitFullscreen,

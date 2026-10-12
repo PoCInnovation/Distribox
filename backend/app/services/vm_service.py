@@ -11,7 +11,7 @@ from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML, VmRename
 from app.models.image import ImageRead
-from app.core.xml_builder import build_xml, configure_vnc_keyboard, upgrade_display_devices
+from app.core.xml_builder import build_xml, configure_vnc_clipboard, configure_vnc_keyboard, upgrade_display_devices
 from app.core.config import QEMUConfig, engine
 from sqlalchemy import func
 from sqlmodel import Session, select, delete, col
@@ -30,6 +30,19 @@ from pathlib import Path
 from sqlalchemy.orm import make_transient
 
 logger = logging.getLogger(__name__)
+
+
+def with_vnc_clipboard(conn: libvirt.virConnect, domain_xml: str) -> str:
+    candidate = configure_vnc_clipboard(domain_xml)
+    if candidate is None:
+        return domain_xml
+    # Older libvirt or QEMU builds without SPICE lack the qemu-vdagent channel.
+    try:
+        conn.domainXMLToNative("qemu-argv", candidate, 0)
+    except libvirt.libvirtError as e:
+        logger.info("Guest clipboard sharing is unavailable: %s", e)
+        return domain_xml
+    return candidate
 
 
 def ensure_default_network():
@@ -160,7 +173,7 @@ class Vm:
                 keyboard_layout=self.keyboard_layout,
             ))
             conn = QEMUConfig.get_connection()
-            conn.defineXML(vm_xml)
+            conn.defineXML(with_vnc_clipboard(conn, vm_xml))
             with Session(engine) as session:
                 vm_record = VmORM(
                     id=self.id,
@@ -258,6 +271,7 @@ class Vm:
                 if not has_saved_state:
                     domain_xml = upgrade_display_devices(
                         domain_xml) or domain_xml
+                    domain_xml = with_vnc_clipboard(conn, domain_xml)
                 domain_xml = configure_vnc_keyboard(
                     domain_xml, self.keyboard_layout) or domain_xml
                 if domain_xml != original_xml:
@@ -879,7 +893,7 @@ class VmService:
                     copy(seed_src, dest_path / "seed.iso")
 
                 conn = QEMUConfig.get_connection()
-                conn.defineXML(vm_xml)
+                conn.defineXML(with_vnc_clipboard(conn, vm_xml))
             except Exception as e:
                 if dest_path.exists():
                     rmtree(dest_path)

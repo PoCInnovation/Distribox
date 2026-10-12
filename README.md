@@ -32,6 +32,18 @@ Distribox uses Apache Guacamole to stream VM desktops over WebSocket. The browse
   <img src=".github/assets/vm-streaming.png" alt="VM Streaming" width="700"/>
 </div>
 
+### Shared text clipboard
+
+Your system text clipboard is shared with the VM through the browser Clipboard API. In browsers supporting clipboard-read permission, allow access when clicking into the VM. System text is sent on connection, focus and VM clicks; copies in the guest write back to the system clipboard. Paste using the guest's usual shortcut. Browsers supporting `clipboardchange` also synchronize while the VM stays focused. Only text is shared.
+
+Use **Clipboard** in the VM toolbar when browser access is blocked or clipboard-read permission is unsupported (including Firefox and Safari). Paste or type into **Send to VM**, send it, close the dialog, then paste in the guest. **Copied in VM** shows guest text; **Copy** selects it for manual copying if the browser refuses clipboard writes.
+
+The system clipboard takes priority when returning to the VM. Guest copies that the browser could not write remain available in the Clipboard dialog.
+
+Guests need `spice-vdagent` running in their desktop session. New Ubuntu desktop images and cloud-init seeds install it; for existing/imported Ubuntu or Debian desktops, run `sudo apt install spice-vdagent`, then log out and back in. A full shutdown and start adds the guest channel to existing VMs; saved sessions keep their devices. Unsupported hosts keep working without sharing.
+
+Compose builds the patched guacd image needed for QEMU's outbound clipboard. Rebuild guacd when upgrading. Host support requires libvirt 8.4+ and QEMU 6.1+ with SPICE protocol support.
+
 ---
 
 ## Authentication and Authorization
@@ -358,8 +370,7 @@ New event and VM access secrets use 32 random bytes. Credential IDs alone no lon
 
 Distribox should be served over HTTPS. Without SSL:
 
-- **Clipboard will not work.** The browser Clipboard API (`navigator.clipboard`) is only available in [secure contexts](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API#security_considerations) (HTTPS). Copying VM credentials, event links, or any other data from the dashboard will silently fail on plain HTTP.
-- **Pasting into VMs will not work.** The Guacamole client uses the Clipboard API to sync your clipboard with the remote VM. Without HTTPS, you will not be able to paste text into a VM session from your browser.
+- Automatic clipboard reads and writes require the [Clipboard API in a secure context](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API#security_considerations). Browsers can also require permission or a user gesture. Use the **Clipboard** dialog for manual text transfer when this API is unavailable.
 
 The easiest way to set up SSL is with [Certbot](https://certbot.eff.org/) (Let's Encrypt):
 

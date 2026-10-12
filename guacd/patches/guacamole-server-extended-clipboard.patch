@@ -1,0 +1,71 @@
+--- a/src/protocols/vnc/vnc.c
++++ b/src/protocols/vnc/vnc.c
+@@ -174,6 +174,7 @@
+ 
+         /* Clipboard */
+         rfb_client->GotXCutText = guac_vnc_cut_text;
++        rfb_client->GotXCutTextUTF8 = guac_vnc_cut_text_utf8;
+ 
+         /* Set remote cursor */
+         if (vnc_settings->remote_cursor) {
+--- a/src/protocols/vnc/clipboard.h
++++ b/src/protocols/vnc/clipboard.h
+@@ -76,5 +76,7 @@
+  */
+ void guac_vnc_cut_text(rfbClient* client, const char* text, int textlen);
+ 
++void guac_vnc_cut_text_utf8(rfbClient* client, const char* text, int textlen);
++
+ #endif
+ 
+--- a/src/protocols/vnc/clipboard.c
++++ b/src/protocols/vnc/clipboard.c
+@@ -114,13 +114,19 @@
+                writer, &output, sizeof(output_data));
+ 
+     /* Send via VNC only if finished connecting */
+-    if (rfb_client != NULL)
+-        SendClientCutText(rfb_client, output_data, output - output_data);
++    if (rfb_client != NULL) {
++        /* Extended Clipboard always carries UTF-8, independently of the
++         * encoding selected for the classic VNC clipboard fallback. */
++        if (!SendClientCutTextUTF8(rfb_client, vnc_client->clipboard->buffer,
++                    vnc_client->clipboard->length))
++            SendClientCutText(rfb_client, output_data, output - output_data);
++    }
+ 
+     return 0;
+ }
+ 
+-void guac_vnc_cut_text(rfbClient* client, const char* text, int textlen) {
++static void guac_vnc_cut_text_with_encoding(rfbClient* client,
++        const char* text, int textlen, guac_iconv_read* reader) {
+ 
+     guac_client* gc = rfbClientGetClientData(client, GUAC_VNC_CLIENT_KEY);
+     guac_vnc_client* vnc_client = (guac_vnc_client*) gc->data;
+@@ -133,7 +139,6 @@
+ 
+     const char* input = text;
+     char* output = received_data;
+-    guac_iconv_read* reader = vnc_client->clipboard_reader;
+ 
+     /* Convert clipboard contents */
+     guac_iconv(reader, &input, textlen,
+@@ -146,3 +151,17 @@
+ 
+ }
+ 
++
++void guac_vnc_cut_text(rfbClient* client, const char* text, int textlen) {
++    guac_client* gc = rfbClientGetClientData(client, GUAC_VNC_CLIENT_KEY);
++    guac_vnc_client* vnc_client = (guac_vnc_client*) gc->data;
++    guac_vnc_cut_text_with_encoding(client, text, textlen,
++            vnc_client->clipboard_reader);
++}
++
++void guac_vnc_cut_text_utf8(rfbClient* client, const char* text, int textlen) {
++    /* Extended Clipboard includes a terminating NUL in its wire length. */
++    if (textlen > 0 && text[textlen - 1] == '\0')
++        textlen--;
++    guac_vnc_cut_text_with_encoding(client, text, textlen, GUAC_READ_UTF8);
++}
