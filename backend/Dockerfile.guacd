@@ -1,4 +1,5 @@
-# Keep the upstream daemon and other protocols; rebuild only its VNC transport.
+# QEMU clipboard requires UTF-8 negotiation and Notify/Request handling.
+# Upstream guacd 1.6.0 and LibVNCClient 0.9.15 lack these; rebuild only VNC.
 FROM guacamole/guacd:1.6.0 AS vnc-builder
 USER root
 RUN apk add --no-cache autoconf automake build-base cairo-dev cmake curl \

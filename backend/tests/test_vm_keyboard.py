@@ -69,9 +69,6 @@ def vm_start(tmp_path, monkeypatch):
 
     domain.create.side_effect = start
     connection = Mock()
-    connection.getLibVersion.return_value = 8_004_000
-    connection.getVersion.return_value = 6_001_000
-    connection.domainXMLToNative.return_value = "qemu-argv"
     connection.lookupByName.return_value = domain
     connection.defineXML.side_effect = lambda xml: state.update(xml=xml)
     monkeypatch.setattr(vm_service.QEMUConfig, "get_connection",
@@ -194,7 +191,7 @@ def test_saved_keymap_is_corrected_when_persistent_keymap_already_matches(vm_sta
 def test_keyboard_and_display_upgrades_are_applied_together_on_cold_start(vm_start):
     vm_id, engine, domain, connection, state = vm_start
     state["xml"] = DOMAIN_XML.replace("bus='virtio'", "bus='usb'").replace(
-        "<model type='virtio'", "<model type='vga'")
+        "type='virtio'", "type='vga'")
 
     vm_service.VmService.start_vm(vm_id)
 
@@ -227,46 +224,13 @@ def test_starting_an_active_vm_does_not_change_its_configuration(vm_start):
     connection.defineXML.assert_not_called()
     domain.managedSaveDefineXML.assert_not_called()
     domain.create.assert_not_called()
-    connection.getLibVersion.assert_not_called()
 
 
-def clipboard_channel(xml):
-    return etree.fromstring(xml.encode()).find(
-        './devices/channel/target[@name="com.redhat.spice.0"]/..')
+def clipboard_channels(xml):
+    return etree.fromstring(xml.encode()).findall('./devices/channel')
 
 
-def test_creation_enables_vnc_guest_clipboard(tmp_path, monkeypatch):
-    monkeypatch.setattr(xml_builder, "image_firmware", lambda name: "bios")
-    monkeypatch.setattr(xml_builder, "VMS_DIR", tmp_path)
-    vm = VmCreateXML(
-        id=uuid4(), name="Course VM", os="course.qcow2", mem=4,
-        vcpus=2, disk_size=20,
-    )
-
-    channel = clipboard_channel(xml_builder.build_xml(vm))
-
-    assert channel is not None
-    assert channel.get("type") == "qemu-vdagent"
-    assert channel.find("source/clipboard").get("copypaste") == "yes"
-    assert channel.find("source/mouse").get("mode") == "server"
-
-
-def test_cold_start_enables_guest_clipboard_for_existing_vm(vm_start):
-    vm_id, engine, domain, connection, state = vm_start
-    legacy_xml = DOMAIN_XML.replace(CLIPBOARD_CHANNEL, "")
-    state["xml"] = legacy_xml
-
-    vm_service.VmService.start_vm(vm_id)
-
-    channel = clipboard_channel(state["starts"][0][0])
-    assert channel is not None
-    assert channel.get("type") == "qemu-vdagent"
-    assert channel.find("source/clipboard").get("copypaste") == "yes"
-    assert "/course/glo-2000.qcow2" in state["xml"]
-    connection.defineXML.assert_called_once()
-
-
-def test_clipboard_upgrade_is_idempotent_on_future_starts(vm_start):
+def test_cold_start_adds_guest_clipboard_once(vm_start):
     vm_id, engine, domain, connection, state = vm_start
     state["xml"] = DOMAIN_XML.replace(CLIPBOARD_CHANNEL, "")
     vm_service.VmService.start_vm(vm_id)
@@ -276,79 +240,30 @@ def test_clipboard_upgrade_is_idempotent_on_future_starts(vm_start):
 
     vm_service.VmService.start_vm(vm_id)
 
-    assert clipboard_channel(state["starts"][1][0]) is not None
+    for persistent, _ in state["starts"]:
+        assert [c.get("type") for c in clipboard_channels(persistent)] == [
+            "qemu-vdagent"]
     connection.defineXML.assert_not_called()
 
 
-def test_clipboard_upgrade_preserves_saved_guest_devices(vm_start):
+def test_restore_does_not_add_guest_clipboard(vm_start):
     vm_id, engine, domain, connection, state = vm_start
-    state["xml"] = DOMAIN_XML.replace(CLIPBOARD_CHANNEL, "")
-    state["saved_xml"] = state["xml"]
+    state["xml"] = state["saved_xml"] = DOMAIN_XML.replace(CLIPBOARD_CHANNEL, "")
     domain.hasManagedSaveImage.return_value = True
 
     vm_service.VmService.start_vm(vm_id)
 
-    persistent, saved_xml = state["starts"][0]
-    assert clipboard_channel(persistent) is None
-    assert clipboard_channel(saved_xml) is None
-    connection.getLibVersion.assert_not_called()
+    persistent, saved = state["starts"][0]
+    assert clipboard_channels(persistent) == clipboard_channels(saved) == []
 
 
-@pytest.mark.parametrize("channel", [
-    """<channel type='spicevmc'>
-    <target type='virtio' name='com.redhat.spice.0'/></channel>""",
-    """<channel type='unix'><source path='/custom/clipboard.sock'/>
-    <target type='virtio' name='com.redhat.spice.0'/></channel>""",
-])
-def test_clipboard_upgrade_preserves_existing_guest_channel(vm_start, channel):
+def test_cold_start_preserves_existing_guest_agent_channel(vm_start):
     vm_id, engine, domain, connection, state = vm_start
+    channel = """<channel type='unix'><source path='/custom/agent.sock'/>
+<target type='virtio' name='com.redhat.spice.0'/></channel>"""
     state["xml"] = DOMAIN_XML.replace(CLIPBOARD_CHANNEL, channel)
 
     vm_service.VmService.start_vm(vm_id)
 
-    root = etree.fromstring(state["starts"][0][0].encode())
-    channels = root.findall('./devices/channel')
-    assert len(channels) == 1
-    assert etree.tostring(channels[0]) == etree.tostring(
-        etree.fromstring(channel.encode()))
-
-
-@pytest.mark.parametrize("libvirt_version,qemu_version", [
-    (8_003_999, 6_001_000), (8_004_000, 6_000_999), (0, 0),
-])
-def test_clipboard_upgrade_skips_older_hosts(
-        vm_start, libvirt_version, qemu_version):
-    vm_id, engine, domain, connection, state = vm_start
-    state["xml"] = DOMAIN_XML.replace(CLIPBOARD_CHANNEL, "")
-    connection.getLibVersion.return_value = libvirt_version
-    connection.getVersion.return_value = qemu_version
-
-    result = vm_service.VmService.start_vm(vm_id)
-
-    assert result.state == "Running"
-    assert clipboard_channel(state["starts"][0][0]) is None
-    assert vnc_keymap(state["starts"][0][0]) == "fr"
-
-
-def test_clipboard_version_probe_failure_preserves_vm_start(vm_start):
-    vm_id, engine, domain, connection, state = vm_start
-    state["xml"] = DOMAIN_XML.replace(CLIPBOARD_CHANNEL, "")
-    connection.getVersion.side_effect = libvirt.libvirtError("version unavailable")
-
-    result = vm_service.VmService.start_vm(vm_id)
-
-    assert result.state == "Running"
-    assert clipboard_channel(state["starts"][0][0]) is None
-
-
-def test_clipboard_upgrade_skips_qemu_without_agent_support(vm_start):
-    vm_id, engine, domain, connection, state = vm_start
-    state["xml"] = DOMAIN_XML.replace(CLIPBOARD_CHANNEL, "")
-    connection.domainXMLToNative.side_effect = libvirt.libvirtError(
-        "chardev 'qemu-vdagent' not supported in this QEMU binary")
-
-    result = vm_service.VmService.start_vm(vm_id)
-
-    assert result.state == "Running"
-    assert clipboard_channel(state["starts"][0][0]) is None
-    assert vnc_keymap(state["starts"][0][0]) == "fr"
+    channels = clipboard_channels(state["starts"][0][0])
+    assert [c.get("type") for c in channels] == ["unix"]

@@ -34,15 +34,11 @@ Distribox uses Apache Guacamole to stream VM desktops over WebSocket. The browse
 
 ### Shared text clipboard
 
-Copy text in the VM to share it with the system clipboard when the browser permits access. Paste into the VM with **Ctrl+V** (or **Cmd+V** on macOS); use **Ctrl+Shift+V** for a Linux terminal. The browser sends the text before the guest paste shortcut. Returning to the browser also updates the VM clipboard when clipboard read permission is available.
+Use **Clipboard** in the VM toolbar to move text in either direction. Paste or type into **Send to VM**, send it, close the dialog, then paste in the guest. Text copied in the guest appears under **Copied in VM** and is copied to the system clipboard when the browser allows it. **Copy to system** selects the text for manual copying if access is blocked. Only text is shared.
 
-The **Clipboard** button in the desktop's top toolbar provides a manual transfer path. Paste or type text into **Send to VM**, send it, then paste in a guest application. Text copied inside the VM appears under **Copied in VM**. **Copy to system** copies it, or selects it for a normal copy shortcut if the browser blocks clipboard access. Typing in this dialog stays in the browser.
+Guests need `spice-vdagent` running in their desktop session. New Ubuntu desktop images and cloud-init seeds install it; for existing/imported Ubuntu or Debian desktops, run `sudo apt install spice-vdagent`, then log out and back in. A full shutdown and start adds the guest channel to existing VMs; saved sessions keep their devices. Unsupported hosts keep working without sharing.
 
-Sharing requires libvirt 8.4+, QEMU 6.1+ built with SPICE protocol support, and `spice-vdagent` running in the guest's graphical session. The Ubuntu desktop image builder and new cloud-init seeds install the guest package. For existing or imported Ubuntu/Debian desktops, install it with `sudo apt install spice-vdagent`, then log out and back in. Other guests need the equivalent package and a desktop session supported by that agent. The QEMU guest agent used for SSH is a separate service.
-
-New VMs receive the clipboard channel automatically. Existing VMs receive it after a full shutdown and start through Distribox; restoring a saved session preserves its original devices. Older hosts keep starting VMs without clipboard sharing. Custom clipboard channels are preserved. This feature shares text; it does not transfer files or images.
-
-Compose builds Distribox's guacd image from `backend/Dockerfile.guacd`. It includes two targeted patches for QEMU's extended clipboard negotiation and UTF-8 text. Rebuild guacd when upgrading; the stock `guacamole/guacd:1.6.0` image cannot receive QEMU clipboard updates. See [the transport notes](backend/guacd/README.md) for the patches and the isolated transport check.
+Compose builds the patched guacd image needed for QEMU's outbound clipboard. Rebuild guacd when upgrading. Host support requires libvirt 8.4+ and QEMU 6.1+ with SPICE protocol support.
 
 ---
 

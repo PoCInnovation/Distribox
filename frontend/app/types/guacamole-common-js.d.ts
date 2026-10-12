@@ -33,21 +33,19 @@ declare module "guacamole-common-js" {
       createClipboardStream(mimetype: string): OutputStream;
     }
 
-    class InputStream {
-      sendAck(message: string, code: number): void;
-    }
+    class InputStream {}
 
     class OutputStream {}
 
-    class StringReader {
+    class ArrayBufferReader {
       constructor(stream: InputStream);
-      ontext: ((text: string) => void) | null;
+      ondata: ((data: ArrayBuffer) => void) | null;
       onend: (() => void) | null;
     }
 
-    class StringWriter {
+    class ArrayBufferWriter {
       constructor(stream: OutputStream);
-      sendText(text: string): void;
+      sendData(data: ArrayBuffer | Uint8Array): void;
       sendEnd(): void;
     }
 
@@ -56,7 +54,6 @@ declare module "guacamole-common-js" {
       onkeydown: ((keysym: number) => void) | null;
       onkeyup: ((keysym: number) => void) | null;
       reset(): void;
-      pressed: Record<number, boolean>;
     }
 
     class Mouse {

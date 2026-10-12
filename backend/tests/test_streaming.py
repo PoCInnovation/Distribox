@@ -1,4 +1,4 @@
-from app.core.xml_builder import configure_vnc_clipboard, upgrade_display_devices
+from app.core.xml_builder import upgrade_display_devices
 from app.services.guacamole import build_instruction, complete_instructions_end
 
 
@@ -48,43 +48,3 @@ def test_upgrade_display_devices_is_idempotent():
 
 def test_upgrade_display_devices_skips_unknown_layout():
     assert upgrade_display_devices("<domain><devices/></domain>") is None
-
-
-def test_clipboard_upgrade_enables_existing_qemu_agent():
-    xml = """<domain><devices><graphics type='vnc'/>
-    <channel type='qemu-vdagent'>
-      <source><clipboard copypaste='no'/><mouse mode='server'/></source>
-      <target type='virtio' name='com.redhat.spice.0'/>
-    </channel></devices></domain>"""
-
-    upgraded = configure_vnc_clipboard(xml)
-
-    assert '<clipboard copypaste="yes"/>' in upgraded
-    assert upgraded.count('<channel') == 1
-    assert '<mouse mode="server"/>' in upgraded
-    assert configure_vnc_clipboard(upgraded) is None
-
-
-def test_clipboard_upgrade_supports_default_qemu_agent_target_name():
-    xml = """<domain><devices><graphics type='vnc'/>
-    <channel type='qemu-vdagent'><target type='virtio'/></channel>
-    </devices></domain>"""
-
-    upgraded = configure_vnc_clipboard(xml)
-
-    assert '<clipboard copypaste="yes"/>' in upgraded
-    assert upgraded.count('<channel') == 1
-
-
-def test_clipboard_upgrade_preserves_default_spice_agent_channel():
-    xml = """<domain><devices><graphics type='vnc'/>
-    <channel type='spicevmc'><target type='virtio'/></channel>
-    </devices></domain>"""
-
-    assert configure_vnc_clipboard(xml) is None
-
-
-def test_clipboard_upgrade_requires_vnc_graphics():
-    assert configure_vnc_clipboard("<domain><devices/></domain>") is None
-    assert configure_vnc_clipboard(
-        "<domain><devices><graphics type='spice'/></devices></domain>") is None

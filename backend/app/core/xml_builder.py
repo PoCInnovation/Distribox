@@ -38,7 +38,7 @@ def image_firmware(image_name: str) -> str:
     return image.firmware if image else "bios"
 
 
-def build_xml(vm_read: VmCreateXML, *, clipboard_supported: bool = True):
+def build_xml(vm_read: VmCreateXML):
 
     domain = etree.Element("domain", type=VIRT_TYPE)
 
@@ -114,8 +114,6 @@ def build_xml(vm_read: VmCreateXML, *, clipboard_supported: bool = True):
         if keymap:
             vnc_attrs["keymap"] = keymap
     etree.SubElement(devices, "graphics", **vnc_attrs)
-    if clipboard_supported:
-        _configure_vnc_clipboard(devices)
 
     video = etree.SubElement(devices, "video")
     etree.SubElement(video, "model", type="virtio")
@@ -129,50 +127,25 @@ def build_xml(vm_read: VmCreateXML, *, clipboard_supported: bool = True):
     return xml_string
 
 
-def _configure_vnc_clipboard(devices) -> bool:
-    channel = None
-    for candidate in devices.findall("channel"):
-        target = candidate.find("target")
-        if target is None:
-            continue
-        name = target.get("name")
-        if name is None and candidate.get("type") in ("qemu-vdagent", "spicevmc"):
-            name = "com.redhat.spice.0"
-        if name == "com.redhat.spice.0":
-            # A custom guest agent transport owns this port; do not replace it.
-            if candidate.get("type") != "qemu-vdagent":
-                return False
-            channel = candidate
-            break
-    if channel is None:
-        channel = etree.SubElement(devices, "channel", type="qemu-vdagent")
-        source = etree.SubElement(channel, "source")
-        etree.SubElement(source, "clipboard", copypaste="yes")
-        # The existing virtio tablet handles absolute pointer input.
-        etree.SubElement(source, "mouse", mode="server")
-        etree.SubElement(channel, "target", type="virtio",
-                         name="com.redhat.spice.0")
-        return True
-    source = channel.find("source")
-    if source is None:
-        source = etree.SubElement(channel, "source")
-    clipboard = source.find("clipboard")
-    if clipboard is None:
-        etree.SubElement(source, "clipboard", copypaste="yes")
-        return True
-    if clipboard.get("copypaste") == "yes":
-        return False
-    clipboard.set("copypaste", "yes")
-    return True
-
-
 def configure_vnc_clipboard(domain_xml: str) -> str | None:
     root = etree.fromstring(domain_xml.encode())
     devices = root.find("devices")
     if devices is None or devices.find('graphics[@type="vnc"]') is None:
         return None
-    if not _configure_vnc_clipboard(devices):
-        return None
+    for channel in devices.findall("channel"):
+        target = channel.find("target")
+        name = target.get("name") if target is not None else None
+        # Keep any existing guest agent channel exactly as configured.
+        if name == "com.redhat.spice.0" or (
+                name is None and channel.get("type") in ("qemu-vdagent", "spicevmc")):
+            return None
+    channel = etree.SubElement(devices, "channel", type="qemu-vdagent")
+    source = etree.SubElement(channel, "source")
+    etree.SubElement(source, "clipboard", copypaste="yes")
+    # The existing virtio tablet handles absolute pointer input.
+    etree.SubElement(source, "mouse", mode="server")
+    etree.SubElement(channel, "target", type="virtio",
+                     name="com.redhat.spice.0")
     return etree.tostring(root, encoding="utf-8").decode()
 
 
