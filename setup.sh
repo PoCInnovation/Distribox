@@ -28,7 +28,10 @@ arch() {
     blue "\nArch system detected"
     init
     set -x
-    sudo pacman -Sy libvirt qemu-desktop virt-manager virt-viewer
+    missing=$(pacman -T libvirt qemu-desktop virt-manager virt-viewer || true)
+    if [ -n "$missing" ]; then
+        sudo pacman -S --needed $missing
+    fi
     set +x
 }
 
