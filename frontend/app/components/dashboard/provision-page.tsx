@@ -1,746 +1,648 @@
-import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import {
-  Server,
-  Cpu,
-  HardDrive,
-  MemoryStick,
-  Check,
-  AlertCircle,
-  Pencil,
-  Keyboard,
-  CheckIcon,
-  SearchIcon,
-  Sparkles,
-} from "lucide-react";
-import { useTargetHostInfo, useClusterHostInfo } from "@/hooks/useHostInfo";
-import { useCreateVM } from "@/hooks/useCreateVM";
-import { useSlaves } from "@/hooks/useSlaves";
-import {
-  CompactCPUInfo,
-  CompactMemoryInfo,
-  CompactDiskInfo,
-} from "@/components/dashboard/host-info";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { VMImageSelect } from "~/components/dashboard/vm-image-picker";
+import { toast } from "sonner";
+import { CheckIcon, Sparkles, TriangleAlertIcon } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Policy } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useClusterHostInfo } from "@/hooks/useHostInfo";
+import { useCreateVM } from "@/hooks/useCreateVM";
+import { useImages } from "@/hooks/useImages";
+import { useSlaves } from "@/hooks/useSlaves";
+import { useSettings } from "@/hooks/useSettings";
 import { useAuthz } from "@/contexts/authz-context";
+import { Policy } from "@/lib/types";
 import { PolicyGate } from "@/components/policy/policy-gate";
 import { PolicyNotice } from "@/components/policy/policy-notice";
-import { useSettings } from "@/hooks/useSettings";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { KEYBOARD_LAYOUTS, getKeyboardLabel } from "@/lib/keyboard-layouts";
 import { SshAccessSwitch } from "@/components/ssh-access-switch";
+import { VMImageSelect } from "@/components/dashboard/vm-image-picker";
+import { cn } from "@/lib/utils";
+import { FormRow } from "./provision/form-row";
+import { SizeStepper } from "./provision/size-stepper";
+import { NodeCard } from "./provision/capacity";
+import { SummaryRail, type SummaryStatus } from "./provision/summary-rail";
+import {
+  buildPresets,
+  clampSize,
+  describeProblems,
+  fitOnNode,
+  formatCapacity,
+  matchPreset,
+  nodesFromCluster,
+  placementLabel,
+  SIZE_LIMITS,
+  sizeFromSettings,
+  type NodeFit,
+  type Placement,
+  type VmSize,
+} from "./provision/model";
 
-// "auto" = auto-place (master-first), null = master only, string = specific slave
-type TargetSelection = "auto" | null | string;
+const NO_KEYBOARD = "__none__";
 
-function isSlaveId(target: TargetSelection): target is string {
-  return target !== null && target !== "auto";
+function PageHeader() {
+  return (
+    <header className="mb-8">
+      <h1 className="font-mono text-2xl font-bold tracking-tight md:text-3xl">
+        Provision a VM
+      </h1>
+      <p className="mt-2 text-sm text-muted-foreground md:text-base">
+        Name it, pick an image, size it, and choose where it runs.
+      </p>
+    </header>
+  );
 }
 
 export default function ProvisionPage() {
-  const navigate = useNavigate();
   const authz = useAuthz();
+  const navigate = useNavigate();
   const hasCreatePolicy = authz.hasPolicy(Policy.VMS_CREATE);
   const canReadHost = authz.hasPolicy(Policy.HOST_GET);
   const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
   const canManageSsh = authz.hasPolicy(Policy.VMS_SSH_MANAGE);
 
+  // Data
   const { slaves } = useSlaves();
-  const onlineSlaves = slaves.filter((s) => s.status === "online");
+  const onlineSlaves = useMemo(
+    () => slaves.filter((s) => s.status === "online"),
+    [slaves],
+  );
   const hasSlaves = onlineSlaves.length > 0;
-
-  const [selectedTarget, setSelectedTarget] = useState<TargetSelection>(
-    hasSlaves ? "auto" : null,
-  );
-  const [hasInitializedTarget, setHasInitializedTarget] = useState(hasSlaves);
-
-  // Default to auto when slaves first come online (but don't override user choice)
-  useEffect(() => {
-    if (hasSlaves && !hasInitializedTarget) {
-      setSelectedTarget("auto");
-      setHasInitializedTarget(true);
-    }
-  }, [hasSlaves, hasInitializedTarget]);
-
-  const isAutoMode = selectedTarget === "auto";
-  const targetSlaveId = isSlaveId(selectedTarget) ? selectedTarget : null;
-
-  // For auto mode, use cluster info; for specific node, use that node's info
-  const { data: clusterInfo } = useClusterHostInfo(canReadHost && isAutoMode);
-  const { data: targetHostInfo } = useTargetHostInfo(
-    targetSlaveId,
-    canReadHost && !isAutoMode,
-  );
-
-  const { data: userSettings } = useSettings();
+  const { data: cluster } = useClusterHostInfo(canReadHost && hasCreatePolicy);
+  const { data: settings } = useSettings(hasCreatePolicy);
+  const { data: images } = useImages(canReadImages && hasCreatePolicy);
   const createVM = useCreateVM();
 
+  // Form state
   const [name, setName] = useState("");
+  // "touched" only once the user has typed and left the field, so an
+  // untouched form never nags.
+  const [nameTouched, setNameTouched] = useState(false);
+  const [nameDirty, setNameDirty] = useState(false);
+  const [os, setOs] = useState("");
+  const [size, setSize] = useState<VmSize>(sizeFromSettings(undefined));
+  const [placement, setPlacement] = useState<Placement>(null);
+  const [keyboard, setKeyboard] = useState("");
+  const [ssh, setSsh] = useState(false);
   const [autoStart, setAutoStart] = useState(false);
-  const [sshEnabled, setSshEnabled] = useState(false);
-  const [selectedOS, setSelectedOS] = useState("");
-  const [vcpus, setVcpus] = useState("2");
-  const [mem, setMem] = useState("4");
-  const [diskSize, setDiskSize] = useState("20");
-  const [keyboardLayout, setKeyboardLayout] = useState("");
-  const [keyboardSearch, setKeyboardSearch] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
+  const nameRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Apply the user's defaults once, when they arrive.
+  const defaultsApplied = useRef(false);
   useEffect(() => {
-    if (userSettings) {
-      if (userSettings.default_vcpus)
-        setVcpus(userSettings.default_vcpus.toString());
-      if (userSettings.default_mem) setMem(userSettings.default_mem.toString());
-      if (userSettings.default_disk_size)
-        setDiskSize(userSettings.default_disk_size.toString());
-      if (userSettings.default_os) setSelectedOS(userSettings.default_os);
-      if (userSettings.default_keyboard_layout)
-        setKeyboardLayout(userSettings.default_keyboard_layout);
+    if (!settings || defaultsApplied.current) return;
+    defaultsApplied.current = true;
+    setSize(sizeFromSettings(settings));
+    if (settings.default_os) setOs(settings.default_os);
+    if (settings.default_keyboard_layout)
+      setKeyboard(settings.default_keyboard_layout);
+  }, [settings]);
+
+  // Default to auto placement the first time slaves show up.
+  const placementInitialized = useRef(false);
+  useEffect(() => {
+    if (hasSlaves && !placementInitialized.current) {
+      placementInitialized.current = true;
+      setPlacement("auto");
     }
-  }, [userSettings]);
+  }, [hasSlaves]);
+  // If the chosen slave goes offline, fall back to auto.
+  useEffect(() => {
+    if (
+      placement !== "auto" &&
+      placement !== null &&
+      !onlineSlaves.some((s) => s.id === placement)
+    ) {
+      setPlacement(hasSlaves ? "auto" : null);
+    }
+  }, [placement, onlineSlaves, hasSlaves]);
 
-  const filteredKeyboards = KEYBOARD_LAYOUTS.filter((kb) =>
-    kb.label.toLowerCase().includes(keyboardSearch.toLowerCase()),
+  // Derived: presets, capacity, fit
+  const base = useMemo(() => sizeFromSettings(settings), [settings]);
+  const presets = useMemo(() => buildPresets(base), [base]);
+  const activePreset = matchPreset(presets, size);
+
+  const nodes = useMemo(() => {
+    const fromCluster = nodesFromCluster(cluster);
+    // Keep the master first, then online slaves in their listed order.
+    const master = fromCluster.find((n) => n.id === null);
+    const rest = onlineSlaves
+      .map((s) => fromCluster.find((n) => n.id === s.id))
+      .filter((n): n is NonNullable<typeof n> => Boolean(n));
+    return master ? [master, ...rest] : rest;
+  }, [cluster, onlineSlaves]);
+  const fits: NodeFit[] = useMemo(
+    () => nodes.map((n) => fitOnNode(n, size)),
+    [nodes, size],
   );
-
-  const vcpusNum = Number.parseInt(vcpus) || 0;
-  const memNum = Number.parseInt(mem) || 0;
-  const diskNum = Number.parseInt(diskSize) || 0;
-
-  // Resource limits depend on mode
-  const availableMemGB = isAutoMode
-    ? (clusterInfo?.totals.mem_available ?? 0)
-    : targetHostInfo
-      ? targetHostInfo.mem.available > 0
-        ? targetHostInfo.mem.available
-        : targetHostInfo.mem.total - targetHostInfo.mem.used
-      : 0;
-
-  const availableDiskGB = isAutoMode
-    ? (clusterInfo?.totals.disk_available ?? 0)
-    : targetHostInfo
-      ? targetHostInfo.disk.available > 0
-        ? targetHostInfo.disk.available
-        : targetHostInfo.disk.total - targetHostInfo.disk.used
-      : 0;
-
-  const totalCPUs = isAutoMode
-    ? (clusterInfo?.totals.cpu_count ?? 0)
-    : (targetHostInfo?.cpu.cpu_count ?? 0);
+  const predicted = placement === "auto" ? (fits.find((f) => f.fits) ?? null) : null;
+  const targetFit =
+    placement === "auto"
+      ? null
+      : (fits.find((f) => f.node.id === placement) ?? null);
 
   // Validation
-  const memExceedsAvailable = memNum > availableMemGB;
-  const diskExceedsAvailable = diskNum > availableDiskGB;
-  const cpuExceedsAvailable = vcpusNum > totalCPUs;
-  const isNameEmpty = name.trim() === "";
+  const nameError = name.trim() === "" ? "Give it a name" : null;
+  const imageError = os === "" ? "Choose an image" : null;
+  let sizeError: string | null = null;
+  if (fits.length > 0) {
+    if (placement === "auto") {
+      if (!fits.some((f) => f.fits)) sizeError = "Too big for every node";
+    } else if (targetFit && !targetFit.fits) {
+      sizeError = `Too big for ${targetFit.node.name}`;
+    }
+  }
+  const showNameError = nameTouched || submitted ? nameError : null;
+  const showImageError = submitted ? imageError : null;
+  const errorCount = [nameError, imageError, sizeError].filter(Boolean).length;
+  const visibleErrorCount = [showNameError, showImageError, sizeError].filter(
+    Boolean,
+  ).length;
 
-  const isFormValid =
-    !isNameEmpty &&
-    selectedOS !== "" &&
-    vcpusNum > 0 &&
-    memNum > 0 &&
-    diskNum > 0 &&
-    !memExceedsAvailable &&
-    !diskExceedsAvailable &&
-    !cpuExceedsAvailable;
+  const selectedImage = images?.find((i) => i.image === os) ?? null;
+  const placementText =
+    placement === "auto"
+      ? predicted
+        ? `auto, ${predicted.node.name} first`
+        : "auto"
+      : placementLabel(placement, onlineSlaves);
 
-  const handleProvision = async () => {
-    if (!isFormValid) return;
+  const status: SummaryStatus | null = (() => {
+    if (sizeError) {
+      const offending =
+        placement === "auto"
+          ? fits
+          : fits.filter((f) => f.node.id === placement);
+      const detail = offending
+        .filter((f) => !f.fits)
+        .map((f) => `${f.node.name} lacks ${describeProblems(f.problems)}`)
+        .join("; ");
+      return { tone: "error", text: `${sizeError}. ${detail}.` };
+    }
+    if (fits.length === 0) {
+      return canReadHost
+        ? null
+        : { tone: "muted", text: "Capacity is hidden for your account; the host will refuse a VM that does not fit." };
+    }
+    if (placement === "auto") {
+      const ok = fits.filter((f) => f.fits).map((f) => f.node.name);
+      return {
+        tone: "ok",
+        text:
+          ok.length === fits.length
+            ? `Fits on ${ok.join(" and ")}`
+            : `Fits on ${ok.join(" and ")}, not on ${fits
+                .filter((f) => !f.fits)
+                .map((f) => f.node.name)
+                .join(", ")}`,
+      };
+    }
+    return { tone: "ok", text: `Fits on ${targetFit?.node.name ?? "the target"}` };
+  })();
 
+  // Submit
+  const submit = async () => {
+    setSubmitted(true);
+    if (errorCount > 0) {
+      requestAnimationFrame(() => {
+        formRef.current
+          ?.querySelector<HTMLElement>("[data-invalid='true']")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      return;
+    }
+    const slaveId = placement === "auto" || placement === null ? null : placement;
     try {
       await createVM.mutateAsync({
-        os: selectedOS,
+        os,
         name: name.trim(),
-        vcpus: vcpusNum,
-        mem: memNum,
-        disk_size: diskNum,
-        keyboard_layout: keyboardLayout || null,
+        vcpus: size.vcpus,
+        mem: size.mem,
+        disk_size: size.disk,
+        keyboard_layout: keyboard || null,
         activate_at_start: autoStart,
-        ssh_enabled: canManageSsh && sshEnabled,
-        slave_id: targetSlaveId || null,
-        auto_place: isAutoMode,
+        ssh_enabled: canManageSsh && ssh,
+        slave_id: slaveId,
+        auto_place: placement === "auto",
       });
-
+      toast.success(`${name.trim()} is provisioned`);
       navigate("/dashboard");
-    } catch (error) {
-      console.error("Failed to provision VM:", error);
+    } catch {
+      // The rail shows createVM.error.
     }
   };
 
   if (!hasCreatePolicy) {
     return (
-      <div className="h-full p-4 md:p-8 min-w-0">
-        <div className="mb-6 md:mb-8">
-          <h1 className="mb-2 font-mono text-2xl md:text-3xl font-bold tracking-tight text-balance">
-            Provision Virtual Machine
-          </h1>
-          <p className="text-sm md:text-base text-muted-foreground">
-            Configure and deploy a new virtual machine instance
-          </p>
+      <div className="min-w-0 p-4 md:p-8">
+        <PageHeader />
+        <div className="max-w-xl">
+          <PolicyNotice
+            title="You cannot provision VMs"
+            description="Ask an administrator for the policy below if you need to create virtual machines."
+            missingPolicies={authz.missingPolicies([Policy.VMS_CREATE])}
+          />
         </div>
-        <PolicyNotice
-          title="Provisioning Hidden"
-          missingPolicies={authz.missingPolicies([Policy.VMS_CREATE])}
-        />
       </div>
     );
   }
 
-  const targetLabel = isAutoMode
-    ? "Cluster"
-    : selectedTarget === null
-      ? hasSlaves
-        ? "Master"
-        : undefined
-      : (onlineSlaves.find((s) => s.id === selectedTarget)?.name ?? "slave");
+  const keyboardValue = keyboard === "" ? NO_KEYBOARD : keyboard;
+  const keyboardKnown = KEYBOARD_LAYOUTS.some((kb) => kb.value === keyboard);
+  const pending = createVM.isPending;
+  const stepperHint = (key: keyof VmSize): string | null => {
+    const relevant =
+      placement === "auto" ? fits : fits.filter((f) => f.node.id === placement);
+    if (relevant.length === 0) return null;
+    const best = relevant.reduce((a, b) =>
+      (key === "vcpus" ? a.node.cpuCount >= b.node.cpuCount : key === "mem" ? a.node.memFree >= b.node.memFree : a.node.diskFree >= b.node.diskFree) ? a : b,
+    );
+    if (key === "vcpus") return `${best.node.cpuCount} cores on ${best.node.name}`;
+    if (key === "mem") return `${formatCapacity(best.node.memFree)} free on ${best.node.name}`;
+    return `${formatCapacity(best.node.diskFree)} free on ${best.node.name}`;
+  };
 
   return (
-    <div className="h-full p-4 md:p-8 min-w-0">
-      <div className="mb-6 md:mb-8">
-        <h1 className="mb-2 font-mono text-2xl md:text-3xl font-bold tracking-tight text-balance">
-          Provision Virtual Machine
-        </h1>
-        <p className="text-sm md:text-base text-muted-foreground">
-          Configure and deploy a new virtual machine instance
-        </p>
-      </div>
-
-      {hasSlaves && (
-        <div className="mb-6 md:mb-8">
-          <h2 className="mb-3 md:mb-4 font-mono text-base md:text-lg font-bold">
-            Target Host
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setSelectedTarget("auto")}
-              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm transition-colors ${
-                isAutoMode
-                  ? "border border-primary/40 bg-primary/10 text-foreground"
-                  : "border border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              }`}
-            >
-              <Sparkles className="h-4 w-4" />
-              <span>Auto</span>
-              {isAutoMode && (
-                <CheckIcon className="h-4 w-4 shrink-0 text-primary" />
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedTarget(null)}
-              className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm transition-colors ${
-                selectedTarget === null
-                  ? "border border-primary/40 bg-primary/10 text-foreground"
-                  : "border border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              }`}
-            >
-              <Server className="h-4 w-4" />
-              <span>Master</span>
-              {selectedTarget === null && (
-                <CheckIcon className="h-4 w-4 shrink-0 text-primary" />
-              )}
-            </button>
-            {onlineSlaves.map((slave) => (
-              <button
-                key={slave.id}
-                type="button"
-                onClick={() => setSelectedTarget(slave.id)}
-                className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm transition-colors ${
-                  selectedTarget === slave.id
-                    ? "border border-primary/40 bg-primary/10 text-foreground"
-                    : "border border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                }`}
-              >
-                <Server className="h-4 w-4" />
-                <span>{slave.name}</span>
-                {selectedTarget === slave.id && (
-                  <CheckIcon className="h-4 w-4 shrink-0 text-primary" />
-                )}
-              </button>
-            ))}
-          </div>
-          {isAutoMode && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              The master node is prioritized. If it lacks resources, a slave
-              with capacity will be selected automatically.
-            </p>
-          )}
-        </div>
-      )}
-
-      <PolicyGate
-        requiredPolicies={[Policy.HOST_GET]}
-        title="Host Resources Hidden"
+    <div className="min-w-0 p-4 md:p-8">
+      <PageHeader />
+      <form
+        ref={formRef}
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            void submit();
+          }
+        }}
+        className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8"
       >
-        {isAutoMode && clusterInfo && (
-          <div className="mb-6 md:mb-8">
-            <h2 className="mb-3 md:mb-4 font-mono text-base md:text-lg font-bold">
-              Available Resources
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                across {clusterInfo.nodes.length} node
-                {clusterInfo.nodes.length > 1 ? "s" : ""}
-              </span>
-            </h2>
-            <div className="grid gap-4 md:grid-cols-3">
-              {clusterInfo.nodes.map((node) => (
-                <Card
-                  key={node.node_id ?? "master"}
-                  className="border-border bg-card p-4"
-                >
-                  <div className="flex items-center gap-2 mb-3">
-                    <Server className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">
-                      {node.node_name}
-                    </span>
-                  </div>
-                  <div className="space-y-1.5 text-xs text-muted-foreground">
-                    <div className="flex justify-between">
-                      <span>CPU</span>
-                      <span className="font-mono">
-                        {node.host_info.cpu.cpu_count} cores
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Memory</span>
-                      <span className="font-mono">
-                        {node.host_info.mem.available.toFixed(1)} GB free
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Disk</span>
-                      <span className="font-mono">
-                        {node.host_info.disk.available.toFixed(1)} GB free
-                      </span>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
-        {!isAutoMode && targetHostInfo && (
-          <div className="mb-6 md:mb-8">
-            <h2 className="mb-3 md:mb-4 font-mono text-base md:text-lg font-bold">
-              Available Resources
-              {targetLabel && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  on {targetLabel}
-                </span>
-              )}
-            </h2>
-            <div className="grid gap-4 md:grid-cols-3">
-              <CompactCPUInfo cpu={targetHostInfo.cpu} />
-              <CompactMemoryInfo mem={targetHostInfo.mem} />
-              <CompactDiskInfo disk={targetHostInfo.disk} />
-            </div>
-          </div>
-        )}
-      </PolicyGate>
+        <fieldset
+          disabled={pending}
+          className="m-0 min-w-0 flex-1 border-0 p-0"
+        >
+          <FormRow
+            id="row-name"
+            label="Name"
+            help="Shown on the dashboard and used as the hostname."
+            error={showNameError}
+          >
+            <Input
+              ref={nameRef}
+              id="vm-name"
+              value={name}
+              autoFocus
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="glo2000-lab-07"
+              aria-invalid={showNameError ? true : undefined}
+              onChange={(e) => {
+                setName(e.target.value);
+                setNameDirty(true);
+              }}
+              onBlur={() => {
+                if (nameDirty) setNameTouched(true);
+              }}
+              className="h-10 max-w-md font-mono"
+            />
+          </FormRow>
 
-      <div className="grid gap-4 md:gap-6 lg:grid-cols-3 pb-8">
-        <div className="lg:col-span-2 space-y-4 md:space-y-6 min-w-0">
-          <Card className="border-border bg-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Pencil className="h-5 w-5 text-primary" />
-                Virtual Machine Name
-              </CardTitle>
-              <CardDescription>
-                Give your virtual machine a unique and descriptive name.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., my-dev-server"
-                className={isNameEmpty ? "border-accent" : ""}
+          <FormRow
+            id="row-image"
+            label="Image"
+            help={
+              selectedImage
+                ? "The disk the VM boots from."
+                : "Pick the disk the VM boots from."
+            }
+            error={showImageError}
+          >
+            <PolicyGate
+              requiredPolicies={[Policy.IMAGES_GET]}
+              title="Images hidden"
+            >
+              <VMImageSelect
+                selectedOS={os}
+                setSelectedOS={(value) => setOs(value)}
+                enabled={canReadImages}
               />
-              {isNameEmpty && (
-                <div className="text-accent flex items-center gap-1 text-xs mt-2">
-                  <AlertCircle className="h-3 w-3" />
-                  Name is required
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            </PolicyGate>
+          </FormRow>
 
-          <Card className="border-border bg-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Server className="h-5 w-5 text-primary" />
-                Operating System
-              </CardTitle>
-              <CardDescription>
-                Select the base image for your virtual machine
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="w-full overflow-hidden">
-              <PolicyGate
-                requiredPolicies={[Policy.IMAGES_GET]}
-                title="Image Registry Hidden"
+          <FormRow
+            id="row-size"
+            label="Size"
+            help="Presets come from your defaults in Settings."
+            error={sizeError}
+          >
+            <div className="space-y-4">
+              <div
+                className="flex flex-wrap gap-1.5"
+                role="radiogroup"
+                aria-label="Size preset"
               >
-                <VMImageSelect
-                  selectedOS={selectedOS}
-                  setSelectedOS={setSelectedOS}
-                  enabled={canReadImages}
-                />
-              </PolicyGate>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Cpu className="h-5 w-5 text-primary" />
-                Resource Configuration
-              </CardTitle>
-              <CardDescription>
-                Allocate compute, memory, and storage resources
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="vcpus" className="flex items-center gap-2">
-                  <Cpu className="h-4 w-4" />
-                  Virtual CPUs
-                </Label>
-                <Input
-                  id="vcpus"
-                  type="number"
-                  min="1"
-                  max={totalCPUs}
-                  value={vcpus}
-                  onChange={(e) => setVcpus(e.target.value)}
-                  className={cpuExceedsAvailable ? "border-accent" : ""}
-                />
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    Available: {totalCPUs} cores
-                    {isAutoMode ? " (cluster)" : ""}
-                  </span>
-                  {cpuExceedsAvailable && (
-                    <span className="text-accent flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      Exceeds available CPUs
-                    </span>
+                {presets.map((p) => {
+                  const active = activePreset === p.key;
+                  return (
+                    <button
+                      key={p.key}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() =>
+                        setSize({ vcpus: p.vcpus, mem: p.mem, disk: p.disk })
+                      }
+                      className={cn(
+                        "flex min-w-[7.5rem] flex-col items-start border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                        active
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-foreground/30",
+                      )}
+                    >
+                      <span className="text-sm font-medium">{p.label}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {p.vcpus} vCPU, {p.mem} GB, {p.disk} GB
+                      </span>
+                    </button>
+                  );
+                })}
+                <div
+                  role="radio"
+                  aria-checked={activePreset === "custom"}
+                  className={cn(
+                    "flex min-w-[7.5rem] flex-col items-start border px-3 py-2 text-left",
+                    activePreset === "custom"
+                      ? "border-primary bg-primary/10"
+                      : "border-dashed border-border text-muted-foreground",
                   )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="mem" className="flex items-center gap-2">
-                  <MemoryStick className="h-4 w-4" />
-                  Memory (GB)
-                </Label>
-                <Input
-                  id="mem"
-                  type="number"
-                  min="1"
-                  value={mem}
-                  onChange={(e) => setMem(e.target.value)}
-                  className={memExceedsAvailable ? "border-accent" : ""}
-                />
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    Available: {availableMemGB.toFixed(2)} GB
-                    {isAutoMode ? " (cluster)" : ""}
-                  </span>
-                  {memExceedsAvailable && (
-                    <span className="text-accent flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      Exceeds available memory
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="disk" className="flex items-center gap-2">
-                  <HardDrive className="h-4 w-4" />
-                  Disk Size (GB)
-                </Label>
-                <Input
-                  id="disk"
-                  type="number"
-                  min="1"
-                  value={diskSize}
-                  onChange={(e) => setDiskSize(e.target.value)}
-                  className={diskExceedsAvailable ? "border-accent" : ""}
-                />
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    Available: {availableDiskGB.toFixed(2)} GB
-                    {isAutoMode ? " (cluster)" : ""}
-                  </span>
-                  {diskExceedsAvailable && (
-                    <span className="text-accent flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      Exceeds available disk space
-                    </span>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Keyboard className="h-5 w-5 text-primary" />
-                Keyboard Layout
-              </CardTitle>
-              <CardDescription>
-                Keyboard mapping for the VM console connection
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-hidden rounded-lg border">
-                <div className="flex items-center gap-2 border-b bg-muted/20 px-3 py-2">
-                  <SearchIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <input
-                    placeholder="Search keyboard layouts..."
-                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                    value={keyboardSearch}
-                    onChange={(e) => setKeyboardSearch(e.target.value)}
-                  />
-                </div>
-                <ScrollArea className="h-48">
-                  <div className="space-y-0.5 p-1.5">
-                    {filteredKeyboards.map((kb) => (
-                      <button
-                        key={kb.value}
-                        type="button"
-                        onClick={() => setKeyboardLayout(kb.value)}
-                        className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                          keyboardLayout === kb.value
-                            ? "border border-primary/40 bg-primary/10 text-foreground"
-                            : "border border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                        }`}
-                      >
-                        <span>{kb.label}</span>
-                        {keyboardLayout === kb.value && (
-                          <CheckIcon className="h-4 w-4 shrink-0 text-primary" />
-                        )}
-                      </button>
-                    ))}
-                    {filteredKeyboards.length === 0 && (
-                      <p className="px-3 py-4 text-center text-sm text-muted-foreground">
-                        No keyboard layouts match your search.
-                      </p>
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-4 md:space-y-6 lg:sticky lg:top-8 lg:self-start min-w-0">
-          <Card className="border-border bg-card">
-            <CardHeader>
-              <CardTitle>Configuration Summary</CardTitle>
-              <CardDescription>Review your VM configuration</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <span className="text-sm text-muted-foreground">Name</span>
-                  <span className="font-mono text-sm text-right max-w-[60%] break-words">
-                    {name.trim() || "Not set"}
-                  </span>
-                </div>
-                <div className="flex items-start justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    OS Image
-                  </span>
-                  <span className="font-mono text-sm text-right max-w-[60%] break-words">
-                    {selectedOS || "Not selected"}
-                  </span>
-                </div>
-                <div className="flex items-start justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Keyboard
-                  </span>
-                  <span className="text-sm text-right max-w-[60%] break-words">
-                    {keyboardLayout
-                      ? getKeyboardLabel(keyboardLayout)
-                      : "Default"}
-                  </span>
-                </div>
-                {hasSlaves && (
-                  <div className="flex items-start justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Target
-                    </span>
-                    <span className="text-sm text-right max-w-[60%] break-words">
-                      {isAutoMode
-                        ? "Auto (master-first)"
-                        : selectedTarget === null
-                          ? "Master"
-                          : (onlineSlaves.find((s) => s.id === selectedTarget)
-                              ?.name ?? "Slave")}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Cpu className="h-4 w-4 text-primary" />
-                    <span className="text-sm">vCPUs</span>
-                  </div>
-                  <span className="font-mono text-sm">
-                    {vcpusNum > 0 ? vcpusNum : "-"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MemoryStick className="h-4 w-4 text-chart-2" />
-                    <span className="text-sm">Memory</span>
-                  </div>
-                  <span className="font-mono text-sm">
-                    {memNum > 0 ? `${memNum} GB` : "-"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <HardDrive className="h-4 w-4 text-chart-4" />
-                    <span className="text-sm">Disk</span>
-                  </div>
-                  <span className="font-mono text-sm">
-                    {diskNum > 0 ? `${diskNum} GB` : "-"}
-                  </span>
-                </div>
-              </div>
-
-              <Separator />
-
-              {(memExceedsAvailable ||
-                diskExceedsAvailable ||
-                cpuExceedsAvailable) && (
-                <>
-                  <div className="rounded-md bg-accent/10 border border-accent p-3">
-                    <p className="text-sm text-accent font-medium">
-                      Resource limits exceeded
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Please adjust your configuration to fit within available
-                      resources
-                    </p>
-                  </div>
-                  <Separator />
-                </>
-              )}
-
-              {canManageSsh && (
-                <SshAccessSwitch
-                  enabled={sshEnabled}
-                  onChange={setSshEnabled}
-                />
-              )}
-
-              <div className="w-full flex flex-row items-center space-x-2">
-                <Checkbox
-                  checked={autoStart}
-                  id="auto-start"
-                  onCheckedChange={(checked) =>
-                    setAutoStart(typeof checked === "boolean" ? checked : false)
-                  }
-                />
-                <label
-                  className="text-sm text-muted-foreground cursor-pointer"
-                  htmlFor="auto-start"
                 >
-                  Automatically start after creation
+                  <span className="text-sm font-medium">Custom</span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    adjust below
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <SizeStepper
+                  label="vCPU"
+                  value={size.vcpus}
+                  min={SIZE_LIMITS.vcpus.min}
+                  max={SIZE_LIMITS.vcpus.max}
+                  step={SIZE_LIMITS.vcpus.step}
+                  onChange={(v) =>
+                    setSize((s) => ({ ...s, vcpus: clampSize("vcpus", v) }))
+                  }
+                  invalid={fits.some(
+                    (f) =>
+                      f.problems.includes("vcpus") &&
+                      (placement === "auto" || f.node.id === placement),
+                  ) && Boolean(sizeError)}
+                  hint={stepperHint("vcpus")}
+                />
+                <SizeStepper
+                  label="Memory"
+                  unit="GB"
+                  value={size.mem}
+                  min={SIZE_LIMITS.mem.min}
+                  max={SIZE_LIMITS.mem.max}
+                  step={SIZE_LIMITS.mem.step}
+                  onChange={(v) =>
+                    setSize((s) => ({ ...s, mem: clampSize("mem", v) }))
+                  }
+                  invalid={fits.some(
+                    (f) =>
+                      f.problems.includes("mem") &&
+                      (placement === "auto" || f.node.id === placement),
+                  ) && Boolean(sizeError)}
+                  hint={stepperHint("mem")}
+                />
+                <SizeStepper
+                  label="Disk"
+                  unit="GB"
+                  value={size.disk}
+                  min={SIZE_LIMITS.disk.min}
+                  max={SIZE_LIMITS.disk.max}
+                  step={SIZE_LIMITS.disk.step}
+                  onChange={(v) =>
+                    setSize((s) => ({ ...s, disk: clampSize("disk", v) }))
+                  }
+                  invalid={fits.some(
+                    (f) =>
+                      f.problems.includes("disk") &&
+                      (placement === "auto" || f.node.id === placement),
+                  ) && Boolean(sizeError)}
+                  hint={stepperHint("disk")}
+                />
+              </div>
+
+              {!canReadHost && (
+                <PolicyNotice
+                  title="Capacity hidden"
+                  description="Without this policy the page cannot tell you whether the VM fits on a node."
+                  missingPolicies={authz.missingPolicies([Policy.HOST_GET])}
+                  compact
+                />
+              )}
+            </div>
+          </FormRow>
+
+          <FormRow
+            id="row-placement"
+            label="Placement"
+            help={
+              hasSlaves
+                ? "Which node runs the VM. Bars show what this size takes from each node."
+                : "Only the master node is online."
+            }
+          >
+            <div
+              role="radiogroup"
+              aria-label="Placement"
+              className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3"
+            >
+              {hasSlaves && (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={placement === "auto"}
+                  onClick={() => setPlacement("auto")}
+                  className={cn(
+                    "flex min-h-[7rem] w-full flex-col items-start border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                    placement === "auto"
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-card hover:border-foreground/30",
+                  )}
+                >
+                  <span className="flex items-center gap-2 font-mono text-sm font-bold">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Auto
+                  </span>
+                  <span className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    Master first. If it is short on room, the first node with
+                    enough capacity takes the VM.
+                  </span>
+                  {placement === "auto" && fits.length > 0 && (
+                    <span
+                      className={cn(
+                        "mt-auto inline-flex items-center gap-1 pt-3 text-xs font-medium",
+                        predicted ? "text-chart-3" : "text-destructive",
+                      )}
+                    >
+                      {predicted ? (
+                        <>
+                          <CheckIcon className="h-3.5 w-3.5" />
+                          lands on {predicted.node.name}
+                        </>
+                      ) : (
+                        <>
+                          <TriangleAlertIcon className="h-3.5 w-3.5" />
+                          no node has room
+                        </>
+                      )}
+                    </span>
+                  )}
+                </button>
+              )}
+              {fits.length > 0
+                ? fits.map((fit) => (
+                    <NodeCard
+                      key={fit.node.id ?? "master"}
+                      fit={fit}
+                      size={size}
+                      selected={placement === fit.node.id}
+                      predicted={placement === "auto" && predicted?.node.id === fit.node.id}
+                      onSelect={
+                        hasSlaves ? () => setPlacement(fit.node.id) : undefined
+                      }
+                    />
+                  ))
+                : [
+                    { id: null as string | null, name: "master" },
+                    ...onlineSlaves.map((s) => ({ id: s.id as string | null, name: s.name })),
+                  ].map((node) => (
+                    <button
+                      key={node.id ?? "master"}
+                      type="button"
+                      role="radio"
+                      aria-checked={placement === node.id}
+                      disabled={!hasSlaves}
+                      onClick={() => setPlacement(node.id)}
+                      className={cn(
+                        "flex min-h-[4.5rem] w-full flex-col items-start border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+                        placement === node.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border bg-card hover:border-foreground/30",
+                      )}
+                    >
+                      <span className="font-mono text-sm font-bold">{node.name}</span>
+                      <span className="mt-1 text-xs text-muted-foreground">
+                        capacity hidden
+                      </span>
+                    </button>
+                  ))}
+            </div>
+          </FormRow>
+
+          <FormRow
+            id="row-options"
+            label="Options"
+            help="Console keyboard, SSH, and what happens right after creation."
+          >
+            <div className="space-y-4">
+              <div className="min-w-0 md:max-w-sm">
+                <label
+                  htmlFor="vm-keyboard"
+                  className="mb-1.5 block text-xs font-medium text-muted-foreground"
+                >
+                  Keyboard layout
+                </label>
+                <Select
+                  key={keyboardKnown ? "known" : `unknown-${keyboard}`}
+                  value={keyboardValue}
+                  onValueChange={(v) => setKeyboard(v === NO_KEYBOARD ? "" : v)}
+                >
+                  <SelectTrigger id="vm-keyboard" className="h-10 w-full">
+                    <SelectValue placeholder="VM default" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {!keyboardKnown && keyboard !== "" && (
+                      <SelectItem
+                        value={keyboard}
+                        className="focus:bg-muted focus:text-foreground"
+                      >
+                        {getKeyboardLabel(keyboard)} (from your settings)
+                      </SelectItem>
+                    )}
+                    {KEYBOARD_LAYOUTS.map((kb) => (
+                      <SelectItem
+                        key={kb.value || NO_KEYBOARD}
+                        value={kb.value || NO_KEYBOARD}
+                        className="focus:bg-muted focus:text-foreground"
+                      >
+                        {kb.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {canManageSsh && (
+                  <SshAccessSwitch enabled={ssh} onChange={setSsh} />
+                )}
+                <label
+                  htmlFor="vm-autostart"
+                  className="flex cursor-pointer items-center gap-3 border border-border p-4"
+                >
+                  <Checkbox
+                    id="vm-autostart"
+                    checked={autoStart}
+                    onCheckedChange={(c) => setAutoStart(c === true)}
+                  />
+                  <span className="text-sm">
+                    <span className="block font-medium">Start after creation</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Otherwise it stays stopped until you start it.
+                    </span>
+                  </span>
                 </label>
               </div>
+            </div>
+          </FormRow>
+        </fieldset>
 
-              <Button
-                className="w-full cursor-pointer"
-                disabled={!isFormValid || createVM.isPending}
-                onClick={handleProvision}
-              >
-                {createVM.isPending ? (
-                  <>
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Provisioning...
-                  </>
-                ) : (
-                  <>
-                    <Check className="mr-2 h-4 w-4" />
-                    Provision VM
-                  </>
-                )}
-              </Button>
-
-              {createVM.isError && (
-                <div className="rounded-md bg-accent/10 border border-accent p-3">
-                  <p className="text-sm text-accent font-medium">
-                    Failed to provision VM
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {createVM.error instanceof Error
-                      ? createVM.error.message
-                      : "Unknown error occurred"}
-                  </p>
-                </div>
-              )}
-
-              {createVM.isSuccess && (
-                <div className="rounded-md bg-chart-3/10 border border-chart-3 p-3">
-                  <p className="text-sm text-chart-3 font-medium">
-                    VM provisioned successfully!
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Redirecting to dashboard...
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card">
-            <CardHeader>
-              <CardTitle className="text-base">Resource Guidelines</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Start conservative</p>
-                <p className="text-xs text-muted-foreground">
-                  Allocate only what you need initially. You can always adjust
-                  later.
-                </p>
-              </div>
-              <Separator />
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Leave headroom</p>
-                <p className="text-xs text-muted-foreground">
-                  Don't allocate all available resources - leave some for the
-                  host system.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+        <SummaryRail
+          className="w-full shrink-0 lg:sticky lg:top-8 lg:w-[19rem]"
+          name={name.trim()}
+          image={selectedImage}
+          imageFile={os}
+          size={size}
+          placement={placementText}
+          keyboard={keyboard ? getKeyboardLabel(keyboard) : "VM default"}
+          ssh={canManageSsh ? ssh : null}
+          autoStart={autoStart}
+          status={status}
+          errorCount={visibleErrorCount}
+          pending={pending}
+          submitError={
+            createVM.isError
+              ? `Provisioning failed. ${createVM.error.message || "Unknown error."}`
+              : null
+          }
+        />
+      </form>
     </div>
   );
 }
