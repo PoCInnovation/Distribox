@@ -1,17 +1,29 @@
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { Button } from "@/components/ui/button";
 import { GuacamoleDisplay } from "@/components/guacamole/GuacamoleDisplay";
 import { getAuthToken } from "@/lib/api";
 
-function NoCredentialPage() {
+function ClientFallback({ title, message }: { title: string; message: string }) {
   return (
-    <main className="min-h-screen flex items-center justify-center px-4">
-      <section className="w-full max-w-2xl rounded-2xl border border-white/15 bg-black/25 p-8 text-center">
-        <h1 className="text-3xl font-bold text-gray-100">Distribox Client</h1>
-        <p className="mt-4 text-gray-300">
-          No credential or VM ID was provided in the URL.
+    <AuthShell>
+      <section>
+        <h1 className="font-mono text-2xl font-semibold tracking-tight text-foreground">
+          {title}
+        </h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          {message}
         </p>
+        <div className="mt-8 flex flex-wrap gap-2">
+          <Button asChild>
+            <Link to="/">Enter a credential</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/auth/login">Sign in</Link>
+          </Button>
+        </div>
       </section>
-    </main>
+    </AuthShell>
   );
 }
 
@@ -24,21 +36,22 @@ export default function ClientRoute() {
     const token = getAuthToken();
     if (!token) {
       return (
-        <main className="min-h-screen flex items-center justify-center px-4">
-          <section className="w-full max-w-2xl rounded-2xl border border-white/15 bg-black/25 p-8 text-center">
-            <h1 className="text-3xl font-bold text-gray-100">
-              Distribox Client
-            </h1>
-            <p className="mt-4 text-gray-300">
-              You must be logged in to connect to a VM.
-            </p>
-          </section>
-        </main>
+        <ClientFallback
+          title="Sign in to open this VM"
+          message="Opening a machine by its ID needs a Distribox account. Sign in, then come back to this link."
+        />
       );
     }
     return <GuacamoleDisplay key={vmId} mode="vm" vmId={vmId} token={token} />;
   }
 
-  if (!credential.trim()) return <NoCredentialPage />;
+  if (!credential.trim()) {
+    return (
+      <ClientFallback
+        title="Nothing to connect to"
+        message="This link has no credential or VM ID. Paste the credential you were given to open its machine."
+      />
+    );
+  }
   return <GuacamoleDisplay key={credential} credential={credential} />;
 }

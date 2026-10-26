@@ -1,25 +1,18 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-
 interface AuthCardProps {
   title: string;
   description: string;
   children: React.ReactNode;
 }
 
+/** Heading block for a form inside an AuthShell. */
 export function AuthCard({ title, description, children }: AuthCardProps) {
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    <section>
+      <h1 className="font-mono text-2xl font-semibold tracking-tight text-foreground">
+        {title}
+      </h1>
+      <p className="mt-1.5 text-sm text-muted-foreground">{description}</p>
+      <div className="mt-8">{children}</div>
+    </section>
   );
 }
