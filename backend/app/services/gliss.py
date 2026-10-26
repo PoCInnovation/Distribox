@@ -44,6 +44,8 @@ async def gliss_session(vnc_host: str, vnc_port: int) -> AsyncIterator[tuple[str
     process = await asyncio.create_subprocess_exec(
         gliss_binary(), "--vnc", f"{vnc_host}:{vnc_port}",
         "--bind", f"127.0.0.1:{port}", "--codec", "batch", "--max-clients", "1",
+        # Several frames in flight keep motion smooth on high-latency links.
+        "--in-flight-frames", "4",
         env={"GLISS_TOKEN": token}, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
     )
     try:
