@@ -1,7 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "ag-grid-community/styles/ag-grid.css";
-@import "ag-grid-community/styles/ag-theme-quartz.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -22,6 +20,8 @@
   --accent-foreground: oklch(0.12 0.01 240);
   --destructive: oklch(0.58 0.22 25);
   --destructive-foreground: oklch(0.98 0.01 240);
+  --success: oklch(0.68 0.16 145);
+  --warning: oklch(0.78 0.14 75);
   --border: oklch(0.24 0.02 240);
   --input: oklch(0.24 0.02 240);
   --ring: oklch(0.72 0.15 195);
@@ -58,6 +58,8 @@
   --accent-foreground: oklch(0.12 0.01 240);
   --destructive: oklch(0.58 0.22 25);
   --destructive-foreground: oklch(0.98 0.01 240);
+  --success: oklch(0.68 0.16 145);
+  --warning: oklch(0.78 0.14 75);
   --border: oklch(0.24 0.02 240);
   --input: oklch(0.24 0.02 240);
   --ring: oklch(0.72 0.15 195);
@@ -95,6 +97,8 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -166,15 +170,30 @@
   }
 }
 
-/* AG Grid Dark Theme Overrides */
-.ag-theme-quartz {
-  --ag-background-color: oklch(0.16 0.015 240);
-  --ag-foreground-color: oklch(0.98 0.01 240);
-  --ag-header-background-color: oklch(0.14 0.015 240);
-  --ag-header-foreground-color: oklch(0.98 0.01 240);
-  --ag-odd-row-background-color: oklch(0.14 0.015 240);
-  --ag-border-color: oklch(0.24 0.02 240);
-  --ag-row-hover-color: oklch(0.22 0.02 240);
-  --ag-selected-row-background-color: oklch(0.22 0.02 240);
-  --ag-range-selection-background-color: oklch(0.22 0.02 240);
+
+/* Masked secret text inputs (VM credentials, API keys). Not type=password on
+   purpose: browsers must not offer to save or autofill these. */
+.masked-secret {
+  -webkit-text-security: disc;
+}
+
+@keyframes status-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.animate-status-ping {
+  animation: status-ping 1.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-status-ping {
+    animation: none;
+  }
 }

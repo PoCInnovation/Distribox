@@ -1,208 +1,209 @@
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { Trash2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { DashboardVMsTable } from "@/components/dashboard/vms-table";
-import { VMDetailsDialog } from "@/components/dashboard/vm-details-dialog";
+import { VmDrawer } from "@/components/dashboard/vm-drawer";
 import { RenameVMDialog } from "@/components/dashboard/RenameVMDialog";
-import { useVMs } from "~/hooks/useVMs";
-import { isForbiddenError } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PolicyNotice } from "@/components/policy/policy-notice";
+import { useVMs } from "~/hooks/useVMs";
+import { VmActionsProvider, type VmActionHandlers } from "@/hooks/useVmActions";
+import { isForbiddenError } from "@/lib/api";
 import type { VirtualMachineMetadata } from "@/lib/types";
 
+const VM_PARAM = "vm";
+
 export function DashboardVMsTableContainer() {
-  const [selectedVM, setSelectedVM] = useState<VirtualMachineMetadata | null>(
-    null,
-  );
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [vmToDelete, setVmToDelete] = useState<VirtualMachineMetadata | null>(
-    null,
-  );
-  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
-  const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(
-    null,
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openVmId = searchParams.get(VM_PARAM);
+
   const {
     vms,
+    isLoading,
     isError,
     error,
+    pendingById,
     startVM,
     stopVM,
     restartVM,
     deleteVM,
     duplicateVM,
     renameVM,
-    isStartingVM,
-    isStoppingVM,
-    isRestartingVM,
-    isDeletingVM,
-    isDuplicatingVM,
   } = useVMs();
 
-  const operatingVMs = useMemo(() => {
-    const operating = new Set<string>();
-    // Note: This logic assumes only one VM operation can be in progress at a time
-    // or that the selectedVM/vmToDelete is the one being operated on.
-    // A more robust solution would involve tracking which vmId is currently mutating within the useVMs hook.
-    if (isStartingVM && selectedVM) operating.add(selectedVM.id);
-    if (isStoppingVM && selectedVM) operating.add(selectedVM.id);
-    if (isRestartingVM && selectedVM) operating.add(selectedVM.id);
-    if (isDeletingVM && vmToDelete) operating.add(vmToDelete.id);
-    if (isDuplicatingVM && selectedVM) operating.add(selectedVM.id);
-    return operating;
-  }, [
-    isStartingVM,
-    isStoppingVM,
-    isRestartingVM,
-    isDeletingVM,
-    selectedVM,
-    vmToDelete,
-    isDuplicatingVM,
-  ]);
+  const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(null);
+  const [vmsToDelete, setVmsToDelete] = useState<VirtualMachineMetadata[]>([]);
 
-  const handleStartVM = (vm: VirtualMachineMetadata, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    startVM(vm.id);
-  };
+  const openVm = useMemo(
+    () => (openVmId ? (vms?.find((v) => v.id === openVmId) ?? null) : null),
+    [vms, openVmId],
+  );
 
-  const handleStopVM = (vm: VirtualMachineMetadata, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    stopVM(vm.id);
-  };
+  const setOpenVm = useCallback(
+    (vm: VirtualMachineMetadata | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (vm) next.set(VM_PARAM, vm.id);
+          else next.delete(VM_PARAM);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
-  const handleRestartVM = (
-    vm: VirtualMachineMetadata,
-    e?: React.MouseEvent,
-  ) => {
-    e?.stopPropagation();
-    restartVM(vm.id);
-  };
+  // Close the drawer if the VM disappears (deleted, or the deep link is stale).
+  useEffect(() => {
+    if (openVmId && vms && !vms.some((v) => v.id === openVmId)) {
+      setOpenVm(null);
+    }
+  }, [openVmId, vms, setOpenVm]);
 
-  const handleDeleteVM = (vm: VirtualMachineMetadata) => {
-    setVmToDelete(vm);
-    setDeleteDialogOpen(true);
-  };
+  const handlers = useMemo<VmActionHandlers>(
+    () => ({
+      connect: (vm) =>
+        window.open(`/client?vm_id=${encodeURIComponent(vm.id)}`, "_blank"),
+      start: (vm) => void startVM(vm.id),
+      stop: (vm) => void stopVM(vm.id),
+      restart: (vm) => void restartVM(vm.id),
+      duplicate: (vm) => void duplicateVM(vm.id),
+      rename: (vm) => setVmToRename(vm),
+      delete: (vm) => setVmsToDelete([vm]),
+    }),
+    [startVM, stopVM, restartVM, duplicateVM],
+  );
 
   const confirmDelete = () => {
-    if (!vmToDelete) return;
-    deleteVM(vmToDelete.id);
-    setDeleteDialogOpen(false);
-    setVmToDelete(null);
+    const list = vmsToDelete;
+    setVmsToDelete([]);
+    if (list.some((vm) => vm.id === openVmId)) setOpenVm(null);
+    for (const vm of list) void deleteVM(vm.id);
   };
 
-  const handleDuplicateVM = (
-    vm: VirtualMachineMetadata,
-    e?: React.MouseEvent,
+  const handleBulk = (
+    action: "start" | "stop" | "delete",
+    list: VirtualMachineMetadata[],
   ) => {
-    e?.stopPropagation();
-    duplicateVM(vm.id);
+    if (action === "delete") {
+      setVmsToDelete(list);
+      return;
+    }
+    for (const vm of list) {
+      if (action === "start") void startVM(vm.id);
+      else void stopVM(vm.id);
+    }
   };
 
-  const handleConnectVM = (
-    vm: VirtualMachineMetadata,
-    e?: React.MouseEvent,
-  ) => {
-    e?.stopPropagation();
-    window.open(`/client?vm_id=${encodeURIComponent(vm.id)}`, "_blank");
-  };
-
-  const handleRenameVM = (vm: VirtualMachineMetadata) => {
-    setVmToRename(vm);
-    setRenameDialogOpen(true);
-  };
+  const deletePending = vmsToDelete.some((vm) => pendingById.get(vm.id) === "delete");
 
   return (
-    <>
+    <VmActionsProvider handlers={handlers} pendingById={pendingById}>
       <div className="pb-10">
-        <Card className="border-border bg-card py-0">
-          <div className="p-4">
-            {isError && isForbiddenError(error) ? (
-              <PolicyNotice
-                title="Virtual Machines Hidden"
-                missingPolicies={error.missingPolicies}
-              />
-            ) : isError ? (
-              <PolicyNotice
-                title="Virtual Machines Unavailable"
-                description={
-                  error instanceof Error ? error.message : "Unknown error"
-                }
-                missingPolicies={[]}
-              />
-            ) : vms !== undefined ? (
-              <DashboardVMsTable
-                vms={vms}
-                operatingVMs={operatingVMs}
-                onVMSelect={setSelectedVM}
-                onStartVM={handleStartVM}
-                onStopVM={handleStopVM}
-                onRestartVM={handleRestartVM}
-                onDeleteVM={handleDeleteVM}
-                onDuplicateVM={handleDuplicateVM}
-                onConnectVM={handleConnectVM}
-                onRenameVM={handleRenameVM}
-              />
-            ) : null}
-          </div>
-        </Card>
+        {isError && isForbiddenError(error) ? (
+          <PolicyNotice
+            title="Virtual Machines Hidden"
+            missingPolicies={error.missingPolicies}
+          />
+        ) : isError ? (
+          <PolicyNotice
+            title="Virtual Machines Unavailable"
+            description={error instanceof Error ? error.message : "Unknown error"}
+            missingPolicies={[]}
+          />
+        ) : isLoading || vms === undefined ? (
+          <TableSkeleton />
+        ) : (
+          <DashboardVMsTable
+            vms={vms}
+            openVmId={openVm?.id ?? null}
+            onOpen={(vm) => setOpenVm(vm)}
+            onBulk={handleBulk}
+          />
+        )}
       </div>
 
-      <VMDetailsDialog
-        vm={selectedVM}
-        open={!!selectedVM}
+      <VmDrawer
+        vm={openVm}
+        open={!!openVm}
         onOpenChange={(open) => {
-          if (!open) {
-            setSelectedVM(null);
-          }
+          if (!open) setOpenVm(null);
         }}
-        onConnectVM={handleConnectVM}
       />
 
       <RenameVMDialog
-        open={renameDialogOpen}
+        open={!!vmToRename}
         onOpenChange={(open) => {
-          setRenameDialogOpen(open);
-          if (!open) {
-            setVmToRename(null);
-          }
+          if (!open) setVmToRename(null);
         }}
         vm={vmToRename}
         onRename={renameVM}
       />
 
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Virtual Machine</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete{" "}
-              <span className="font-mono font-medium">{vmToDelete?.name}</span>?
-              This action cannot be undone and all data will be permanently
-              lost.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete VM
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+      <ConfirmDialog
+        open={vmsToDelete.length > 0}
+        onOpenChange={(open) => {
+          if (!open) setVmsToDelete([]);
+        }}
+        title={
+          vmsToDelete.length === 1
+            ? "Delete this virtual machine?"
+            : `Delete ${vmsToDelete.length} virtual machines?`
+        }
+        description={
+          <>
+            <p>
+              The disk and every credential attached{" "}
+              {vmsToDelete.length === 1 ? "to it are" : "to them are"} removed
+              permanently. This cannot be undone.
+            </p>
+            <ul className="max-h-40 space-y-1 overflow-y-auto border border-border bg-background px-3 py-2 font-mono text-xs text-foreground">
+              {vmsToDelete.slice(0, 8).map((vm) => (
+                <li key={vm.id} className="truncate">
+                  {vm.name}
+                </li>
+              ))}
+              {vmsToDelete.length > 8 && (
+                <li className="text-muted-foreground">
+                  and {vmsToDelete.length - 8} more
+                </li>
+              )}
+            </ul>
+          </>
+        }
+        confirmLabel={
+          <>
+            <Trash2 />
+            {vmsToDelete.length === 1 ? "Delete VM" : `Delete ${vmsToDelete.length} VMs`}
+          </>
+        }
+        destructive
+        pending={deletePending}
+        onConfirm={confirmDelete}
+      />
+    </VmActionsProvider>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className="border border-border bg-card" aria-busy="true" aria-label="Loading virtual machines">
+      <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+        <div className="h-8 w-72 animate-pulse bg-secondary" />
+        <div className="h-8 w-80 animate-pulse bg-secondary" />
+      </div>
+      <div className="divide-y divide-border/70">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex h-[52px] items-center gap-6 px-4">
+            <div className="size-4 animate-pulse bg-secondary" />
+            <div className="h-3.5 w-40 animate-pulse bg-secondary" />
+            <div className="h-3.5 w-20 animate-pulse bg-secondary" />
+            <div className="h-3.5 w-48 animate-pulse bg-secondary" />
+            <div className="h-3.5 w-32 animate-pulse bg-secondary" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

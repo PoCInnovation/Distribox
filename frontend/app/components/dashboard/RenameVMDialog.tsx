@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,32 +37,28 @@ export function RenameVMDialog({
     }
   }, [open, vm]);
 
+  const trimmed = name.trim();
+  const unchanged = !!vm && trimmed === vm.name;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    const trimmed = name.trim();
+    if (!vm) return;
     if (!trimmed) {
-      setError("Name is required");
+      setError("Enter a name.");
       return;
     }
-
-    if (!vm) return;
-
-    if (trimmed === vm.name) {
-      setError("New name must be different from the current name");
+    if (unchanged) {
+      setError("That is already the machine's name.");
       return;
     }
 
     setIsLoading(true);
-
     try {
       await onRename(vm.id, trimmed);
       onOpenChange(false);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to rename virtual machine",
-      );
+      setError(err instanceof Error ? err.message : "Could not rename the VM.");
     } finally {
       setIsLoading(false);
     }
@@ -69,32 +66,31 @@ export function RenameVMDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Rename Virtual Machine</DialogTitle>
+          <DialogTitle>Rename virtual machine</DialogTitle>
           <DialogDescription>
-            Enter a new name for{" "}
-            <span className="font-mono font-medium">{vm?.name}</span>.
+            Only the display name changes. The id, disk and credentials stay the
+            same.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="vm-name">Name</Label>
-              <Input
-                id="vm-name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={isLoading}
-                autoFocus
-              />
-            </div>
-            {error && (
-              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
-                {error}
-              </div>
-            )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="vm-name">Name</Label>
+            <Input
+              id="vm-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={isLoading}
+              autoFocus
+              autoComplete="off"
+              spellCheck={false}
+              className="font-mono"
+              onFocus={(e) => e.currentTarget.select()}
+              aria-invalid={!!error}
+            />
+            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           <DialogFooter>
             <Button
@@ -105,8 +101,9 @@ export function RenameVMDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Renaming..." : "Rename"}
+            <Button type="submit" disabled={isLoading || !trimmed || unchanged}>
+              {isLoading && <Loader2 className="animate-spin" />}
+              Rename
             </Button>
           </DialogFooter>
         </form>
