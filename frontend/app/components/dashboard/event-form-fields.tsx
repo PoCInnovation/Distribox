@@ -91,7 +91,7 @@ export function DateTimePicker({
                       type="button"
                       onClick={() => handleHourChange(h)}
                       className={cn(
-                        "flex w-10 items-center justify-center py-1.5 text-sm hover:bg-accent",
+                        "flex w-10 items-center justify-center py-1.5 text-sm hover:bg-secondary",
                         value?.getHours() === h &&
                           "bg-primary text-primary-foreground hover:bg-primary",
                       )}
@@ -112,7 +112,7 @@ export function DateTimePicker({
                       type="button"
                       onClick={() => handleMinuteChange(m)}
                       className={cn(
-                        "flex w-10 items-center justify-center py-1.5 text-sm hover:bg-accent",
+                        "flex w-10 items-center justify-center py-1.5 text-sm hover:bg-secondary",
                         value?.getMinutes() === m &&
                           "bg-primary text-primary-foreground hover:bg-primary",
                       )}
