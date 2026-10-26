@@ -23,7 +23,9 @@ export default function OverviewPage() {
         </p>
       </div>
 
-      <RecoveryContainer />
+      <div className="mb-6 empty:hidden">
+        <RecoveryContainer />
+      </div>
 
       <PolicyGate
         requiredPolicies={[Policy.HOST_GET]}

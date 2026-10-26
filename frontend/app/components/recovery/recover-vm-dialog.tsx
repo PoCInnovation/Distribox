@@ -10,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Cpu, MemoryStick, HardDrive, RotateCcw } from "lucide-react";
 import { DistroLogo } from "@/components/distro-logo";
 import type { RecoverableVM, RecoverVMPayload } from "@/lib/types";
@@ -71,27 +70,23 @@ export function RecoverVMDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Recover Virtual Machine</DialogTitle>
+          <DialogTitle className="font-mono">Recover {vm?.name}</DialogTitle>
           <DialogDescription>
-            Assign a name and resources to recover this VM back into the
-            database.
+            Give the VM a name and the resources it should get. The existing
+            disk image is reused.
           </DialogDescription>
         </DialogHeader>
 
         {vm && (
-          <div className="flex items-center gap-3 rounded-md border border-border bg-muted/50 p-3 mb-2">
-            <DistroLogo distribution={vm.distribution} />
+          <div className="flex items-center gap-3 border border-border bg-muted/30 p-3">
+            <DistroLogo distribution={vm.distribution} className="rounded-none" />
             <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-sm font-medium">{vm.name}</span>
-                <Badge variant="outline" className="text-xs">
-                  Distro: {vm.distribution}
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  Version: {vm.version}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground font-mono truncate">
+              <p className="truncate text-sm text-foreground">
+                {vm.distribution} {vm.version}
+                <span className="mx-1.5 text-border">|</span>
+                <span className="text-muted-foreground">{vm.image}</span>
+              </p>
+              <p className="truncate font-mono text-[11px] text-muted-foreground">
                 {vm.vm_id}
               </p>
             </div>
@@ -105,7 +100,8 @@ export function RecoverVMDialog({
               id="recover-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., recovered-dev-server"
+              placeholder="e.g. glo2000-lab-2"
+              className="font-mono"
             />
           </div>
 
@@ -179,12 +175,12 @@ export function RecoverVMDialog({
           >
             {isRecovering ? (
               <>
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Recovering...
+                <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Recovering…
               </>
             ) : (
               <>
-                <RotateCcw className="mr-2 h-4 w-4" />
+                <RotateCcw />
                 Recover VM
               </>
             )}

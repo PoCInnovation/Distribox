@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRecoverableVMs } from "@/hooks/useRecoverableVMs";
 import { RecoveryBanner } from "./recovery-banner";
 import { RecoveryDialog } from "./recovery-dialog";
@@ -14,6 +14,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import type { RecoverableVM } from "@/lib/types";
+
+const DISMISS_KEY = "recovery-notice-dismissed";
+
+function signatureOf(vms: RecoverableVM[]): string {
+  return vms
+    .map((vm) => vm.vm_id)
+    .sort()
+    .join(",");
+}
 
 export function RecoveryContainer() {
   const {
@@ -32,15 +41,23 @@ export function RecoveryContainer() {
     null,
   );
   const [cleanTarget, setCleanTarget] = useState<RecoverableVM | null>(null);
+  const [dismissedSignature, setDismissedSignature] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    setDismissedSignature(sessionStorage.getItem(DISMISS_KEY));
+  }, []);
 
   if (isLoading || recoverableVMs.length === 0) return null;
 
-  const handleRecover = (vm: RecoverableVM) => {
-    setRecoverTarget(vm);
-  };
+  const signature = signatureOf(recoverableVMs);
+  // The notice comes back if the set of untracked VMs changes.
+  const dismissed = dismissedSignature === signature;
 
-  const handleClean = (vm: RecoverableVM) => {
-    setCleanTarget(vm);
+  const dismiss = () => {
+    sessionStorage.setItem(DISMISS_KEY, signature);
+    setDismissedSignature(signature);
   };
 
   const confirmClean = async () => {
@@ -58,17 +75,20 @@ export function RecoveryContainer() {
 
   return (
     <>
-      <RecoveryBanner
-        count={recoverableVMs.length}
-        onOpenRecovery={() => setRecoveryOpen(true)}
-      />
+      {!dismissed && (
+        <RecoveryBanner
+          count={recoverableVMs.length}
+          onOpenRecovery={() => setRecoveryOpen(true)}
+          onDismiss={dismiss}
+        />
+      )}
 
       <RecoveryDialog
         open={recoveryOpen}
         onOpenChange={setRecoveryOpen}
         recoverableVMs={recoverableVMs}
-        onRecover={handleRecover}
-        onClean={handleClean}
+        onRecover={setRecoverTarget}
+        onClean={setCleanTarget}
         onCleanAll={handleCleanAll}
         isOperating={isOperating}
         isCleaningAll={isCleaningAll}
@@ -90,38 +110,39 @@ export function RecoveryContainer() {
           if (!open) setCleanTarget(null);
         }}
       >
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Clean Recoverable VM</DialogTitle>
+            <DialogTitle>Delete files for {cleanTarget?.name}?</DialogTitle>
             <DialogDescription>
-              Are you sure you want to permanently delete{" "}
-              <span className="font-mono font-medium">{cleanTarget?.name}</span>{" "}
-              from disk? This action cannot be undone.
+              The disk image of{" "}
+              <span className="font-mono text-foreground">
+                {cleanTarget?.name}
+              </span>{" "}
+              is removed from the host. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setCleanTarget(null)}
-              className="cursor-pointer"
+              disabled={isCleaning}
             >
-              Cancel
+              Keep files
             </Button>
             <Button
               variant="destructive"
               onClick={confirmClean}
               disabled={isCleaning}
-              className="cursor-pointer"
             >
               {isCleaning ? (
                 <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Cleaning...
+                  <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Deleting…
                 </>
               ) : (
                 <>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Clean VM
+                  <Trash2 />
+                  Delete files
                 </>
               )}
             </Button>
