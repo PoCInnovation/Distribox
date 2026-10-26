@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Eye, EyeOff } from "lucide-react";
+import { Copy } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MaskedInput } from "@/components/ui/masked-input";
 
 interface CreateUserModalProps {
   open: boolean;
@@ -30,7 +31,6 @@ export function CreateUserModal({
 }: CreateUserModalProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +42,6 @@ export function CreateUserModal({
   const handleClose = () => {
     setUsername("");
     setPassword("");
-    setShowPassword(false);
     onOpenChange(false);
   };
 
@@ -94,6 +93,12 @@ export function CreateUserModal({
                 <Label htmlFor="username">Username</Label>
                 <Input
                   id="username"
+                  name="new-account-name"
+                  autoComplete="off"
+                  data-1p-ignore
+                  data-lpignore="true"
+                  data-bwignore
+                  data-form-type="other"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter username"
@@ -102,27 +107,13 @@ export function CreateUserModal({
               </div>
               <div>
                 <Label htmlFor="password">Password (optional)</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Leave empty to auto-generate"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="absolute right-1 top-1/2 -translate-y-1/2"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                <MaskedInput
+                  id="password"
+                  name="new-account-secret"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Leave empty to auto-generate"
+                />
               </div>
             </div>
             <DialogFooter className="mt-6">
