@@ -34,7 +34,7 @@ Distribox uses [gliss](https://github.com/lg-epitech/gliss) to stream VM desktop
 
 ### Shared text clipboard
 
-Your system text clipboard is shared with the VM through the browser Clipboard API. In browsers supporting clipboard-read permission, allow access when clicking into the VM. System text is sent on connection, focus and VM clicks. Paste using the guest's usual shortcut. Until gliss supports QEMU's extended VNC clipboard, sharing is one-way and limited to Latin-1 text: guest copies are not sent back, and text with other characters, such as emoji, does not reach the guest. Browsers supporting `clipboardchange` also synchronize while the VM stays focused. Only text is shared.
+Your system text clipboard is shared with the VM through the browser Clipboard API. In browsers supporting clipboard-read permission, allow access when clicking into the VM. System text is sent on connection, focus and VM clicks; copies in the guest write back to the system clipboard. Paste using the guest's usual shortcut. Browsers supporting `clipboardchange` also synchronize while the VM stays focused. Only text is shared.
 
 Use **Clipboard** in the VM toolbar when browser access is blocked or clipboard-read permission is unsupported (including Firefox and Safari). Paste or type into **Send to VM**, send it, close the dialog, then paste in the guest. **Copied in VM** shows guest text; **Copy** selects it for manual copying if the browser refuses clipboard writes.
 
