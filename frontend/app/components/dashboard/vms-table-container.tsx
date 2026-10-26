@@ -7,7 +7,12 @@ import { RenameVMDialog } from "@/components/dashboard/RenameVMDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PolicyNotice } from "@/components/policy/policy-notice";
 import { useVMs } from "~/hooks/useVMs";
-import { VmActionsProvider, type VmActionHandlers } from "@/hooks/useVmActions";
+import {
+  VmActionsProvider,
+  useVmActions,
+  type VmActionHandlers,
+} from "@/hooks/useVmActions";
+import { usePaletteSection, type PaletteSection } from "@/components/command-palette";
 import { isForbiddenError } from "@/lib/api";
 import type { VirtualMachineMetadata } from "@/lib/types";
 
@@ -124,6 +129,8 @@ export function DashboardVMsTableContainer() {
         )}
       </div>
 
+      {openVm && <VmPaletteActions vm={openVm} />}
+
       <VmDrawer
         vm={openVm}
         open={!!openVm}
@@ -184,6 +191,29 @@ export function DashboardVMsTableContainer() {
       />
     </VmActionsProvider>
   );
+}
+
+/** Puts the open VM's actions at the top of the Ctrl/⌘ K palette. */
+function VmPaletteActions({ vm }: { vm: VirtualMachineMetadata }) {
+  const { actions } = useVmActions(vm);
+  const section = useMemo<PaletteSection>(
+    () => ({
+      title: `Actions · ${vm.name}`,
+      items: actions.map((a) => ({
+        id: a.id,
+        label: a.label,
+        icon: a.icon,
+        keywords: vm.name,
+        disabled: !a.enabled,
+        reason: a.reason,
+        destructive: a.destructive,
+        run: a.run,
+      })),
+    }),
+    [actions, vm.name],
+  );
+  usePaletteSection("vm-actions", section);
+  return null;
 }
 
 function TableSkeleton() {

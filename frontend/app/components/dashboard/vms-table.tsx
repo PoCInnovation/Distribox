@@ -51,6 +51,8 @@ import { VmStatus } from "./vm-status";
 import { VmOsLabel } from "./vm-os-label";
 import { CopyText } from "./copy-text";
 import { VmActionMenu } from "./vm-action-menu";
+import { KbdGroup, useModKey } from "@/components/ui/kbd";
+import { useCommandPalette } from "@/components/command-palette";
 
 export const MASTER_HOST_LABEL = "Master";
 
@@ -122,6 +124,8 @@ export function DashboardVMsTable({
   onBulk,
 }: DashboardVMsTableProps) {
   const authz = useAuthz();
+  const palette = useCommandPalette();
+  const modKey = useModKey();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"all" | StatusBucket>("all");
   const [host, setHost] = useState<string>("all");
@@ -326,6 +330,14 @@ export function DashboardVMsTable({
                 ? `${filtered.length} of ${vms.length}`
                 : `${vms.length} ${vms.length === 1 ? "machine" : "machines"}`}
             </span>
+            <button
+              type="button"
+              onClick={() => palette.setOpen(true)}
+              className="flex h-8 items-center gap-2 border border-border bg-background px-2 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              Commands
+              <KbdGroup keys={[modKey, "K"]} />
+            </button>
             {canCreate && (
               <Button asChild size="sm" variant="outline" className="h-8">
                 <Link to="/dashboard/provision">
