@@ -178,13 +178,14 @@ export function useGlissClient(
       container.appendChild(canvas);
 
       // Ask the guest for the container size in CSS pixels. QEMU's VNC server
-      // rounds widths up to a multiple of 16 and caps the size at 5120x2160.
+      // rounds widths up to a multiple of 16; H.264 needs even sizes up to
+      // 3840x2160.
       const requestedSize = () => [
         Math.min(
-          5120,
+          3840,
           Math.max(640, Math.floor(container.clientWidth / 16) * 16),
         ),
-        Math.min(2160, Math.max(480, container.clientHeight)),
+        Math.min(2160, Math.max(480, container.clientHeight & ~1)),
       ];
       let [w, h] = [0, 0];
 

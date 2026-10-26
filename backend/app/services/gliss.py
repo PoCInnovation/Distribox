@@ -43,8 +43,11 @@ async def gliss_session(vnc_host: str, vnc_port: int) -> AsyncIterator[tuple[str
     token = secrets.token_urlsafe(32)
     process = await asyncio.create_subprocess_exec(
         gliss_binary(), "--vnc", f"{vnc_host}:{vnc_port}",
-        "--bind", f"127.0.0.1:{port}", "--codec", "batch", "--max-clients", "1",
-        # Several frames in flight keep motion smooth on high-latency links.
+        "--bind", f"127.0.0.1:{port}", "--max-clients", "1",
+        # H.264 keeps motion within a typical upload link, where lossless
+        # updates queue for seconds; several frames in flight keep it smooth
+        # on high-latency links.
+        "--codec", "h264", "--h264-bitrate", "2000000", "--fps", "30",
         "--in-flight-frames", "4",
         env={"GLISS_TOKEN": token}, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
     )
