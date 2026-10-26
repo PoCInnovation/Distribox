@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router";
-import { GuacamoleDisplay } from "@/components/guacamole/GuacamoleDisplay";
+import { DesktopDisplay } from "@/components/desktop/DesktopDisplay";
 import { getAuthToken } from "@/lib/api";
 
 function NoCredentialPage() {
@@ -36,9 +36,9 @@ export default function ClientRoute() {
         </main>
       );
     }
-    return <GuacamoleDisplay key={vmId} mode="vm" vmId={vmId} token={token} />;
+    return <DesktopDisplay key={vmId} mode="vm" vmId={vmId} token={token} />;
   }
 
   if (!credential.trim()) return <NoCredentialPage />;
-  return <GuacamoleDisplay key={credential} credential={credential} />;
+  return <DesktopDisplay key={credential} credential={credential} />;
 }

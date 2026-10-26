@@ -4,9 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-patchedDependencies:
-  guacamole-common-js@1.5.0: 98bc5c8b51a1f96a5a2ed87b0a7530f7de54d236064f4a9d5c09c02f4a666211
-
 importers:
 
   .:
@@ -68,9 +65,6 @@ importers:
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
-      guacamole-common-js:
-        specifier: 1.5.0
-        version: 1.5.0(patch_hash=98bc5c8b51a1f96a5a2ed87b0a7530f7de54d236064f4a9d5c09c02f4a666211)
       isbot:
         specifier: ^5.1.31
         version: 5.1.31
@@ -1914,9 +1908,6 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
-
-  guacamole-common-js@1.5.0:
-    resolution: {integrity: sha512-zxztif3GGhKbg1RgOqwmqot8kXgv2HmHFg1EvWwd4q7UfEKvBcYZ0f+7G8HzvU+FUxF0Psqm9Kl5vCbgfrRgJg==}
 
   has-symbols@1.1.0:
     resolution: {integrity: sha512-1cDNdwJ2Jaohmb3sg4OmKaMBwuC48sYni5HUw2DvsC8LjGTLK9h+eb1X6RyuOHe4hT0ULCW68iomhjUoKUqlPQ==}
@@ -4308,8 +4299,6 @@ snapshots:
   gopd@1.2.0: {}
 
   graceful-fs@4.2.11: {}
-
-  guacamole-common-js@1.5.0(patch_hash=98bc5c8b51a1f96a5a2ed87b0a7530f7de54d236064f4a9d5c09c02f4a666211): {}
 
   has-symbols@1.1.0: {}
 
