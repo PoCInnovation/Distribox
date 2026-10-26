@@ -1,654 +1,493 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useParams, useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeft,
-  Calendar,
-  Check,
-  Clock,
-  Copy,
-  Cpu,
-  ExternalLink,
-  HardDrive,
+  CalendarX,
   Keyboard,
-  Link2,
-  MemoryStick,
-  Monitor,
   Pencil,
-  Save,
+  Presentation,
+  Terminal,
   Trash2,
-  Users,
-  X,
+  UserMinus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { EventInfoCard } from "@/components/event-info-card";
-import { DistroLogo } from "@/components/distro-logo";
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { PolicyNotice } from "@/components/policy/policy-notice";
 import {
   useEvent,
-  useUpdateEvent,
   useDeleteEvent,
   useDeleteEventVm,
 } from "@/hooks/useEvents";
-import { useClusterHostInfo } from "@/hooks/useHostInfo";
+import { useVMs } from "@/hooks/useVMs";
+import {
+  VmActionsProvider,
+  type VmActionHandlers,
+} from "@/hooks/useVmActions";
 import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { useAuthz } from "@/contexts/authz-context";
-import { Policy } from "@/lib/types";
+import { isForbiddenError } from "@/lib/api";
 import { getKeyboardLabel } from "@/lib/keyboard-layouts";
-import { VMImageSelect } from "./vm-image-picker";
-import { VmMonitorTile } from "./vm-monitor-tile";
+import { Policy, VMState, type VirtualMachineMetadata } from "@/lib/types";
+import type { Event } from "@/lib/types/event";
+import { cn } from "@/lib/utils";
+import { VmDrawer } from "./vm-drawer";
+import { RenameVMDialog } from "./RenameVMDialog";
+import { VmOsLabel } from "./vm-os-label";
+import { EventFormDialog } from "./events/event-form-dialog";
+import { PresentOverlay } from "./events/present-overlay";
 import {
-  DateTimePicker,
-  VmSpecFields,
-  HostResourcesBar,
-  ResourceWarnings,
-} from "./event-form-fields";
-import type { VirtualMachineMetadata } from "@/lib/types";
-import { useQuery } from "@tanstack/react-query";
-import { FRONTEND_URL, getVMs } from "@/lib/api";
-import { SshAccessSwitch } from "@/components/ssh-access-switch";
-
-function useNow(intervalMs = 1000) {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
+  ParticipantsSection,
+  type ParticipantRow,
+  type ParticipantView,
+} from "./events/participants";
+import {
+  EventStatus,
+  SeatMeter,
+  ShareLink,
+  SpecSummary,
+} from "./events/event-bits";
+import {
+  deadlineText,
+  displayUrl,
+  eventShareUrl,
+  getEventPhase,
+  useNow,
+} from "./events/event-model";
+import { EmptyState } from "./events/empty-state";
 
 export function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
-  const navigate = useNavigate();
-  const authz = useAuthz();
+  const { data: event, isLoading, isError, error } = useEvent(eventId ?? "");
 
-  const now = useNow(10000);
-  const { data: event, isLoading, isError } = useEvent(eventId ?? "");
-  const updateEvent = useUpdateEvent();
-  const deleteEvent = useDeleteEvent();
-  const deleteEventVm = useDeleteEventVm();
+  if (isLoading) return <DetailSkeleton />;
 
-  const timeZone = useTimezone();
-
-  const canUpdate = authz.hasPolicy(Policy.EVENTS_UPDATE);
-  const canDelete = authz.hasPolicy(Policy.EVENTS_DELETE);
-  const canReadHost = authz.hasPolicy(Policy.HOST_GET);
-  const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
-  const canManageSsh = authz.hasPolicy(Policy.VMS_SSH_MANAGE);
-
-  const [editing, setEditing] = useState(false);
-  const { data: clusterInfo } = useClusterHostInfo(canReadHost && editing);
-
-  const [editName, setEditName] = useState("");
-  const [editOS, setEditOS] = useState("");
-  const [editVcpus, setEditVcpus] = useState("");
-  const [editMem, setEditMem] = useState("");
-  const [editDisk, setEditDisk] = useState("");
-  const [editMaxVms, setEditMaxVms] = useState("");
-  const [editDeadline, setEditDeadline] = useState<Date | undefined>(undefined);
-  const [editSshEnabled, setEditSshEnabled] = useState(false);
-
-  const [shareLinkOpen, setShareLinkOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [deleteVmConfirm, setDeleteVmConfirm] = useState<string | null>(null);
-  const [deleteEventConfirm, setDeleteEventConfirm] = useState(false);
-
-  const participantVmIds = new Set(
-    event?.participants.map((p) => p.vm_id) ?? [],
-  );
-
-  const { data: allVms } = useQuery<VirtualMachineMetadata[]>({
-    queryKey: ["vms"],
-    queryFn: getVMs,
-    refetchInterval: 5000,
-    retry: false,
-    enabled: !!event,
-  });
-
-  const eventVms = allVms?.filter((vm) => participantVmIds.has(vm.id)) ?? [];
-
-  const startEditing = () => {
-    if (!event) return;
-    setEditName(event.name);
-    setEditOS(event.vm_os);
-    setEditVcpus(String(event.vm_vcpus));
-    setEditMem(String(event.vm_mem));
-    setEditDisk(String(event.vm_disk_size));
-    setEditMaxVms(String(event.max_vms));
-    setEditDeadline(new Date(event.deadline));
-    setEditSshEnabled(event.ssh_enabled);
-    setEditing(true);
-  };
-
-  const handleSave = async () => {
-    if (!event) return;
-    try {
-      await updateEvent.mutateAsync({
-        eventId: event.id,
-        payload: {
-          name: editName.trim() || undefined,
-          vm_os: editOS || undefined,
-          vm_vcpus: Number.parseInt(editVcpus) || undefined,
-          vm_mem: Number.parseInt(editMem) || undefined,
-          vm_disk_size: Number.parseInt(editDisk) || undefined,
-          max_vms: Number.parseInt(editMaxVms) || undefined,
-          deadline: editDeadline ? editDeadline.toISOString() : undefined,
-          ssh_enabled:
-            canManageSsh && editSshEnabled !== event.ssh_enabled
-              ? editSshEnabled
-              : undefined,
-        },
-      });
-      setEditing(false);
-    } catch {
-      // Error handled by mutation state
-    }
-  };
-
-  const handleDeleteEvent = () => {
-    if (!event) return;
-    deleteEvent.mutate(event.id, {
-      onSuccess: () => navigate("/dashboard/events"),
-    });
-  };
-
-  const handleDeleteVm = () => {
-    if (!event || !deleteVmConfirm) return;
-    deleteEventVm.mutate(
-      { eventId: event.id, vmId: deleteVmConfirm },
-      { onSuccess: () => setDeleteVmConfirm(null) },
-    );
-  };
-
-  const shareUrl = event ? `${FRONTEND_URL}/events/${event.slug}` : "";
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  if (isLoading) {
+  if (isError && isForbiddenError(error)) {
     return (
-      <div className="flex h-64 items-center justify-center text-muted-foreground">
-        <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-        Loading event...
+      <div className="space-y-6">
+        <BackLink />
+        <PolicyNotice title="Event hidden" missingPolicies={error.missingPolicies} />
       </div>
     );
   }
 
   if (isError || !event) {
     return (
-      <div className="flex h-64 items-center justify-center text-destructive">
-        Event not found
+      <div className="space-y-6">
+        <BackLink />
+        <div className="border border-border bg-card">
+          <EmptyState
+            icon={<CalendarX className="size-6" />}
+            title="Event not found"
+            description="It may have been deleted, or the link you followed is out of date."
+            action={
+              <Button asChild size="sm" variant="outline">
+                <Link to="/dashboard/events">Back to events</Link>
+              </Button>
+            }
+          />
+        </div>
       </div>
     );
   }
 
-  const expired = new Date(event.deadline) < now;
-  const participantForVm = (vmId: string) =>
-    event.participants.find((p) => p.vm_id === vmId);
+  return <EventDetail event={event} />;
+}
+
+function BackLink() {
+  return (
+    <Link
+      to="/dashboard/events"
+      className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <ArrowLeft className="size-4" />
+      Events
+    </Link>
+  );
+}
+
+const VIEW_PARAM = "view";
+const VM_PARAM = "vm";
+
+function EventDetail({ event }: { event: Event }) {
+  const navigate = useNavigate();
+  const authz = useAuthz();
+  const timeZone = useTimezone();
+  const now = useNow(15_000);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const canUpdate = authz.hasPolicy(Policy.EVENTS_UPDATE);
+  const canDelete = authz.hasPolicy(Policy.EVENTS_DELETE);
+  const canScreenshot = authz.hasPolicy(Policy.VMS_SCREENSHOT);
+
+  const deleteEvent = useDeleteEvent();
+  const deleteEventVm = useDeleteEventVm();
+  const {
+    vms,
+    isLoading: vmsLoading,
+    isError: vmsError,
+    pendingById,
+    startVM,
+    stopVM,
+    restartVM,
+    duplicateVM,
+    renameVM,
+  } = useVMs();
+
+  const [editOpen, setEditOpen] = useState(searchParams.get("edit") === "1");
+  const [presenting, setPresenting] = useState(searchParams.get("present") === "1");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [toRemove, setToRemove] = useState<ParticipantRow | null>(null);
+  const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(null);
+
+  const view: ParticipantView = searchParams.get(VIEW_PARAM) === "table" ? "table" : "screens";
+  const openVmId = searchParams.get(VM_PARAM);
+
+  const updateParams = useCallback(
+    (patch: Record<string, string | null>) =>
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          for (const [k, v] of Object.entries(patch)) {
+            if (v === null) next.delete(k);
+            else next.set(k, v);
+          }
+          return next;
+        },
+        { replace: true },
+      ),
+    [setSearchParams],
+  );
+
+  // One-shot deep links from the list's row menu.
+  useEffect(() => {
+    if (searchParams.has("edit") || searchParams.has("present")) {
+      updateParams({ edit: null, present: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const rows = useMemo<ParticipantRow[]>(() => {
+    const byId = new Map((vms ?? []).map((vm) => [vm.id, vm]));
+    return event.participants.map((participant) => ({
+      participant,
+      vm: byId.get(participant.vm_id),
+    }));
+  }, [event.participants, vms]);
+
+  const openVm = rows.find((r) => r.vm?.id === openVmId)?.vm ?? null;
+
+  useEffect(() => {
+    if (openVmId && vms && !rows.some((r) => r.vm?.id === openVmId)) {
+      updateParams({ [VM_PARAM]: null });
+    }
+  }, [openVmId, vms, rows, updateParams]);
+
+  const handlers = useMemo<VmActionHandlers>(
+    () => ({
+      connect: (vm) => window.open(`/client?vm_id=${encodeURIComponent(vm.id)}`, "_blank"),
+      start: (vm) => void startVM(vm.id),
+      stop: (vm) => void stopVM(vm.id),
+      restart: (vm) => void restartVM(vm.id),
+      duplicate: (vm) => void duplicateVM(vm.id),
+      rename: (vm) => setVmToRename(vm),
+      // Deleting an event VM goes through the event so the seat is freed.
+      delete: (vm) => {
+        const row = event.participants.find((p) => p.vm_id === vm.id);
+        if (row) setToRemove({ participant: row, vm });
+      },
+    }),
+    [startVM, stopVM, restartVM, duplicateVM, event.participants],
+  );
+
+  const ui = getEventPhase(event, now);
+  const ended = ui.phase === "ended";
+  const url = eventShareUrl(event.slug);
+  const runningCount = rows.filter((r) => r.vm?.state === VMState.RUNNING).length;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate("/dashboard/events")}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="font-mono text-2xl font-bold tracking-tight">
+    <VmActionsProvider handlers={handlers} pendingById={pendingById}>
+      <div className="space-y-6 pb-10">
+        <BackLink />
+
+        {/* Header */}
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="font-mono text-3xl font-bold tracking-tight text-balance">
               {event.name}
             </h1>
-            <Badge
-              variant="default"
-              className={
-                expired
-                  ? "border-destructive bg-destructive/10 text-destructive"
-                  : "border-chart-3 bg-chart-3/10 text-chart-3"
-              }
-            >
-              {expired ? "Expired" : "Active"}
-            </Badge>
-          </div>
-          <p className="mt-1 font-mono text-sm text-muted-foreground">
-            /{event.slug}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShareLinkOpen(true)}>
-            <Link2 className="mr-2 h-4 w-4" />
-            Open Share Preview
-          </Button>
-          {canUpdate && !editing && (
-            <Button variant="outline" onClick={startEditing}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
-          )}
-          {canDelete && (
-            <Button
-              variant="destructive"
-              onClick={() => setDeleteEventConfirm(true)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Event Info / Edit */}
-        <div className="space-y-6 lg:col-span-1">
-          <Card className="border-border bg-card">
-            <CardHeader>
-              <CardTitle className="text-base">Event Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {editing ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Name</Label>
-                    <Input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>OS Image</Label>
-                    <VMImageSelect
-                      selectedOS={editOS}
-                      setSelectedOS={setEditOS}
-                      enabled={canReadImages}
-                    />
-                  </div>
-                  <VmSpecFields
-                    vcpus={editVcpus}
-                    onVcpusChange={setEditVcpus}
-                    mem={editMem}
-                    onMemChange={setEditMem}
-                    diskSize={editDisk}
-                    onDiskChange={setEditDisk}
-                    maxCpus={clusterInfo?.totals.cpu_count}
-                  />
-                  <div className="space-y-2">
-                    <Label>Max Participants</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={editMaxVms}
-                      onChange={(e) => setEditMaxVms(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Deadline</Label>
-                    <DateTimePicker
-                      value={editDeadline}
-                      onChange={setEditDeadline}
-                      side="bottom"
-                    />
-                  </div>
-                  {canManageSsh && (
-                    <SshAccessSwitch
-                      enabled={editSshEnabled}
-                      onChange={setEditSshEnabled}
-                      description="Applies to all existing and future VMs in this event."
-                    />
-                  )}
-                  {clusterInfo && (
-                    <HostResourcesBar totals={clusterInfo.totals} />
-                  )}
-                  {clusterInfo && (
-                    <ResourceWarnings
-                      vcpus={Number.parseInt(editVcpus) || 0}
-                      mem={Number.parseInt(editMem) || 0}
-                      diskSize={Number.parseInt(editDisk) || 0}
-                      maxVms={Number.parseInt(editMaxVms) || 0}
-                      totals={clusterInfo.totals}
-                    />
-                  )}
-
-                  {updateEvent.isError && (
-                    <p role="alert" className="text-sm text-destructive">
-                      {updateEvent.error.message}
-                    </p>
-                  )}
-                  <div className="flex gap-2">
-                    <Button
-                      className="flex-1"
-                      onClick={handleSave}
-                      disabled={updateEvent.isPending}
-                    >
-                      <Save className="mr-2 h-4 w-4" />
-                      {updateEvent.isPending ? "Saving..." : "Save"}
-                    </Button>
-                    <Button variant="outline" onClick={() => setEditing(false)}>
-                      <X className="mr-2 h-4 w-4" />
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <InfoRow
-                    icon={
-                      <DistroLogo
-                        distribution={
-                          event.vm_distribution ||
-                          event.vm_os.replace(".qcow2", "")
-                        }
-                        className="h-6 w-6 rounded-sm bg-transparent"
-                      />
-                    }
-                    label="OS"
-                    value={event.vm_os.replace(".qcow2", "")}
-                  />
-                  <InfoRow
-                    icon={<Cpu className="h-4 w-4 text-primary" />}
-                    label="vCPUs"
-                    value={String(event.vm_vcpus)}
-                  />
-                  <InfoRow
-                    icon={<MemoryStick className="h-4 w-4 text-chart-2" />}
-                    label="Memory"
-                    value={`${event.vm_mem} GB`}
-                  />
-                  <InfoRow
-                    icon={<HardDrive className="h-4 w-4 text-chart-4" />}
-                    label="Disk"
-                    value={`${event.vm_disk_size} GB`}
-                  />
-                  {event.keyboard_layout && (
-                    <InfoRow
-                      icon={
-                        <Keyboard className="h-4 w-4 text-muted-foreground" />
-                      }
-                      label="Keyboard"
-                      value={getKeyboardLabel(event.keyboard_layout)}
-                    />
-                  )}
-                  <Separator />
-                  <InfoRow
-                    icon={<Users className="h-4 w-4" />}
-                    label="Participants"
-                    value={`${event.participants_count} / ${event.max_vms}`}
-                  />
-                  <InfoRow
-                    icon={<Calendar className="h-4 w-4" />}
-                    label="Deadline"
-                    value={formatDateTime(event.deadline, timeZone)}
-                  />
-                  <InfoRow
-                    icon={<Monitor className="h-4 w-4" />}
-                    label="SSH access"
-                    value={event.ssh_enabled ? "Allowed" : "Disabled"}
-                  />
-                  <InfoRow
-                    icon={<Clock className="h-4 w-4" />}
-                    label="Created"
-                    value={formatDateTime(event.created_at, timeZone)}
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Participants list */}
-          <Card className="border-border bg-card">
-            <CardHeader>
-              <CardTitle className="text-base">
-                Participants ({event.participants.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {event.participants.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No participants yet.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {event.participants.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex items-center justify-between rounded-md border border-border/50 bg-muted/20 px-3 py-2"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">
-                          {p.participant_name}
-                        </p>
-                        <p className="font-mono text-xs text-muted-foreground">
-                          VM: {p.vm_id.slice(0, 8)}...
-                        </p>
-                      </div>
-                      {canDelete && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => setDeleteVmConfirm(p.vm_id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* VM Monitor Grid */}
-        <div className="lg:col-span-2">
-          <Card className="border-border bg-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Monitor className="h-5 w-5" />
-                Virtual Machines ({eventVms.length})
-              </CardTitle>
-              <CardDescription>
-                Live view of all VMs provisioned for this event
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {eventVms.length === 0 ? (
-                <div className="flex h-48 flex-col items-center justify-center gap-2 text-muted-foreground">
-                  <Monitor className="h-10 w-10" />
-                  <p className="text-sm">No VMs provisioned yet</p>
-                </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
-                  {eventVms.map((vm) => {
-                    const participant = participantForVm(vm.id);
-                    return (
-                      <div key={vm.id} className="space-y-1">
-                        <VmMonitorTile vm={vm} />
-                        {participant && (
-                          <p className="px-1 text-xs text-muted-foreground">
-                            {participant.participant_name}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Share Preview Overlay */}
-      {shareLinkOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-auto bg-gradient-to-b from-primary to-background">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-6 top-6 z-10"
-            onClick={() => setShareLinkOpen(false)}
-          >
-            <X className="h-6 w-6" />
-          </Button>
-
-          <div className="flex w-full flex-col items-center gap-8 px-4 py-12">
-            {/* Big logo + branding */}
-            <div className="flex flex-col items-center gap-4">
-              <img
-                src="/favicon.ico"
-                width={120}
-                height={120}
-                alt="Distribox"
-                draggable={false}
-              />
-              <h1 className="font-mono text-4xl font-bold tracking-wider">
-                DISTRIBOX
-              </h1>
-            </div>
-
-            {/* Event info card — same as /events/:slug */}
-            <EventInfoCard
-              name={event.name}
-              description="Get yourself the following Virtual Machine through this Distribox Event Link!"
-              vmOs={event.vm_os}
-              vmDistribution={event.vm_distribution}
-              vmVcpus={event.vm_vcpus}
-              vmMem={event.vm_mem}
-              vmDiskSize={event.vm_disk_size}
-              participantsCount={event.participants_count}
-              maxVms={event.max_vms}
-              deadline={event.deadline}
-              className="w-full max-w-lg"
-            />
-
-            {/* Share link */}
-            <div className="border border-dashed border-primary/30 bg-card px-10 py-6 text-center">
-              <p className="whitespace-nowrap font-mono text-3xl font-semibold text-primary">
-                {shareUrl}
-              </p>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={handleCopy}>
-                {copied ? (
-                  <>
-                    <Check className="mr-2 h-4 w-4" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy Link
-                  </>
-                )}
-              </Button>
-              <Button onClick={() => window.open(shareUrl, "_blank")}>
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Open
-              </Button>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <EventStatus ui={ui} />
+              <span className="text-border">|</span>
+              <span className="text-muted-foreground">
+                {ended ? "Joining closed " : "Joining closes "}
+                {deadlineText(event.deadline, now)}
+              </span>
+              <span className="text-border">|</span>
+              <span className="text-muted-foreground">
+                Created by <span className="text-foreground/85">{event.created_by}</span> on{" "}
+                {formatDateTime(event.created_at, timeZone, { hour: undefined, minute: undefined })}
+              </span>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Delete VM Confirm */}
-      <Dialog
-        open={!!deleteVmConfirm}
-        onOpenChange={(open) => !open && setDeleteVmConfirm(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Remove Participant VM</DialogTitle>
-            <DialogDescription>
-              This will stop and delete the VM for this participant. This cannot
-              be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteVmConfirm(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteVm}
-              disabled={deleteEventVm.isPending}
-            >
-              {deleteEventVm.isPending ? "Removing..." : "Remove VM"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Event Confirm */}
-      <Dialog open={deleteEventConfirm} onOpenChange={setDeleteEventConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Event</DialogTitle>
-            <DialogDescription>
-              This will delete <strong>{event.name}</strong> and all its VMs.
-              This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
+          <div className="flex items-center gap-1.5">
             <Button
               variant="outline"
-              onClick={() => setDeleteEventConfirm(false)}
+              size="sm"
+              onClick={() => setPresenting(true)}
+              disabled={ended}
+              title={ended ? "The link is closed" : "Show the link full screen for a projector"}
             >
-              Cancel
+              <Presentation className="size-4" />
+              Present link
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteEvent}
-              disabled={deleteEvent.isPending}
+            {canUpdate && (
+              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                <Pencil className="size-4" />
+                Edit
+              </Button>
+            )}
+            {canDelete && (
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Delete event"
+                    onClick={() => setDeleteOpen(true)}
+                    className="ml-1 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Delete event</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </header>
+
+        {/* Facts strip */}
+        <div className="grid gap-px border border-border bg-border sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-[minmax(0,2.1fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,0.75fr)]">
+          <Fact label={ended ? "Join link (closed)" : "Join link"} className="sm:col-span-2 xl:col-span-4 2xl:col-span-1">
+            {ended ? (
+              <div className="flex h-9 items-center border border-dashed border-border px-3 font-mono text-[13px] text-muted-foreground line-through decoration-muted-foreground/40">
+                <span className="truncate">{displayUrl(url)}</span>
+              </div>
+            ) : (
+              <ShareLink url={url} className="max-w-2xl" />
+            )}
+          </Fact>
+          <Fact label="Seats">
+            <SeatMeter used={event.participants_count} total={event.max_vms} className="max-w-[9rem]" />
+            <p className="mt-1 text-xs text-muted-foreground">
+              {event.participants_count >= event.max_vms
+                ? "All taken"
+                : `${event.max_vms - event.participants_count} left`}
+              {rows.length > 0 && `, ${runningCount} running`}
+            </p>
+          </Fact>
+          <Fact label="Deadline">
+            <span
+              className={cn(
+                "block font-mono text-[13px] tabular-nums",
+                ui.phase === "closing" ? "text-warning" : ended ? "text-muted-foreground" : "",
+              )}
             >
-              {deleteEvent.isPending ? "Deleting..." : "Delete Event"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              {formatDateTime(event.deadline, timeZone)}
+            </span>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {ended
+                ? "VMs stay until removed"
+                : "Existing VMs keep running after it"}
+            </p>
+          </Fact>
+          <Fact label="Each participant gets">
+            <VmOsLabel image={event.vm_os} logoClassName="size-6" />
+            <SpecSummary
+              vcpus={event.vm_vcpus}
+              mem={event.vm_mem}
+              disk={event.vm_disk_size}
+              className="mt-1.5"
+            />
+          </Fact>
+          <Fact label="Access">
+            <span className="flex items-center gap-2 text-sm">
+              <Terminal className="size-3.5 text-muted-foreground" />
+              {event.ssh_enabled ? "SSH allowed" : "Browser only"}
+            </span>
+            <span className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
+              <Keyboard className="size-3.5" />
+              {event.keyboard_layout ? getKeyboardLabel(event.keyboard_layout) : "VM default"}
+            </span>
+          </Fact>
+        </div>
+
+        {/* Participants */}
+        <ParticipantsSection
+            rows={rows}
+            vmsHidden={vmsError}
+            vmsLoading={vmsLoading}
+            canScreenshot={canScreenshot}
+            view={view}
+            onViewChange={(v) => updateParams({ [VIEW_PARAM]: v === "screens" ? null : v })}
+            openVmId={openVm?.id ?? null}
+            onOpen={(vm) => updateParams({ [VM_PARAM]: vm.id })}
+            onRemove={canDelete ? (row) => setToRemove(row) : undefined}
+            now={now}
+            emptyHint={
+              ended ? (
+                "The deadline passed before anyone joined."
+              ) : (
+                <>
+                  Share the join link. Each person who opens it and enters a name
+                  shows up here with a live view of their screen.
+                </>
+              )
+            }
+          />
+      </div>
+
+      <VmDrawer
+        vm={openVm}
+        open={!!openVm}
+        onOpenChange={(open) => {
+          if (!open) updateParams({ [VM_PARAM]: null });
+        }}
+      />
+
+      <RenameVMDialog
+        open={!!vmToRename}
+        onOpenChange={(open) => {
+          if (!open) setVmToRename(null);
+        }}
+        vm={vmToRename}
+        onRename={renameVM}
+      />
+
+      {canUpdate && (
+        <EventFormDialog open={editOpen} onOpenChange={setEditOpen} event={event} />
+      )}
+
+      {presenting && <PresentOverlay event={event} onClose={() => setPresenting(false)} />}
+
+      <ConfirmDialog
+        open={!!toRemove}
+        onOpenChange={(open) => {
+          if (!open) setToRemove(null);
+        }}
+        title={`Remove ${toRemove?.participant.participant_name ?? "this participant"}?`}
+        description={
+          <>
+            <p>
+              Their VM is stopped and deleted, along with its access secret, and
+              the seat becomes free again. This cannot be undone.
+            </p>
+            {toRemove?.vm && (
+              <p className="border border-border bg-background px-3 py-2 font-mono text-xs text-foreground">
+                {toRemove.vm.name}
+              </p>
+            )}
+          </>
+        }
+        confirmLabel={
+          <>
+            <UserMinus />
+            Remove participant
+          </>
+        }
+        destructive
+        pending={deleteEventVm.isPending}
+        onConfirm={() => {
+          if (!toRemove) return;
+          const vmId = toRemove.participant.vm_id;
+          deleteEventVm.mutate(
+            { eventId: event.id, vmId },
+            {
+              onSuccess: () => {
+                setToRemove(null);
+                if (openVmId === vmId) updateParams({ [VM_PARAM]: null });
+              },
+            },
+          );
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete this event?"
+        description={
+          <>
+            <p>
+              The join link stops working and{" "}
+              {event.participants_count > 0
+                ? `all ${event.participants_count} participant ${event.participants_count === 1 ? "VM is" : "VMs are"}`
+                : "any participant VMs are"}{" "}
+              stopped and deleted. This cannot be undone.
+            </p>
+            <p className="border border-border bg-background px-3 py-2 font-mono text-xs text-foreground">
+              {event.name}
+            </p>
+          </>
+        }
+        confirmLabel={
+          <>
+            <Trash2 />
+            Delete event
+          </>
+        }
+        destructive
+        pending={deleteEvent.isPending}
+        onConfirm={() =>
+          deleteEvent.mutate(event.id, {
+            onSuccess: () => navigate("/dashboard/events"),
+          })
+        }
+      />
+    </VmActionsProvider>
+  );
+}
+
+function Fact({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "min-w-0 bg-card px-4 py-3.5",
+        className,
+      )}
+    >
+      <p className="mb-2 text-xs text-muted-foreground">{label}</p>
+      {children}
     </div>
   );
 }
 
-function InfoRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
+function DetailSkeleton() {
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        {icon}
-        {label}
+    <div className="space-y-6" aria-busy="true" aria-label="Loading event">
+      <div className="h-4 w-20 animate-pulse bg-secondary" />
+      <div className="space-y-3">
+        <div className="h-8 w-80 animate-pulse bg-secondary" />
+        <div className="h-4 w-96 animate-pulse bg-secondary" />
       </div>
-      <span className="font-mono text-sm">{value}</span>
+      <div className="h-24 animate-pulse border border-border bg-card" />
+      <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="aspect-[16/10] animate-pulse border border-border bg-card" />
+        ))}
+      </div>
     </div>
   );
 }

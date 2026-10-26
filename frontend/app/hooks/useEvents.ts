@@ -18,6 +18,8 @@ export function useEvents() {
     queryKey: ["events"],
     queryFn: getEvents,
     retry: false,
+    // Seat counts move while an event is open.
+    refetchInterval: 15_000,
   });
 }
 
@@ -27,6 +29,8 @@ export function useEvent(eventId: string) {
     queryFn: () => getEvent(eventId),
     enabled: !!eventId,
     retry: false,
+    // New participants show up without a reload.
+    refetchInterval: 5_000,
   });
 }
 
@@ -68,6 +72,7 @@ export function useDeleteEvent() {
     mutationFn: (eventId: string) => deleteEvent(eventId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["vms"] });
     },
   });
 }
@@ -80,6 +85,7 @@ export function useDeleteEventVm() {
       deleteEventVm(eventId, vmId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
+      queryClient.invalidateQueries({ queryKey: ["vms"] });
     },
   });
 }
