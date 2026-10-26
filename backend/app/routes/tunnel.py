@@ -1,25 +1,26 @@
 from app.utils.vnc import get_vnc_port
 from app.utils.auth import decode_access_token, user_has_policy
-from app.services.guacamole import complete_instructions_end, guacd_handshake
+from app.services.gliss import gliss_session, web_dir
 from app.services.vm_service import VmService
 from app.orm.user import UserORM
-from app.core.config import engine, GUACD_HOST, GUACD_PORT, VNC_HOST
+from app.core.config import engine, VNC_HOST
 from sqlmodel import Session
 import asyncio
-import codecs
+import json
 import logging
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
+from websockets.asyncio.client import connect
 
 logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
-READ_SIZE = 256 * 1024
 
 # The viewer allowed to resize each VM's guest, its number of open tunnels and
 # when its last tunnel closed. Other viewers, such as an admin opening a
@@ -51,16 +52,12 @@ def _resize_owner(vm_id: str, viewer: str) -> Iterator[bool]:
         _resize_owners[vm_id] = (owner, tunnels - 1, time.monotonic())
 
 
-def _is_internal_instruction(message: str) -> bool:
-    """
-    Detect INTERNAL_DATA_OPCODE instructions (empty opcode, encoded as "0.,...;").
-    guacamole-common-js sends exactly one instruction per WebSocket message.
-    """
+def _is_resize(message: str) -> bool:
     try:
-        first_dot = message.index(".")
-        return int(message[:first_dot]) == 0
-    except (ValueError, IndexError):
+        decoded = json.loads(message)
+    except ValueError:
         return False
+    return isinstance(decoded, dict) and decoded.get("type") == "resize"
 
 
 def _find_vm_for_credential(token: str) -> str | None:
@@ -106,8 +103,6 @@ async def vm_tunnel(
     credential: str | None = Query(default=None),
     vm_id: str | None = Query(default=None),
     token: str | None = Query(default=None),
-    width: int = Query(default=1920),
-    height: int = Query(default=1080),
     viewer: str | None = Query(default=None),
 ):
     # Resolve VM ID from either credential or vm_id+token
@@ -140,9 +135,7 @@ async def vm_tunnel(
             detail = getattr(exc, "detail", str(exc))
             await websocket.close(code=4002, reason=detail)
             return
-        guacd_host = slave.hostname
-        guacd_port = GUACD_PORT
-        vnc_host = VNC_HOST
+        vnc_host = slave.hostname
     else:
         try:
             vnc_port = await asyncio.to_thread(get_vnc_port, resolved_vm_id)
@@ -150,117 +143,62 @@ async def vm_tunnel(
             detail = getattr(exc, "detail", str(exc))
             await websocket.close(code=4002, reason=detail)
             return
-        guacd_host = GUACD_HOST
-        guacd_port = GUACD_PORT
         vnc_host = VNC_HOST
 
-    logger.warning(
-        "Tunnel: vm_id=%s vnc=%s:%s guacd=%s:%s slave=%s",
-        resolved_vm_id, vnc_host, vnc_port, guacd_host, guacd_port,
-        slave.hostname if slave else None,
-    )
+    logger.info("Tunnel: vm_id=%s vnc=%s:%s",
+                resolved_vm_id, vnc_host, vnc_port)
 
     with _resize_owner(resolved_vm_id, viewer or uuid4().hex) as resize:
-        await _relay(websocket, guacd_host, guacd_port, vnc_host, vnc_port,
-                     width, height, resize)
+        await _relay(websocket, vnc_host, vnc_port, resize)
 
 
-async def _relay(websocket: WebSocket, guacd_host: str, guacd_port: int,
-                 vnc_host: str, vnc_port: int, width: int, height: int,
+async def _relay(websocket: WebSocket, vnc_host: str, vnc_port: int,
                  resize: bool) -> None:
-    await websocket.accept(subprotocol="guacamole")
-
+    await websocket.accept()
     try:
-        reader, writer = await asyncio.open_connection(guacd_host, guacd_port)
-    except Exception as exc:
-        await websocket.close(
-            code=1011,
-            reason=f"Cannot connect to guacd {guacd_host}:{guacd_port}: {exc}",
-        )
-        return
+        async with gliss_session(vnc_host, vnc_port) as (url, headers), \
+                connect(url, additional_headers=headers, max_size=None) as gliss:
 
+            async def browser_to_gliss():
+                async for message in websocket.iter_text():
+                    if resize or not _is_resize(message):
+                        await gliss.send(message)
+
+            async def gliss_to_browser():
+                async for message in gliss:
+                    if isinstance(message, bytes):
+                        await websocket.send_bytes(message)
+                    else:
+                        await websocket.send_text(message)
+
+            relays = [asyncio.create_task(browser_to_gliss()),
+                      asyncio.create_task(gliss_to_browser())]
+            done, pending = await asyncio.wait(
+                relays, return_when=asyncio.FIRST_COMPLETED)
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            for task in done:
+                task.result()
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        logger.warning("Tunnel to VNC %s:%s failed: %s",
+                       vnc_host, vnc_port, exc)
+        reason = "Cannot stream the VM desktop"
+    else:
+        reason = "The VM desktop stream ended"
     try:
-        first_instruction = await guacd_handshake(
-            reader,
-            writer,
-            vnc_host=vnc_host,
-            vnc_port=vnc_port,
-            width=width,
-            height=height,
-            resize=resize,
-        )
-        logger.warning(
-            "Tunnel connected via vnc host=%s port=%s",
-            vnc_host,
-            vnc_port,
-        )
-    except Exception as exc:
-        logger.warning(
-            "Tunnel VNC connect failed for host=%s port=%s: %s",
-            vnc_host,
-            vnc_port,
-            exc,
-        )
-        writer.close()
-        try:
-            await writer.wait_closed()
-        except Exception:
-            pass
-        await websocket.close(code=1011, reason=str(exc))
-        return
+        await websocket.close(code=1011, reason=reason)
+    except Exception:
+        pass
 
-    ws_send_lock = asyncio.Lock()
 
-    async def send_ws_text(message: str) -> None:
-        async with ws_send_lock:
-            await websocket.send_text(message)
-
-    async def browser_to_guacd():
-        try:
-            async for msg in websocket.iter_text():
-                if _is_internal_instruction(msg):
-                    await send_ws_text(msg)
-                    continue
-                writer.write(msg.encode())
-                await writer.drain()
-        except WebSocketDisconnect as exc:
-            logger.info("Tunnel websocket disconnected code=%s", exc.code)
-        except Exception:
-            logger.exception("Tunnel browser_to_guacd relay failed")
-        finally:
-            writer.close()
-            try:
-                await writer.wait_closed()
-            except Exception:
-                pass
-
-    async def guacd_to_browser():
-        decoder = codecs.getincrementaldecoder("utf-8")()
-        pending = ""
-        try:
-            if first_instruction:
-                await send_ws_text(first_instruction)
-            while True:
-                chunk = await reader.read(READ_SIZE)
-                if not chunk:
-                    raise ConnectionError("guacd closed connection")
-                pending += decoder.decode(chunk)
-                end = complete_instructions_end(pending)
-                if end:
-                    await send_ws_text(pending[:end])
-                    pending = pending[end:]
-        except ConnectionError:
-            logger.info("Tunnel guacd closed connection")
-        except WebSocketDisconnect as exc:
-            logger.info("Tunnel websocket disconnected code=%s", exc.code)
-        except Exception:
-            logger.exception("Tunnel guacd_to_browser relay failed")
-        finally:
-            try:
-                await websocket.close()
-            except Exception:
-                pass
-
-    await asyncio.gather(
-        browser_to_guacd(), guacd_to_browser(), return_exceptions=True
-    )
+@router.get("/gliss/{path:path}")
+async def gliss_module(path: str) -> FileResponse:
+    """Serve the browser modules matching the installed gliss-server."""
+    directory = await asyncio.to_thread(web_dir)
+    file = (directory / path).resolve()
+    if not file.is_relative_to(directory.resolve()) or not file.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(file, media_type="text/javascript" if file.suffix == ".js" else None)

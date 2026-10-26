@@ -4,7 +4,6 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@12.4.2 --activate
 COPY ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml /app/
-COPY ./patches /app/patches
 RUN pnpm install --frozen-lockfile
 
 FROM base as dev-stage
