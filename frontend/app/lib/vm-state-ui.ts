@@ -1,11 +1,7 @@
 import { VMState } from "@/lib/types";
 
 export type StateTone =
-  | "success"
-  | "muted"
-  | "warning"
-  | "destructive"
-  | "accent";
+  "success" | "muted" | "warning" | "destructive" | "accent";
 
 export interface StateUi {
   label: string;
@@ -27,7 +23,11 @@ export function getStateUi(state: VMState): StateUi {
     case VMState.PMSUSPENDED:
       return { label: "Suspended", tone: "accent", transitional: false };
     case VMState.BLOCKED:
-      return { label: "Blocked on I/O", tone: "destructive", transitional: false };
+      return {
+        label: "Blocked on I/O",
+        tone: "destructive",
+        transitional: false,
+      };
     case VMState.CRASHED:
       return { label: "Crashed", tone: "destructive", transitional: false };
     case VMState.NOSTATE:

@@ -61,13 +61,7 @@ export function hostLabel(vm: VirtualMachineMetadata): string {
 }
 
 type SortKey =
-  | "name"
-  | "state"
-  | "os"
-  | "resources"
-  | "ipv4"
-  | "host"
-  | "credentials";
+  "name" | "state" | "os" | "resources" | "ipv4" | "host" | "credentials";
 
 type SortDir = "asc" | "desc";
 
@@ -90,7 +84,11 @@ function ipToNumber(ip: string | null): number {
     .reduce((acc, part) => acc * 256 + (Number.parseInt(part, 10) || 0), 0);
 }
 
-function compare(a: VirtualMachineMetadata, b: VirtualMachineMetadata, key: SortKey) {
+function compare(
+  a: VirtualMachineMetadata,
+  b: VirtualMachineMetadata,
+  key: SortKey,
+) {
   switch (key) {
     case "name":
       return a.name.localeCompare(b.name, undefined, { numeric: true });
@@ -114,7 +112,10 @@ interface DashboardVMsTableProps {
   /** VM currently open in the drawer; its row is highlighted. */
   openVmId: string | null;
   onOpen: (vm: VirtualMachineMetadata) => void;
-  onBulk: (action: "start" | "stop" | "delete", vms: VirtualMachineMetadata[]) => void;
+  onBulk: (
+    action: "start" | "stop" | "delete",
+    vms: VirtualMachineMetadata[],
+  ) => void;
 }
 
 export function DashboardVMsTable({
@@ -137,7 +138,11 @@ export function DashboardVMsTable({
     const set = new Set<string>();
     for (const vm of vms) set.add(hostLabel(vm));
     return [...set].sort((a, b) =>
-      a === MASTER_HOST_LABEL ? -1 : b === MASTER_HOST_LABEL ? 1 : a.localeCompare(b),
+      a === MASTER_HOST_LABEL
+        ? -1
+        : b === MASTER_HOST_LABEL
+          ? 1
+          : a.localeCompare(b),
     );
   }, [vms]);
 
@@ -150,7 +155,8 @@ export function DashboardVMsTable({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = vms.filter((vm) => {
-      if (status !== "all" && getStatusBucket(vm.state) !== status) return false;
+      if (status !== "all" && getStatusBucket(vm.state) !== status)
+        return false;
       if (host !== "all" && hostLabel(vm) !== host) return false;
       if (!q) return true;
       const os = parseOsImage(vm.os);
@@ -170,7 +176,10 @@ export function DashboardVMsTable({
     );
   }, [vms, query, status, host, sortKey, sortDir]);
 
-  const filteredIds = useMemo(() => new Set(filtered.map((v) => v.id)), [filtered]);
+  const filteredIds = useMemo(
+    () => new Set(filtered.map((v) => v.id)),
+    [filtered],
+  );
   const selectedVms = useMemo(
     () => vms.filter((v) => selected.has(v.id)),
     [vms, selected],
@@ -285,7 +294,9 @@ export function DashboardVMsTable({
                 <span
                   className={cn(
                     "font-mono text-xs tabular-nums",
-                    status === value ? "text-primary" : "text-muted-foreground/70",
+                    status === value
+                      ? "text-primary"
+                      : "text-muted-foreground/70",
                   )}
                 >
                   {counts[value]}
@@ -410,13 +421,57 @@ export function DashboardVMsTable({
                   className="rounded-none"
                 />
               </th>
-              <SortHeader label="Name" k="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-              <SortHeader label="Status" k="state" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-              <SortHeader label="Operating system" k="os" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-              <SortHeader label="Resources" k="resources" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden 2xl:table-cell" />
-              <SortHeader label="IP address" k="ipv4" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-              <SortHeader label="Host" k="host" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="hidden 2xl:table-cell" />
-              <SortHeader label="Access" k="credentials" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortHeader
+                label="Name"
+                k="name"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortHeader
+                label="Status"
+                k="state"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortHeader
+                label="Operating system"
+                k="os"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortHeader
+                label="Resources"
+                k="resources"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="hidden 2xl:table-cell"
+              />
+              <SortHeader
+                label="IP address"
+                k="ipv4"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortHeader
+                label="Host"
+                k="host"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="hidden 2xl:table-cell"
+              />
+              <SortHeader
+                label="Access"
+                k="credentials"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
               <th scope="col" className="pr-3 text-right font-medium">
                 <span className="sr-only">Actions</span>
               </th>
@@ -459,7 +514,9 @@ function SortHeader({
   return (
     <th
       scope="col"
-      aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+      aria-sort={
+        active ? (sortDir === "asc" ? "ascending" : "descending") : "none"
+      }
       className={cn("px-3 font-medium", className)}
     >
       <button
@@ -503,7 +560,11 @@ function VmRow({
 
   const handleRowClick = (e: React.MouseEvent<HTMLTableRowElement>) => {
     const target = e.target as HTMLElement;
-    if (target.closest('[data-no-row-click="true"], button, a, input, [role="menu"]')) {
+    if (
+      target.closest(
+        '[data-no-row-click="true"], button, a, input, [role="menu"]',
+      )
+    ) {
       return;
     }
     onOpen();
@@ -559,7 +620,11 @@ function VmRow({
       </td>
       <td className="px-3">
         {vm.ipv4 ? (
-          <CopyText value={vm.ipv4} label="IP address" className="text-[13px]" />
+          <CopyText
+            value={vm.ipv4}
+            label="IP address"
+            className="text-[13px]"
+          />
         ) : (
           <span className="text-muted-foreground/60">—</span>
         )}
@@ -586,7 +651,8 @@ function VmRow({
                 }}
                 className={cn(
                   "h-7 min-w-[5.5rem] bg-transparent px-2.5 text-xs",
-                  primary.id === "connect" && primary.enabled &&
+                  primary.id === "connect" &&
+                    primary.enabled &&
                     "border-primary/50 text-primary hover:bg-primary/10 hover:text-primary",
                   !primary.enabled && "cursor-not-allowed opacity-40",
                 )}
@@ -662,7 +728,10 @@ function BulkBar({
 }: {
   selected: VirtualMachineMetadata[];
   onClear: () => void;
-  onBulk: (action: "start" | "stop" | "delete", vms: VirtualMachineMetadata[]) => void;
+  onBulk: (
+    action: "start" | "stop" | "delete",
+    vms: VirtualMachineMetadata[],
+  ) => void;
 }) {
   const authz = useAuthz();
 
@@ -694,7 +763,9 @@ function BulkBar({
         <X className="size-4" />
       </button>
       <span className="text-sm">
-        <span className="font-mono font-medium text-primary">{selected.length}</span>{" "}
+        <span className="font-mono font-medium text-primary">
+          {selected.length}
+        </span>{" "}
         selected
       </span>
       <span className="mx-1 h-5 w-px bg-border" aria-hidden />
@@ -721,7 +792,8 @@ function BulkBar({
                 onClick={() => enabled && onBulk(item.id, applicable)}
                 className={cn(
                   "h-8 bg-transparent",
-                  item.destructive && "text-destructive hover:bg-destructive/10 hover:text-destructive",
+                  item.destructive &&
+                    "text-destructive hover:bg-destructive/10 hover:text-destructive",
                   !enabled && "cursor-not-allowed opacity-45",
                 )}
               >

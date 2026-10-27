@@ -189,8 +189,9 @@ export function UserCard({
         title="Delete user"
         description={
           <p>
-            Delete <span className="font-mono text-foreground">{user.user}</span>?
-            This can't be undone.
+            Delete{" "}
+            <span className="font-mono text-foreground">{user.user}</span>? This
+            can't be undone.
           </p>
         }
         confirmLabel="Delete user"

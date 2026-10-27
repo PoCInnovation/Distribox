@@ -147,8 +147,7 @@ export function buildClusterNodes({
     offline: 2,
   };
   slaveNodes.sort(
-    (a, b) =>
-      order[a.status] - order[b.status] || a.name.localeCompare(b.name),
+    (a, b) => order[a.status] - order[b.status] || a.name.localeCompare(b.name),
   );
 
   return [master, ...slaveNodes];

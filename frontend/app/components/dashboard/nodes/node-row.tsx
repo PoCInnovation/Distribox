@@ -185,9 +185,7 @@ export function NodeRow({
                 {node.vms.length}
               </div>
               <div className="mt-1 text-[11px] text-muted-foreground">
-                {node.vms.length === 0
-                  ? "no VMs"
-                  : `${running} running`}
+                {node.vms.length === 0 ? "no VMs" : `${running} running`}
               </div>
             </>
           ) : (
@@ -238,7 +236,13 @@ export function NodeRow({
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="grid grid-cols-[120px_minmax(0,1fr)] items-start gap-3 py-2 text-sm">
       <dt className="text-xs leading-5 text-muted-foreground">{label}</dt>
@@ -373,9 +377,7 @@ function NodeVmList({ node }: { node: ClusterNode }) {
   }
   return (
     <div>
-      <p className="mb-2 text-xs text-muted-foreground">
-        VMs on this node
-      </p>
+      <p className="mb-2 text-xs text-muted-foreground">VMs on this node</p>
       <ul className="divide-y divide-border/70 border border-border">
         {node.vms.map((vm) => (
           <li

@@ -43,7 +43,10 @@ export function CapacityBar({
         {label && <span className="text-muted-foreground">{label}</span>}
         <span className="truncate font-mono tabular-nums text-foreground">
           {format(capacity.used)}
-          <span className="text-muted-foreground"> / {format(capacity.total)}</span>
+          <span className="text-muted-foreground">
+            {" "}
+            / {format(capacity.total)}
+          </span>
         </span>
       </div>
       <div

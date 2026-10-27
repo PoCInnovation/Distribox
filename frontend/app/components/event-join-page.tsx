@@ -51,7 +51,9 @@ export function EventJoinPage() {
         `/client?credential=${encodeURIComponent(result.credential_password)}`,
       );
     } catch (err) {
-      setJoinError(err instanceof Error ? err.message : "Could not join the event.");
+      setJoinError(
+        err instanceof Error ? err.message : "Could not join the event.",
+      );
       setJoining(false);
     }
   };
@@ -90,7 +92,10 @@ export function EventJoinPage() {
             {event.name}
           </h1>
 
-          <EventInfoCard event={event} className={expired || full ? "mt-6 opacity-70" : "mt-6"} />
+          <EventInfoCard
+            event={event}
+            className={expired || full ? "mt-6 opacity-70" : "mt-6"}
+          />
 
           {expired ? (
             <Notice
@@ -100,9 +105,9 @@ export function EventJoinPage() {
               className="mt-6"
             >
               <p>
-                The deadline was {formatDateTime(event.deadline, timeZone)}. If you
-                already joined, use the link you were sent then. Otherwise ask the
-                organiser for a new event.
+                The deadline was {formatDateTime(event.deadline, timeZone)}. If
+                you already joined, use the link you were sent then. Otherwise
+                ask the organiser for a new event.
               </p>
             </Notice>
           ) : full ? (
@@ -186,7 +191,11 @@ function Notice({
     <div
       className={`flex gap-3 border bg-card p-4 ${tone === "warning" ? "border-warning/40" : "border-border"} ${className ?? ""}`}
     >
-      <span className={tone === "warning" ? "text-warning" : "text-muted-foreground"}>
+      <span
+        className={
+          tone === "warning" ? "text-warning" : "text-muted-foreground"
+        }
+      >
         {icon}
       </span>
       <div className="min-w-0 space-y-1 text-sm text-muted-foreground">

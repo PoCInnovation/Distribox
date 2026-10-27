@@ -79,7 +79,10 @@ export function RecoverVMDialog({
 
         {vm && (
           <div className="flex items-center gap-3 border border-border bg-muted/30 p-3">
-            <DistroLogo distribution={vm.distribution} className="rounded-none" />
+            <DistroLogo
+              distribution={vm.distribution}
+              className="rounded-none"
+            />
             <div className="min-w-0">
               <p className="truncate text-sm text-foreground">
                 {vm.distribution} {vm.version}

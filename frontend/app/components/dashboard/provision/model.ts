@@ -1,4 +1,9 @@
-import type { ClusterHostInfo, HostInfo, Slave, UserSettings } from "@/lib/types";
+import type {
+  ClusterHostInfo,
+  HostInfo,
+  Slave,
+  UserSettings,
+} from "@/lib/types";
 
 export interface VmSize {
   vcpus: number;
@@ -83,7 +88,9 @@ export interface NodeCapacity {
 }
 
 function freeOf(part: { total: number; used: number; available: number }) {
-  return part.available > 0 ? part.available : Math.max(0, part.total - part.used);
+  return part.available > 0
+    ? part.available
+    : Math.max(0, part.total - part.used);
 }
 
 export function nodeCapacityFromHostInfo(
@@ -102,7 +109,9 @@ export function nodeCapacityFromHostInfo(
   };
 }
 
-export function nodesFromCluster(cluster: ClusterHostInfo | undefined): NodeCapacity[] {
+export function nodesFromCluster(
+  cluster: ClusterHostInfo | undefined,
+): NodeCapacity[] {
   if (!cluster) return [];
   return cluster.nodes.map((n) =>
     nodeCapacityFromHostInfo(n.node_id, n.node_name, n.host_info),

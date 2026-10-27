@@ -25,8 +25,14 @@ function CapacityBar({
   over: boolean;
 }) {
   const safeTotal = total > 0 ? total : Math.max(free, requested, 1);
-  const usedPct = Math.max(0, Math.min(100, ((safeTotal - free) / safeTotal) * 100));
-  const reqPct = Math.max(0, Math.min(100 - usedPct, (requested / safeTotal) * 100));
+  const usedPct = Math.max(
+    0,
+    Math.min(100, ((safeTotal - free) / safeTotal) * 100),
+  );
+  const reqPct = Math.max(
+    0,
+    Math.min(100 - usedPct, (requested / safeTotal) * 100),
+  );
   const short = Math.max(0, requested - free);
 
   return (
@@ -158,7 +164,10 @@ export function NodeCard({
       type="button"
       role="radio"
       aria-checked={selected}
-      className={cn(className, "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60")}
+      className={cn(
+        className,
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+      )}
       onClick={onSelect}
       disabled={disabled}
     >

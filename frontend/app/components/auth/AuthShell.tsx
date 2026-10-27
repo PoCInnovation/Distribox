@@ -45,7 +45,9 @@ export function AuthShell({
       </aside>
 
       <main className="flex flex-1 items-center justify-center px-6 py-10 md:px-12">
-        <div className={cn("w-full max-w-sm", contentClassName)}>{children}</div>
+        <div className={cn("w-full max-w-sm", contentClassName)}>
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -146,7 +146,9 @@ export function PermissionsSummary({ user }: { user: User }) {
                 title={p.description}
                 className={cn(
                   "font-mono text-xs",
-                  p.policy === Policy.ADMIN ? "text-accent" : "text-foreground/80",
+                  p.policy === Policy.ADMIN
+                    ? "text-accent"
+                    : "text-foreground/80",
                 )}
               >
                 {p.policy}

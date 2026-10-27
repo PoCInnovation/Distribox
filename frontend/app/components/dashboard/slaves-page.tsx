@@ -114,7 +114,9 @@ export function SlavesPage() {
 
       {error && !forbidden && (
         <div className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
-          <span className="text-destructive">Could not load the node list.</span>{" "}
+          <span className="text-destructive">
+            Could not load the node list.
+          </span>{" "}
           <span className="text-muted-foreground">
             {error.message}. Retrying every 10 s.
           </span>
@@ -198,7 +200,10 @@ export function SlavesPage() {
   );
 }
 
-function sumCapacity(nodes: ClusterNode[], pick: (n: ClusterNode) => Capacity | null) {
+function sumCapacity(
+  nodes: ClusterNode[],
+  pick: (n: ClusterNode) => Capacity | null,
+) {
   let total = 0;
   let used = 0;
   let any = false;
@@ -210,7 +215,9 @@ function sumCapacity(nodes: ClusterNode[], pick: (n: ClusterNode) => Capacity | 
     total += c.total;
     used += c.used;
   }
-  return any ? { total, used, percent: total ? (used / total) * 100 : 0, live: true } : null;
+  return any
+    ? { total, used, percent: total ? (used / total) * 100 : 0, live: true }
+    : null;
 }
 
 function ClusterSummary({
@@ -261,13 +268,28 @@ function ClusterSummary({
           </span>
         </Stat>
         <Stat label="vCPU in use" className="w-40">
-          <CapacityBar label="" ariaLabel="vCPU" capacity={cpu} format={(n) => `${Math.round(n)}`} />
+          <CapacityBar
+            label=""
+            ariaLabel="vCPU"
+            capacity={cpu}
+            format={(n) => `${Math.round(n)}`}
+          />
         </Stat>
         <Stat label="Memory in use" className="w-44">
-          <CapacityBar label="" ariaLabel="Memory" capacity={mem} format={formatGb} />
+          <CapacityBar
+            label=""
+            ariaLabel="Memory"
+            capacity={mem}
+            format={formatGb}
+          />
         </Stat>
         <Stat label="Disk in use" className="w-44">
-          <CapacityBar label="" ariaLabel="Disk" capacity={disk} format={formatGb} />
+          <CapacityBar
+            label=""
+            ariaLabel="Disk"
+            capacity={disk}
+            format={formatGb}
+          />
         </Stat>
         <Stat label="VMs">
           {vms ? (
@@ -311,7 +333,12 @@ function Stat({
   className?: string;
 }) {
   return (
-    <div className={cn("flex min-w-0 flex-col justify-between gap-1.5 px-4 py-2.5", className)}>
+    <div
+      className={cn(
+        "flex min-w-0 flex-col justify-between gap-1.5 px-4 py-2.5",
+        className,
+      )}
+    >
       <span className="text-[11px] text-muted-foreground">{label}</span>
       <div className="text-sm">{children}</div>
     </div>

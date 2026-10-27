@@ -60,12 +60,19 @@ export function parseOsImage(image: string): OsInfo {
   const body = base.replace(/^(distribox|local)-/, "");
 
   if (isLocal) {
-    return { label: body || base, distribution: "", version: "", isLocal, image };
+    return {
+      label: body || base,
+      distribution: "",
+      version: "",
+      isLocal,
+      image,
+    };
   }
 
   const parts = body.split("-");
   const versionIndex = parts.findIndex((p) => /^\d/.test(p));
-  const distroParts = versionIndex === -1 ? parts : parts.slice(0, versionIndex);
+  const distroParts =
+    versionIndex === -1 ? parts : parts.slice(0, versionIndex);
   const versionParts = versionIndex === -1 ? [] : parts.slice(versionIndex);
   const distroSlug = distroParts.join("-");
   const distribution = DISTRO_NAMES[distroSlug] ?? titleCase(distroSlug);

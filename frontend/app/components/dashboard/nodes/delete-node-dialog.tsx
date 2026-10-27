@@ -35,8 +35,7 @@ export function DeleteNodeDialog({
 
   const match = !!node && typed.trim() === node.name;
   const vmCount = node?.vms?.length ?? 0;
-  const running =
-    node?.vms?.filter((vm) => vm.state === "Running").length ?? 0;
+  const running = node?.vms?.filter((vm) => vm.state === "Running").length ?? 0;
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +45,9 @@ export function DeleteNodeDialog({
       await onConfirm();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "The master could not unregister it.",
+        err instanceof Error
+          ? err.message
+          : "The master could not unregister it.",
       );
     }
   };
@@ -76,8 +77,8 @@ export function DeleteNodeDialog({
                     running
                   </>
                 )}
-                . {vmCount > 1 ? "They become" : "It becomes"} unreachable
-                from the dashboard. Delete or move {vmCount > 1 ? "them" : "it"}{" "}
+                . {vmCount > 1 ? "They become" : "It becomes"} unreachable from
+                the dashboard. Delete or move {vmCount > 1 ? "them" : "it"}{" "}
                 first if you still need {vmCount > 1 ? "them" : "it"}.
               </div>
             ) : (
@@ -88,7 +89,8 @@ export function DeleteNodeDialog({
 
             <div className="space-y-1.5">
               <Label htmlFor="confirm-node-name">
-                Type <span className="font-mono text-foreground">{node?.name}</span>{" "}
+                Type{" "}
+                <span className="font-mono text-foreground">{node?.name}</span>{" "}
                 to confirm
               </Label>
               <Input

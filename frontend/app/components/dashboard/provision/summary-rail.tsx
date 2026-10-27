@@ -111,7 +111,10 @@ export function SummaryRail({
         <Row label="Placement" value={placement} mono />
         <Row label="Keyboard" value={keyboard} />
         {ssh !== null && <Row label="SSH" value={ssh ? "allowed" : "off"} />}
-        <Row label="After creation" value={autoStart ? "start" : "stay stopped"} />
+        <Row
+          label="After creation"
+          value={autoStart ? "start" : "stay stopped"}
+        />
       </dl>
 
       <div className="space-y-3 px-5 py-4">
@@ -189,7 +192,10 @@ function Row({
     <div className="flex items-baseline justify-between gap-3">
       <dt className="shrink-0 text-xs text-muted-foreground">{label}</dt>
       <dd
-        className={cn("min-w-0 truncate text-right text-xs", mono && "font-mono")}
+        className={cn(
+          "min-w-0 truncate text-right text-xs",
+          mono && "font-mono",
+        )}
         title={value}
       >
         {value}

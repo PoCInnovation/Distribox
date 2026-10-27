@@ -18,11 +18,10 @@ export function DraggablePolicyBadge({
   description,
 }: DraggablePolicyBadgeProps) {
   // The DragOverlay follows the pointer, so the source stays put.
-  const { attributes, listeners, setNodeRef, isDragging } =
-    useDraggable({
-      id: `policy-${policy}`,
-      data: { policy, description },
-    });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `policy-${policy}`,
+    data: { policy, description },
+  });
 
   return (
     <Tooltip>

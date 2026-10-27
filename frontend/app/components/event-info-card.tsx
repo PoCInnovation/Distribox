@@ -36,7 +36,10 @@ export function EventInfoCard({
     >
       <dt className="px-4 py-2.5 text-muted-foreground">Machine</dt>
       <dd className="flex min-w-0 items-center gap-2.5 px-4 py-2.5">
-        <DistroLogo distribution={distribution} className="size-6 bg-secondary" />
+        <DistroLogo
+          distribution={distribution}
+          className="size-6 bg-secondary"
+        />
         <span className="truncate">{os.label}</span>
       </dd>
 

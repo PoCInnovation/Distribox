@@ -21,15 +21,39 @@ export interface EventPhaseUi {
 export function getEventPhase(event: Event, now: Date): EventPhaseUi {
   const left = new Date(event.deadline).getTime() - now.getTime();
   if (left <= 0) {
-    return { phase: "ended", label: "Ended", tone: "muted", pulsing: false, joinable: false };
+    return {
+      phase: "ended",
+      label: "Ended",
+      tone: "muted",
+      pulsing: false,
+      joinable: false,
+    };
   }
   if (event.participants_count >= event.max_vms) {
-    return { phase: "full", label: "Full", tone: "warning", pulsing: false, joinable: false };
+    return {
+      phase: "full",
+      label: "Full",
+      tone: "warning",
+      pulsing: false,
+      joinable: false,
+    };
   }
   if (left <= CLOSING_SOON_MS) {
-    return { phase: "closing", label: "Closing soon", tone: "warning", pulsing: true, joinable: true };
+    return {
+      phase: "closing",
+      label: "Closing soon",
+      tone: "warning",
+      pulsing: true,
+      joinable: true,
+    };
   }
-  return { phase: "open", label: "Open", tone: "success", pulsing: false, joinable: true };
+  return {
+    phase: "open",
+    label: "Open",
+    tone: "success",
+    pulsing: false,
+    joinable: true,
+  };
 }
 
 /** "2d 23h", "2h 40m", "12m"; never negative. */

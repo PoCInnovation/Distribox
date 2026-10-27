@@ -91,7 +91,8 @@ function useActiveSection(ready: boolean): SectionId {
     const observer = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (e.isIntersecting) visible.set(e.target.id, e.boundingClientRect.top);
+          if (e.isIntersecting)
+            visible.set(e.target.id, e.boundingClientRect.top);
           else visible.delete(e.target.id);
         }
         if (visible.size === 0) return;
@@ -163,7 +164,9 @@ function Row({
     <div
       className={cn(
         "border-b border-border/70 px-5 py-4 last:border-b-0",
-        stacked ? "space-y-3" : "grid gap-x-6 gap-y-2 sm:grid-cols-[200px_minmax(0,1fr)]",
+        stacked
+          ? "space-y-3"
+          : "grid gap-x-6 gap-y-2 sm:grid-cols-[200px_minmax(0,1fr)]",
       )}
     >
       <div>
@@ -171,7 +174,9 @@ function Row({
           {label}
         </Label>
         {help && (
-          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{help}</p>
+          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+            {help}
+          </p>
         )}
       </div>
       <div className="min-w-0 self-center">{children}</div>
@@ -193,7 +198,10 @@ export default function SettingsPage() {
   const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
   const canChangePassword = authz.hasPolicy(Policy.AUTH_CHANGE_PASSWORD);
 
-  const server = useMemo(() => (settings ? fromSettings(settings) : null), [settings]);
+  const server = useMemo(
+    () => (settings ? fromSettings(settings) : null),
+    [settings],
+  );
   const [draft, setDraft] = useState<Draft | null>(null);
   const active = useActiveSection(draft !== null);
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -272,7 +280,9 @@ export default function SettingsPage() {
   }, [dirty]);
 
   const jumpTo = (id: SectionId) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   if (isLoading || (!draft && !error)) {
@@ -339,7 +349,9 @@ export default function SettingsPage() {
         <div className="max-w-3xl space-y-12 pb-24">
           {error && (
             <div className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
-              <span className="text-destructive">Settings could not be loaded.</span>{" "}
+              <span className="text-destructive">
+                Settings could not be loaded.
+              </span>{" "}
               <span className="text-muted-foreground">{error.message}</span>
             </div>
           )}
@@ -526,12 +538,18 @@ export default function SettingsPage() {
                   patch({ keyboard: v === KEYBOARD_NONE ? "" : v })
                 }
               >
-                <SelectTrigger id="default-keyboard" className="w-full max-w-sm">
+                <SelectTrigger
+                  id="default-keyboard"
+                  className="w-full max-w-sm"
+                >
                   <SelectValue>{keyboardLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {KEYBOARD_LAYOUTS.map((kb) => (
-                    <SelectItem key={kb.value || KEYBOARD_NONE} value={kb.value || KEYBOARD_NONE}>
+                    <SelectItem
+                      key={kb.value || KEYBOARD_NONE}
+                      value={kb.value || KEYBOARD_NONE}
+                    >
                       {kb.label}
                     </SelectItem>
                   ))}
@@ -598,7 +616,11 @@ export default function SettingsPage() {
             >
               Discard
             </Button>
-            <Button size="sm" onClick={save} disabled={updateSettings.isPending}>
+            <Button
+              size="sm"
+              onClick={save}
+              disabled={updateSettings.isPending}
+            >
               {updateSettings.isPending ? "Saving…" : "Save changes"}
             </Button>
           </div>

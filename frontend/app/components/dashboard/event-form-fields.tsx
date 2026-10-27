@@ -35,7 +35,10 @@ function deadlinePresets(now: Date) {
       ? [{ label: "Tonight", value: tonight }]
       : []),
     { label: "Tomorrow", value: setMinutes(setHours(addDays(now, 1), 18), 0) },
-    { label: "In a week", value: setMinutes(setHours(addDays(now, 7), 23), 55) },
+    {
+      label: "In a week",
+      value: setMinutes(setHours(addDays(now, 7), 23), 55),
+    },
   ];
 }
 
@@ -99,7 +102,9 @@ export function DateTimePicker({
             disabled={(date) => date < setHours(new Date(), 0)}
           />
           <div className="border-l border-border p-3">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Time</p>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
+              Time
+            </p>
             <div className="flex gap-2">
               <div className="h-56 overflow-y-auto border border-border">
                 {HOURS.map((h) => (
@@ -186,7 +191,9 @@ export function DeadlineField({
       <p
         className={cn(
           "mt-1.5 min-h-4 text-xs",
-          left !== null && left <= 0 ? "text-destructive" : "text-muted-foreground",
+          left !== null && left <= 0
+            ? "text-destructive"
+            : "text-muted-foreground",
         )}
       >
         {left === null
@@ -223,11 +230,17 @@ export function FleetCapacity({
   const problems: string[] = [];
   if (totals) {
     if (vcpus > totals.cpu_count)
-      problems.push(`${vcpus} vCPU per VM, the cluster has ${totals.cpu_count} cores`);
+      problems.push(
+        `${vcpus} vCPU per VM, the cluster has ${totals.cpu_count} cores`,
+      );
     if (needMem > totals.mem_available)
-      problems.push(`${needMem} GB memory, ${Math.floor(totals.mem_available)} GB free`);
+      problems.push(
+        `${needMem} GB memory, ${Math.floor(totals.mem_available)} GB free`,
+      );
     if (needDisk > totals.disk_available)
-      problems.push(`${needDisk} GB disk, ${Math.floor(totals.disk_available)} GB free`);
+      problems.push(
+        `${needDisk} GB disk, ${Math.floor(totals.disk_available)} GB free`,
+      );
   }
 
   return (

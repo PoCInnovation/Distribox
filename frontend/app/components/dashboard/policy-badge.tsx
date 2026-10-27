@@ -59,7 +59,11 @@ interface PolicyBadgeProps {
   onRemove?: () => void;
 }
 
-export function PolicyBadge({ policy, description, onRemove }: PolicyBadgeProps) {
+export function PolicyBadge({
+  policy,
+  description,
+  onRemove,
+}: PolicyBadgeProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>

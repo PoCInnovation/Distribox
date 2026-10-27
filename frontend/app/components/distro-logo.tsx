@@ -67,9 +67,7 @@ export function DistroLogo({
           onError={() => setImgError(true)}
         />
       ) : (
-        <HardDriveIcon
-          className={cn(sizes.glyph, "text-muted-foreground")}
-        />
+        <HardDriveIcon className={cn(sizes.glyph, "text-muted-foreground")} />
       )}
     </div>
   );

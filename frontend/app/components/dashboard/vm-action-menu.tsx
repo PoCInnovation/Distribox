@@ -34,7 +34,9 @@ function MenuItem({ action }: { action: VmAction }) {
         {action.pending ? (
           <Loader2 className="size-4 animate-spin" />
         ) : (
-          <Icon className={cn("size-4", action.destructive && "text-destructive")} />
+          <Icon
+            className={cn("size-4", action.destructive && "text-destructive")}
+          />
         )}
         {action.label}
       </span>

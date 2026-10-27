@@ -46,7 +46,8 @@ function guessFromFilename(filename: string): {
     ["win", "Windows"],
     ["freebsd", "FreeBSD"],
   ] as const;
-  const distribution = known.find(([needle]) => stem.includes(needle))?.[1] ?? "";
+  const distribution =
+    known.find(([needle]) => stem.includes(needle))?.[1] ?? "";
   const version = stem.match(/\d+(?:\.\d+)*/)?.[0] ?? "";
   return { distribution, version };
 }
@@ -97,7 +98,8 @@ export function UploadImageDialog({
     if (!selected) return;
     if (!name) setName(selected.name.replace(/\.[^.]+$/, ""));
     const guess = guessFromFilename(selected.name);
-    if (!distribution && guess.distribution) setDistribution(guess.distribution);
+    if (!distribution && guess.distribution)
+      setDistribution(guess.distribution);
     if (!version && guess.version) setVersion(guess.version);
     if (/\.(vmdk|vdi)$/i.test(selected.name)) setEfi(true);
   };
@@ -217,7 +219,9 @@ export function UploadImageDialog({
               </button>
             )}
             {fileMissing && (
-              <p className="text-xs text-destructive">Choose a disk image first.</p>
+              <p className="text-xs text-destructive">
+                Choose a disk image first.
+              </p>
             )}
           </div>
 
@@ -233,7 +237,9 @@ export function UploadImageDialog({
               disabled={upload.isPending}
             />
             {nameMissing && (
-              <p className="text-xs text-destructive">The image needs a name.</p>
+              <p className="text-xs text-destructive">
+                The image needs a name.
+              </p>
             )}
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -283,7 +289,9 @@ export function UploadImageDialog({
           {upload.isPending && (
             <div className="grid gap-2" aria-live="polite">
               <Progress value={progress} className="rounded-none" />
-              <p className="font-mono text-xs text-muted-foreground">{status}</p>
+              <p className="font-mono text-xs text-muted-foreground">
+                {status}
+              </p>
             </div>
           )}
           {upload.isError && (

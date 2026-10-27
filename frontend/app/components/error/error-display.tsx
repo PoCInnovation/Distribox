@@ -27,7 +27,9 @@ export function ErrorDisplay({
 }: ErrorDisplayProps) {
   return (
     <AuthShell
-      tagline={TAGLINES[code] ?? "Something on this page did not go as planned."}
+      tagline={
+        TAGLINES[code] ?? "Something on this page did not go as planned."
+      }
       contentClassName="max-w-lg"
     >
       <section>

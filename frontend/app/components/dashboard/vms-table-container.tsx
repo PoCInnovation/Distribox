@@ -12,7 +12,10 @@ import {
   useVmActions,
   type VmActionHandlers,
 } from "@/hooks/useVmActions";
-import { usePaletteSection, type PaletteSection } from "@/components/command-palette";
+import {
+  usePaletteSection,
+  type PaletteSection,
+} from "@/components/command-palette";
 import { isForbiddenError } from "@/lib/api";
 import type { VirtualMachineMetadata } from "@/lib/types";
 
@@ -36,7 +39,9 @@ export function DashboardVMsTableContainer() {
     renameVM,
   } = useVMs();
 
-  const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(null);
+  const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(
+    null,
+  );
   const [vmsToDelete, setVmsToDelete] = useState<VirtualMachineMetadata[]>([]);
 
   const openVm = useMemo(
@@ -101,7 +106,9 @@ export function DashboardVMsTableContainer() {
     }
   };
 
-  const deletePending = vmsToDelete.some((vm) => pendingById.get(vm.id) === "delete");
+  const deletePending = vmsToDelete.some(
+    (vm) => pendingById.get(vm.id) === "delete",
+  );
 
   return (
     <VmActionsProvider handlers={handlers} pendingById={pendingById}>
@@ -114,7 +121,9 @@ export function DashboardVMsTableContainer() {
         ) : isError ? (
           <PolicyNotice
             title="Virtual Machines Unavailable"
-            description={error instanceof Error ? error.message : "Unknown error"}
+            description={
+              error instanceof Error ? error.message : "Unknown error"
+            }
             missingPolicies={[]}
           />
         ) : isLoading || vms === undefined ? (
@@ -182,7 +191,9 @@ export function DashboardVMsTableContainer() {
         confirmLabel={
           <>
             <Trash2 />
-            {vmsToDelete.length === 1 ? "Delete VM" : `Delete ${vmsToDelete.length} VMs`}
+            {vmsToDelete.length === 1
+              ? "Delete VM"
+              : `Delete ${vmsToDelete.length} VMs`}
           </>
         }
         destructive
@@ -218,7 +229,11 @@ function VmPaletteActions({ vm }: { vm: VirtualMachineMetadata }) {
 
 function TableSkeleton() {
   return (
-    <div className="border border-border bg-card" aria-busy="true" aria-label="Loading virtual machines">
+    <div
+      className="border border-border bg-card"
+      aria-busy="true"
+      aria-label="Loading virtual machines"
+    >
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
         <div className="h-8 w-72 animate-pulse bg-secondary" />
         <div className="h-8 w-80 animate-pulse bg-secondary" />

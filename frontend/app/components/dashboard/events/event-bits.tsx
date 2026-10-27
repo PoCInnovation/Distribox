@@ -194,7 +194,9 @@ export function ShareLink({
         }}
       >
         {copied ? (
-          <Check className={cn(size === "lg" ? "size-5" : "size-4", "text-success")} />
+          <Check
+            className={cn(size === "lg" ? "size-5" : "size-4", "text-success")}
+          />
         ) : (
           <Copy className={size === "lg" ? "size-5" : "size-4"} />
         )}
@@ -230,12 +232,20 @@ export function EventMachine({
   const os = useOsInfo(image);
   return (
     <span className={cn("flex min-w-0 items-center gap-2.5", className)}>
-      <DistroLogo distribution={os.distribution} className="size-7 shrink-0 bg-secondary" />
+      <DistroLogo
+        distribution={os.distribution}
+        className="size-7 shrink-0 bg-secondary"
+      />
       <span className="min-w-0">
         <span className="block truncate text-sm" title={os.image}>
           {os.label}
         </span>
-        <SpecSummary vcpus={vcpus} mem={mem} disk={disk} className="text-xs text-muted-foreground [&>span]:text-foreground/80" />
+        <SpecSummary
+          vcpus={vcpus}
+          mem={mem}
+          disk={disk}
+          className="text-xs text-muted-foreground [&>span]:text-foreground/80"
+        />
       </span>
     </span>
   );

@@ -176,8 +176,10 @@ export function RegisterNodeDialog({
 
               <div className="border border-border bg-background/60 px-3 py-2.5 text-xs text-muted-foreground">
                 The slave will call back to{" "}
-                <span className="font-mono text-foreground">{API_BASE_URL}</span>.
-                If that address is not reachable from the slave, set{" "}
+                <span className="font-mono text-foreground">
+                  {API_BASE_URL}
+                </span>
+                . If that address is not reachable from the slave, set{" "}
                 <span className="font-mono">MASTER_URL</span> to one that is.
               </div>
 
@@ -196,7 +198,10 @@ export function RegisterNodeDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isRegistering || (touched && !valid)}>
+              <Button
+                type="submit"
+                disabled={isRegistering || (touched && !valid)}
+              >
                 {isRegistering ? "Registering…" : "Register and get key"}
               </Button>
             </DialogFooter>

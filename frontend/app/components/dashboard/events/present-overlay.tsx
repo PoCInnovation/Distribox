@@ -41,7 +41,9 @@ export function PresentOverlay({
       <header className="flex items-center justify-between px-8 py-6 md:px-12">
         <span className="inline-flex items-center gap-3">
           <img src="/favicon.ico" width={36} height={36} alt="" />
-          <span className="font-mono text-xl font-semibold tracking-[0.14em]">DISTRIBOX</span>
+          <span className="font-mono text-xl font-semibold tracking-[0.14em]">
+            DISTRIBOX
+          </span>
         </span>
         <button
           type="button"
@@ -50,7 +52,9 @@ export function PresentOverlay({
         >
           <X className="size-4" />
           Close
-          <kbd className="ml-1 border border-border px-1 font-mono text-[11px]">Esc</kbd>
+          <kbd className="ml-1 border border-border px-1 font-mono text-[11px]">
+            Esc
+          </kbd>
         </button>
       </header>
 
@@ -69,7 +73,10 @@ export function PresentOverlay({
           <div>
             <dt className="text-sm text-muted-foreground">Machine</dt>
             <dd className="mt-2 space-y-1.5">
-              <VmOsLabel image={event.vm_os} className="[&_.text-sm]:text-base" />
+              <VmOsLabel
+                image={event.vm_os}
+                className="[&_.text-sm]:text-base"
+              />
               <SpecSummary
                 vcpus={event.vm_vcpus}
                 mem={event.vm_mem}
@@ -93,7 +100,10 @@ export function PresentOverlay({
             <dd className="mt-2">
               <span className="block font-mono text-2xl tabular-nums">
                 {seatsLeft}
-                <span className="text-muted-foreground"> / {event.max_vms}</span>
+                <span className="text-muted-foreground">
+                  {" "}
+                  / {event.max_vms}
+                </span>
               </span>
               <span className="block text-sm text-muted-foreground">
                 {event.participants_count} joined so far

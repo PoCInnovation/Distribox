@@ -41,7 +41,8 @@ export function ParticipantTile({
       setFailed(false);
       return;
     }
-    const refresh = () => setSrc(`${getVmScreenshotUrl(vm.id)}&t=${Date.now()}`);
+    const refresh = () =>
+      setSrc(`${getVmScreenshotUrl(vm.id)}&t=${Date.now()}`);
     refresh();
     const id = window.setInterval(refresh, SCREENSHOT_POLL_MS);
     return () => window.clearInterval(id);
@@ -83,7 +84,10 @@ export function ParticipantTile({
             ) : (
               <>
                 <MonitorOff
-                  className={cn("size-7", ui.tone === "destructive" && "text-destructive/80")}
+                  className={cn(
+                    "size-7",
+                    ui.tone === "destructive" && "text-destructive/80",
+                  )}
                 />
                 <span className="text-xs">
                   {vm.state === VMState.STOPPED
@@ -132,7 +136,8 @@ export function ParticipantTile({
         role="button"
         tabIndex={0}
         onClick={(e) => {
-          if ((e.target as HTMLElement).closest('[data-no-row-click="true"]')) return;
+          if ((e.target as HTMLElement).closest('[data-no-row-click="true"]'))
+            return;
           onOpen();
         }}
         onKeyDown={(e) => {
@@ -147,7 +152,10 @@ export function ParticipantTile({
           >
             {participant.participant_name}
           </p>
-          <p className="truncate font-mono text-xs text-muted-foreground" title={vm.name}>
+          <p
+            className="truncate font-mono text-xs text-muted-foreground"
+            title={vm.name}
+          >
             {vm.name}
           </p>
         </div>

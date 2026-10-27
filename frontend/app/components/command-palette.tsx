@@ -60,7 +60,9 @@ const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(
 export function useCommandPalette() {
   const ctx = useContext(CommandPaletteContext);
   if (!ctx) {
-    throw new Error("useCommandPalette must be used within CommandPaletteProvider");
+    throw new Error(
+      "useCommandPalette must be used within CommandPaletteProvider",
+    );
   }
   return ctx;
 }
@@ -103,7 +105,11 @@ export function CommandPaletteProvider({
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "k") {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.altKey &&
+        e.key.toLowerCase() === "k"
+      ) {
         e.preventDefault();
         setOpen((o) => !o);
       }
@@ -112,7 +118,10 @@ export function CommandPaletteProvider({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const value = useMemo(() => ({ open, setOpen, setSection }), [open, setSection]);
+  const value = useMemo(
+    () => ({ open, setOpen, setSection }),
+    [open, setSection],
+  );
 
   return (
     <CommandPaletteContext.Provider value={value}>
@@ -133,12 +142,42 @@ const PAGES: Array<{
   policies: Policy[];
 }> = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutIcon, policies: [] },
-  { href: "/dashboard/monitor", label: "Monitor", icon: Monitor, policies: [Policy.VMS_SCREENSHOT] },
-  { href: "/dashboard/provision", label: "Provision VM", icon: PlusIcon, policies: [Policy.VMS_CREATE] },
-  { href: "/dashboard/events", label: "Events", icon: Calendar1Icon, policies: [Policy.EVENTS_GET] },
-  { href: "/dashboard/slaves", label: "Nodes", icon: ServerIcon, policies: [Policy.SLAVES_GET] },
-  { href: "/dashboard/users-policies", label: "Users & Policies", icon: Users, policies: [Policy.USERS_GET] },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings, policies: [] },
+  {
+    href: "/dashboard/monitor",
+    label: "Monitor",
+    icon: Monitor,
+    policies: [Policy.VMS_SCREENSHOT],
+  },
+  {
+    href: "/dashboard/provision",
+    label: "Provision VM",
+    icon: PlusIcon,
+    policies: [Policy.VMS_CREATE],
+  },
+  {
+    href: "/dashboard/events",
+    label: "Events",
+    icon: Calendar1Icon,
+    policies: [Policy.EVENTS_GET],
+  },
+  {
+    href: "/dashboard/slaves",
+    label: "Nodes",
+    icon: ServerIcon,
+    policies: [Policy.SLAVES_GET],
+  },
+  {
+    href: "/dashboard/users-policies",
+    label: "Users & Policies",
+    icon: Users,
+    policies: [Policy.USERS_GET],
+  },
+  {
+    href: "/dashboard/settings",
+    label: "Settings",
+    icon: Settings,
+    policies: [],
+  },
 ];
 
 const DOT_TONE: Record<StateTone, string> = {
@@ -213,14 +252,23 @@ function CommandPaletteDialog({
                 <Icon
                   className={cn(
                     "size-4 shrink-0",
-                    item.destructive ? "text-destructive" : "text-muted-foreground",
+                    item.destructive
+                      ? "text-destructive"
+                      : "text-muted-foreground",
                   )}
                 />
               )}
-              <span className={cn("flex-1 truncate", item.destructive && "text-destructive")}>
+              <span
+                className={cn(
+                  "flex-1 truncate",
+                  item.destructive && "text-destructive",
+                )}
+              >
                 {item.label}
                 {item.disabled && item.reason && (
-                  <span className="ml-2 text-xs text-muted-foreground">{item.reason}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {item.reason}
+                  </span>
                 )}
               </span>
             </>
@@ -229,7 +277,9 @@ function CommandPaletteDialog({
       }
     }
 
-    for (const vm of [...(vmsQuery.data ?? [])].sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const vm of [...(vmsQuery.data ?? [])].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )) {
       const os = resolveOsInfo(vm.os, imagesQuery.data);
       const state = getStateUi(vm.state);
       const host = vm.slave_name || "master";
@@ -241,11 +291,19 @@ function CommandPaletteDialog({
         render: () => (
           <>
             <span className="inline-flex size-4 shrink-0 items-center justify-center">
-              <span className={cn("size-2 rounded-full", DOT_TONE[state.tone])} />
+              <span
+                className={cn("size-2 rounded-full", DOT_TONE[state.tone])}
+              />
             </span>
-            <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{vm.name}</span>
-            <span className="truncate text-xs text-muted-foreground">{os.label}</span>
-            <span className="w-16 truncate text-right text-xs text-muted-foreground">{host}</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-[13px]">
+              {vm.name}
+            </span>
+            <span className="truncate text-xs text-muted-foreground">
+              {os.label}
+            </span>
+            <span className="w-16 truncate text-right text-xs text-muted-foreground">
+              {host}
+            </span>
           </>
         ),
       });
@@ -325,7 +383,9 @@ function CommandPaletteDialog({
             }
           }}
         >
-          <DialogPrimitive.Title className="sr-only">Command palette</DialogPrimitive.Title>
+          <DialogPrimitive.Title className="sr-only">
+            Command palette
+          </DialogPrimitive.Title>
           <DialogPrimitive.Description className="sr-only">
             Run an action, jump to a virtual machine or open a page.
           </DialogPrimitive.Description>

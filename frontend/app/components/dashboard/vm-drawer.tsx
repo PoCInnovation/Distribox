@@ -92,7 +92,9 @@ function DrawerBody({
                 <span className="text-border">|</span>
                 <span className="text-muted-foreground">{os.label}</span>
                 <span className="text-border">|</span>
-                <span className="text-muted-foreground">on {hostLabel(vm)}</span>
+                <span className="text-muted-foreground">
+                  on {hostLabel(vm)}
+                </span>
               </div>
             </SheetDescription>
             <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
@@ -249,7 +251,10 @@ function SpecGrid({
     <dl className="grid grid-cols-[max-content_1fr] border border-border text-sm [&>dd]:border-b [&>dd]:border-border [&>dt]:border-r [&>dt]:border-b [&>dt]:border-border [&>dd:last-of-type]:border-b-0 [&>dt:last-of-type]:border-b-0">
       <Spec label="Operating system">
         <span className="block">{osLabel}</span>
-        <span className="block truncate font-mono text-xs text-muted-foreground" title={osImage}>
+        <span
+          className="block truncate font-mono text-xs text-muted-foreground"
+          title={osImage}
+        >
           {osImage}
         </span>
       </Spec>
@@ -267,7 +272,9 @@ function SpecGrid({
           <CopyText value={vm.ipv4} label="IP address" />
         ) : (
           <span className="text-muted-foreground">
-            {vm.state === VMState.RUNNING ? "Waiting for a lease" : "None while powered off"}
+            {vm.state === VMState.RUNNING
+              ? "Waiting for a lease"
+              : "None while powered off"}
           </span>
         )}
       </Spec>
@@ -275,7 +282,9 @@ function SpecGrid({
       <Spec label="Keyboard">
         <span className="inline-flex items-center gap-2">
           <Keyboard className="size-3.5 text-muted-foreground" />
-          {vm.keyboard_layout ? getKeyboardLabel(vm.keyboard_layout) : "VM default"}
+          {vm.keyboard_layout
+            ? getKeyboardLabel(vm.keyboard_layout)
+            : "VM default"}
         </span>
       </Spec>
       <Spec label="VM id">
@@ -285,7 +294,13 @@ function SpecGrid({
   );
 }
 
-function Spec({ label, children }: { label: string; children: React.ReactNode }) {
+function Spec({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <>
       <dt className="px-4 py-2.5 text-muted-foreground">{label}</dt>

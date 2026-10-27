@@ -20,7 +20,11 @@ import {
   revokeVMCredential,
 } from "@/lib/api";
 import { getVMSshSettings, updateVMSshSettings } from "@/lib/api/ssh";
-import { Policy, type VirtualMachineMetadata, type VMCredential } from "@/lib/types";
+import {
+  Policy,
+  type VirtualMachineMetadata,
+  type VMCredential,
+} from "@/lib/types";
 import { useAuthz } from "@/contexts/authz-context";
 import { formatDateTime, useTimezone } from "@/hooks/useTimezone";
 import { formatMissingPolicies } from "@/hooks/useVmActions";
@@ -104,13 +108,16 @@ export function VmAccessSection({
         rememberForbiddenError(`/vms/${vm.id}/credentials/create`, error);
       }
       toast.error(
-        error instanceof Error ? error.message : "Could not create the credential",
+        error instanceof Error
+          ? error.message
+          : "Could not create the credential",
       );
     },
   });
 
   const revokeMutation = useMutation({
-    mutationFn: (credentialId: string) => revokeVMCredential(vm.id, credentialId),
+    mutationFn: (credentialId: string) =>
+      revokeVMCredential(vm.id, credentialId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vm-credentials", vm.id] });
       queryClient.invalidateQueries({ queryKey: ["vms"] });
@@ -124,7 +131,9 @@ export function VmAccessSection({
         );
       }
       toast.error(
-        error instanceof Error ? error.message : "Could not revoke the credential",
+        error instanceof Error
+          ? error.message
+          : "Could not revoke the credential",
       );
     },
   });
@@ -146,7 +155,9 @@ export function VmAccessSection({
               description="Lets anyone holding one of this machine's credentials open a terminal through the SSH gateway."
             />
             {sshQuery.isError && (
-              <p className="text-sm text-destructive">{sshQuery.error.message}</p>
+              <p className="text-sm text-destructive">
+                {sshQuery.error.message}
+              </p>
             )}
             {sshQuery.data && !sshQuery.data.available && (
               <p className="text-xs text-warning">
@@ -163,7 +174,11 @@ export function VmAccessSection({
         ) : (
           <div className="flex items-center justify-between border border-border px-4 py-3 text-sm">
             <span>SSH access</span>
-            <span className={cn(sshEnabled ? "text-success" : "text-muted-foreground")}>
+            <span
+              className={cn(
+                sshEnabled ? "text-success" : "text-muted-foreground",
+              )}
+            >
               {sshEnabled ? "Allowed" : "Not allowed"}
             </span>
           </div>
@@ -177,7 +192,9 @@ export function VmAccessSection({
             <KeyRound className="size-4 text-muted-foreground" />
             Credentials
             <span className="font-mono text-xs text-muted-foreground">
-              {credentialsQuery.data ? credentials.length : vm.credentials_count}
+              {credentialsQuery.data
+                ? credentials.length
+                : vm.credentials_count}
             </span>
           </h3>
           {!showForm && (
@@ -188,7 +205,9 @@ export function VmAccessSection({
                   size="sm"
                   variant="outline"
                   aria-disabled={missingCreate.length > 0}
-                  onClick={() => missingCreate.length === 0 && setShowForm(true)}
+                  onClick={() =>
+                    missingCreate.length === 0 && setShowForm(true)
+                  }
                   className={cn(
                     "h-8",
                     missingCreate.length > 0 && "cursor-not-allowed opacity-45",
@@ -232,7 +251,10 @@ export function VmAccessSection({
               </button>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor={`cred-label-${vm.id}`} className="text-xs text-muted-foreground">
+              <Label
+                htmlFor={`cred-label-${vm.id}`}
+                className="text-xs text-muted-foreground"
+              >
                 Label
               </Label>
               <Input
@@ -249,7 +271,10 @@ export function VmAccessSection({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor={`cred-secret-${vm.id}`} className="text-xs text-muted-foreground">
+              <Label
+                htmlFor={`cred-secret-${vm.id}`}
+                className="text-xs text-muted-foreground"
+              >
                 Access secret
               </Label>
               <MaskedInput
@@ -277,7 +302,9 @@ export function VmAccessSection({
                 Cancel
               </Button>
               <Button type="submit" size="sm" disabled={!canSubmit}>
-                {createMutation.isPending && <Loader2 className="animate-spin" />}
+                {createMutation.isPending && (
+                  <Loader2 className="animate-spin" />
+                )}
                 Create credential
               </Button>
             </div>
@@ -353,12 +380,18 @@ function CredentialRow({
     <li className="space-y-2 px-4 py-3">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate font-mono text-sm font-medium">{credential.name}</p>
-          <p className="text-[11px] text-muted-foreground">Created {createdLabel}</p>
+          <p className="truncate font-mono text-sm font-medium">
+            {credential.name}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            Created {createdLabel}
+          </p>
         </div>
         {confirming ? (
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Revoke access?</span>
+            <span className="text-xs text-muted-foreground">
+              Revoke access?
+            </span>
             <Button
               type="button"
               size="sm"

@@ -20,8 +20,17 @@ function ActionItem({ action }: { action: VmAction }) {
       onSelect={() => action.run()}
       className="flex flex-col items-start gap-0.5 py-1.5 data-[disabled]:pointer-events-auto data-[disabled]:opacity-100"
     >
-      <span className={cn("flex items-center gap-2", !action.enabled && "text-muted-foreground")}>
-        {action.pending ? <Loader2 className="size-4 animate-spin" /> : <Icon className="size-4" />}
+      <span
+        className={cn(
+          "flex items-center gap-2",
+          !action.enabled && "text-muted-foreground",
+        )}
+      >
+        {action.pending ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <Icon className="size-4" />
+        )}
         {action.label}
       </span>
       {!action.enabled && action.reason && (

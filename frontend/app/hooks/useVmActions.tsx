@@ -15,13 +15,7 @@ import { canConnect, isTransitional } from "@/lib/vm-state-ui";
 import type { VmOperation } from "@/hooks/useVMs";
 
 export type VmActionId =
-  | "connect"
-  | "start"
-  | "stop"
-  | "restart"
-  | "duplicate"
-  | "rename"
-  | "delete";
+  "connect" | "start" | "stop" | "restart" | "duplicate" | "rename" | "delete";
 
 export interface VmAction {
   id: VmActionId;

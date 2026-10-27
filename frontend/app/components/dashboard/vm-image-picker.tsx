@@ -260,7 +260,10 @@ function ImageGrid({
       </div>
 
       {filtered.length === 0 ? (
-        <Notice icon={<HardDriveIcon className="h-4 w-4" />} title="No image matches">
+        <Notice
+          icon={<HardDriveIcon className="h-4 w-4" />}
+          title="No image matches"
+        >
           Try another word, or clear the family filter.
         </Notice>
       ) : (
@@ -317,9 +320,9 @@ export function VMImageSelect({
         title="Images could not be loaded"
         action={uploadAction}
       >
-        {error?.message || "Unknown error"}. If this is the public registry,
-        try again in a moment. If it is your own bucket, check that the host
-        can reach it and that it contains qcow2 images.
+        {error?.message || "Unknown error"}. If this is the public registry, try
+        again in a moment. If it is your own bucket, check that the host can
+        reach it and that it contains qcow2 images.
       </Notice>
     );
   } else if (images.length === 0) {

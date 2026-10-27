@@ -76,7 +76,8 @@ export function ParticipantsSection({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter((r) => {
-      if (filter !== "all" && (!r.vm || getStatusBucket(r.vm.state) !== filter)) return false;
+      if (filter !== "all" && (!r.vm || getStatusBucket(r.vm.state) !== filter))
+        return false;
       if (!q) return true;
       return (
         r.participant.participant_name.toLowerCase().includes(q) ||
@@ -93,7 +94,9 @@ export function ParticipantsSection({
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
         <h2 className="mr-1 flex items-baseline gap-2 font-mono text-sm font-bold">
           Participants
-          <span className="font-normal text-muted-foreground tabular-nums">{rows.length}</span>
+          <span className="font-normal text-muted-foreground tabular-nums">
+            {rows.length}
+          </span>
         </h2>
 
         {rows.length > 0 && (
@@ -150,7 +153,9 @@ export function ParticipantsSection({
                     <span
                       className={cn(
                         "font-mono text-xs tabular-nums",
-                        filter === value ? "text-primary" : "text-muted-foreground/70",
+                        filter === value
+                          ? "text-primary"
+                          : "text-muted-foreground/70",
                       )}
                     >
                       {counts[value]}
@@ -163,7 +168,9 @@ export function ParticipantsSection({
         )}
 
         <div className="ml-auto flex items-center gap-3">
-          {vmsLoading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+          {vmsLoading && (
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          )}
           <div
             role="radiogroup"
             aria-label="Participants view"
@@ -188,7 +195,9 @@ export function ParticipantsSection({
                     : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
                 )}
               >
-                <Icon className={cn("size-4", view === value && "text-primary")} />
+                <Icon
+                  className={cn("size-4", view === value && "text-primary")}
+                />
                 {label}
               </button>
             ))}
@@ -206,7 +215,11 @@ export function ParticipantsSection({
         <EmptyState
           icon={<SearchX className="size-6" />}
           title="No participants match"
-          description={query ? `Nothing matches “${query}”.` : "Nothing matches the current filter."}
+          description={
+            query
+              ? `Nothing matches “${query}”.`
+              : "Nothing matches the current filter."
+          }
           action={
             hasFilters ? (
               <Button
@@ -289,11 +302,21 @@ function ParticipantsTable({
       </colgroup>
       <thead className="bg-card shadow-[inset_0_-1px_0_0_var(--border)]">
         <tr className="h-10 text-left text-xs font-medium text-muted-foreground">
-          <th scope="col" className="pl-5 pr-3 font-medium">Participant</th>
-          <th scope="col" className="px-3 font-medium">Status</th>
-          <th scope="col" className="px-3 font-medium">IP address</th>
-          <th scope="col" className="px-3 font-medium">Host</th>
-          <th scope="col" className="px-3 font-medium">Joined</th>
+          <th scope="col" className="pl-5 pr-3 font-medium">
+            Participant
+          </th>
+          <th scope="col" className="px-3 font-medium">
+            Status
+          </th>
+          <th scope="col" className="px-3 font-medium">
+            IP address
+          </th>
+          <th scope="col" className="px-3 font-medium">
+            Host
+          </th>
+          <th scope="col" className="px-3 font-medium">
+            Joined
+          </th>
           <th scope="col" className="pr-3">
             <span className="sr-only">Actions</span>
           </th>
@@ -312,7 +335,10 @@ function ParticipantsTable({
               now={now}
             />
           ) : (
-            <tr key={row.participant.id} className="h-[52px] border-b border-border/70 last:border-b-0">
+            <tr
+              key={row.participant.id}
+              className="h-[52px] border-b border-border/70 last:border-b-0"
+            >
               <td className="pl-5 pr-3">
                 <span className="block truncate font-mono text-[13.5px] font-medium">
                   {row.participant.participant_name}
@@ -383,7 +409,12 @@ function ParticipantTableRow({
       )}
     >
       <td className="relative pl-5 pr-3">
-        {open && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-primary" />}
+        {open && (
+          <span
+            aria-hidden
+            className="absolute inset-y-0 left-0 w-0.5 bg-primary"
+          />
+        )}
         <span className="flex min-w-0 items-baseline gap-2.5">
           <span
             className="truncate font-mono text-[13.5px] font-medium text-foreground"
@@ -391,7 +422,10 @@ function ParticipantTableRow({
           >
             {row.participant.participant_name}
           </span>
-          <span className="truncate font-mono text-xs text-muted-foreground" title={vm.name}>
+          <span
+            className="truncate font-mono text-xs text-muted-foreground"
+            title={vm.name}
+          >
             {vm.name}
           </span>
         </span>
@@ -401,7 +435,11 @@ function ParticipantTableRow({
       </td>
       <td className="px-3">
         {vm.ipv4 ? (
-          <CopyText value={vm.ipv4} label="IP address" className="text-[13px]" />
+          <CopyText
+            value={vm.ipv4}
+            label="IP address"
+            className="text-[13px]"
+          />
         ) : (
           <span className="text-muted-foreground/60">—</span>
         )}

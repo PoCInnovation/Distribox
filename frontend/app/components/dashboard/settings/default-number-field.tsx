@@ -65,7 +65,9 @@ export function DefaultNumberField({
             }}
             className="h-full w-16 bg-transparent pl-3 pr-1 text-right font-mono text-sm tabular-nums outline-none placeholder:font-sans placeholder:text-xs placeholder:text-muted-foreground disabled:cursor-not-allowed"
           />
-          <span className="w-12 pr-3 text-xs text-muted-foreground">{unit}</span>
+          <span className="w-12 pr-3 text-xs text-muted-foreground">
+            {unit}
+          </span>
         </div>
         <button
           type="button"

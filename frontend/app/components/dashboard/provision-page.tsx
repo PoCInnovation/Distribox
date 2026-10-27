@@ -144,7 +144,8 @@ export default function ProvisionPage() {
     () => nodes.map((n) => fitOnNode(n, size)),
     [nodes, size],
   );
-  const predicted = placement === "auto" ? (fits.find((f) => f.fits) ?? null) : null;
+  const predicted =
+    placement === "auto" ? (fits.find((f) => f.fits) ?? null) : null;
   const targetFit =
     placement === "auto"
       ? null
@@ -191,7 +192,10 @@ export default function ProvisionPage() {
     if (fits.length === 0) {
       return canReadHost
         ? null
-        : { tone: "muted", text: "Capacity is hidden for your account; the host will refuse a VM that does not fit." };
+        : {
+            tone: "muted",
+            text: "Capacity is hidden for your account; the host will refuse a VM that does not fit.",
+          };
     }
     if (placement === "auto") {
       const ok = fits.filter((f) => f.fits).map((f) => f.node.name);
@@ -206,7 +210,10 @@ export default function ProvisionPage() {
                 .join(", ")}`,
       };
     }
-    return { tone: "ok", text: `Fits on ${targetFit?.node.name ?? "the target"}` };
+    return {
+      tone: "ok",
+      text: `Fits on ${targetFit?.node.name ?? "the target"}`,
+    };
   })();
 
   // Submit
@@ -220,7 +227,8 @@ export default function ProvisionPage() {
       });
       return;
     }
-    const slaveId = placement === "auto" || placement === null ? null : placement;
+    const slaveId =
+      placement === "auto" || placement === null ? null : placement;
     try {
       await createVM.mutateAsync({
         os,
@@ -264,10 +272,20 @@ export default function ProvisionPage() {
       placement === "auto" ? fits : fits.filter((f) => f.node.id === placement);
     if (relevant.length === 0) return null;
     const best = relevant.reduce((a, b) =>
-      (key === "vcpus" ? a.node.cpuCount >= b.node.cpuCount : key === "mem" ? a.node.memFree >= b.node.memFree : a.node.diskFree >= b.node.diskFree) ? a : b,
+      (
+        key === "vcpus"
+          ? a.node.cpuCount >= b.node.cpuCount
+          : key === "mem"
+            ? a.node.memFree >= b.node.memFree
+            : a.node.diskFree >= b.node.diskFree
+      )
+        ? a
+        : b,
     );
-    if (key === "vcpus") return `${best.node.cpuCount} cores on ${best.node.name}`;
-    if (key === "mem") return `${formatCapacity(best.node.memFree)} free on ${best.node.name}`;
+    if (key === "vcpus")
+      return `${best.node.cpuCount} cores on ${best.node.name}`;
+    if (key === "mem")
+      return `${formatCapacity(best.node.memFree)} free on ${best.node.name}`;
     return `${formatCapacity(best.node.diskFree)} free on ${best.node.name}`;
   };
 
@@ -405,11 +423,13 @@ export default function ProvisionPage() {
                   onChange={(v) =>
                     setSize((s) => ({ ...s, vcpus: clampSize("vcpus", v) }))
                   }
-                  invalid={fits.some(
-                    (f) =>
-                      f.problems.includes("vcpus") &&
-                      (placement === "auto" || f.node.id === placement),
-                  ) && Boolean(sizeError)}
+                  invalid={
+                    fits.some(
+                      (f) =>
+                        f.problems.includes("vcpus") &&
+                        (placement === "auto" || f.node.id === placement),
+                    ) && Boolean(sizeError)
+                  }
                   hint={stepperHint("vcpus")}
                 />
                 <SizeStepper
@@ -422,11 +442,13 @@ export default function ProvisionPage() {
                   onChange={(v) =>
                     setSize((s) => ({ ...s, mem: clampSize("mem", v) }))
                   }
-                  invalid={fits.some(
-                    (f) =>
-                      f.problems.includes("mem") &&
-                      (placement === "auto" || f.node.id === placement),
-                  ) && Boolean(sizeError)}
+                  invalid={
+                    fits.some(
+                      (f) =>
+                        f.problems.includes("mem") &&
+                        (placement === "auto" || f.node.id === placement),
+                    ) && Boolean(sizeError)
+                  }
                   hint={stepperHint("mem")}
                 />
                 <SizeStepper
@@ -439,11 +461,13 @@ export default function ProvisionPage() {
                   onChange={(v) =>
                     setSize((s) => ({ ...s, disk: clampSize("disk", v) }))
                   }
-                  invalid={fits.some(
-                    (f) =>
-                      f.problems.includes("disk") &&
-                      (placement === "auto" || f.node.id === placement),
-                  ) && Boolean(sizeError)}
+                  invalid={
+                    fits.some(
+                      (f) =>
+                        f.problems.includes("disk") &&
+                        (placement === "auto" || f.node.id === placement),
+                    ) && Boolean(sizeError)
+                  }
                   hint={stepperHint("disk")}
                 />
               </div>
@@ -523,7 +547,10 @@ export default function ProvisionPage() {
                       fit={fit}
                       size={size}
                       selected={placement === fit.node.id}
-                      predicted={placement === "auto" && predicted?.node.id === fit.node.id}
+                      predicted={
+                        placement === "auto" &&
+                        predicted?.node.id === fit.node.id
+                      }
                       onSelect={
                         hasSlaves ? () => setPlacement(fit.node.id) : undefined
                       }
@@ -531,7 +558,10 @@ export default function ProvisionPage() {
                   ))
                 : [
                     { id: null as string | null, name: "master" },
-                    ...onlineSlaves.map((s) => ({ id: s.id as string | null, name: s.name })),
+                    ...onlineSlaves.map((s) => ({
+                      id: s.id as string | null,
+                      name: s.name,
+                    })),
                   ].map((node) => (
                     <button
                       key={node.id ?? "master"}
@@ -547,7 +577,9 @@ export default function ProvisionPage() {
                           : "border-border bg-card hover:border-foreground/30",
                       )}
                     >
-                      <span className="font-mono text-sm font-bold">{node.name}</span>
+                      <span className="font-mono text-sm font-bold">
+                        {node.name}
+                      </span>
                       <span className="mt-1 text-xs text-muted-foreground">
                         capacity hidden
                       </span>
@@ -612,7 +644,9 @@ export default function ProvisionPage() {
                     onCheckedChange={(c) => setAutoStart(c === true)}
                   />
                   <span className="text-sm">
-                    <span className="block font-medium">Start after creation</span>
+                    <span className="block font-medium">
+                      Start after creation
+                    </span>
                     <span className="block text-xs text-muted-foreground">
                       Otherwise it stays stopped until you start it.
                     </span>

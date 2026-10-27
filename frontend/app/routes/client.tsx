@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { DesktopDisplay } from "@/components/desktop/DesktopDisplay";
 import { getAuthToken } from "@/lib/api";
 
-function ClientFallback({ title, message }: { title: string; message: string }) {
+function ClientFallback({
+  title,
+  message,
+}: {
+  title: string;
+  message: string;
+}) {
   return (
     <AuthShell>
       <section>

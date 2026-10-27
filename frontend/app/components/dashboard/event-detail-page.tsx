@@ -18,16 +18,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { PolicyNotice } from "@/components/policy/policy-notice";
-import {
-  useEvent,
-  useDeleteEvent,
-  useDeleteEventVm,
-} from "@/hooks/useEvents";
+import { useEvent, useDeleteEvent, useDeleteEventVm } from "@/hooks/useEvents";
 import { useVMs } from "@/hooks/useVMs";
-import {
-  VmActionsProvider,
-  type VmActionHandlers,
-} from "@/hooks/useVmActions";
+import { VmActionsProvider, type VmActionHandlers } from "@/hooks/useVmActions";
 import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { useAuthz } from "@/contexts/authz-context";
 import { isForbiddenError } from "@/lib/api";
@@ -70,7 +63,10 @@ export function EventDetailPage() {
     return (
       <div className="space-y-6">
         <BackLink />
-        <PolicyNotice title="Event hidden" missingPolicies={error.missingPolicies} />
+        <PolicyNotice
+          title="Event hidden"
+          missingPolicies={error.missingPolicies}
+        />
       </div>
     );
   }
@@ -139,12 +135,17 @@ function EventDetail({ event }: { event: Event }) {
   } = useVMs();
 
   const [editOpen, setEditOpen] = useState(searchParams.get("edit") === "1");
-  const [presenting, setPresenting] = useState(searchParams.get("present") === "1");
+  const [presenting, setPresenting] = useState(
+    searchParams.get("present") === "1",
+  );
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [toRemove, setToRemove] = useState<ParticipantRow | null>(null);
-  const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(null);
+  const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(
+    null,
+  );
 
-  const view: ParticipantView = searchParams.get(VIEW_PARAM) === "table" ? "table" : "screens";
+  const view: ParticipantView =
+    searchParams.get(VIEW_PARAM) === "table" ? "table" : "screens";
   const openVmId = searchParams.get(VM_PARAM);
 
   const updateParams = useCallback(
@@ -189,7 +190,8 @@ function EventDetail({ event }: { event: Event }) {
 
   const handlers = useMemo<VmActionHandlers>(
     () => ({
-      connect: (vm) => window.open(`/client?vm_id=${encodeURIComponent(vm.id)}`, "_blank"),
+      connect: (vm) =>
+        window.open(`/client?vm_id=${encodeURIComponent(vm.id)}`, "_blank"),
       start: (vm) => void startVM(vm.id),
       stop: (vm) => void stopVM(vm.id),
       restart: (vm) => void restartVM(vm.id),
@@ -207,7 +209,9 @@ function EventDetail({ event }: { event: Event }) {
   const ui = getEventPhase(event, now);
   const ended = ui.phase === "ended";
   const url = eventShareUrl(event.slug);
-  const runningCount = rows.filter((r) => r.vm?.state === VMState.RUNNING).length;
+  const runningCount = rows.filter(
+    (r) => r.vm?.state === VMState.RUNNING,
+  ).length;
 
   return (
     <VmActionsProvider handlers={handlers} pendingById={pendingById}>
@@ -229,8 +233,13 @@ function EventDetail({ event }: { event: Event }) {
               </span>
               <span className="text-border">|</span>
               <span className="text-muted-foreground">
-                Created by <span className="text-foreground/85">{event.created_by}</span> on{" "}
-                {formatDateTime(event.created_at, timeZone, { hour: undefined, minute: undefined })}
+                Created by{" "}
+                <span className="text-foreground/85">{event.created_by}</span>{" "}
+                on{" "}
+                {formatDateTime(event.created_at, timeZone, {
+                  hour: undefined,
+                  minute: undefined,
+                })}
               </span>
             </div>
           </div>
@@ -240,13 +249,21 @@ function EventDetail({ event }: { event: Event }) {
               size="sm"
               onClick={() => setPresenting(true)}
               disabled={ended}
-              title={ended ? "The link is closed" : "Show the link full screen for a projector"}
+              title={
+                ended
+                  ? "The link is closed"
+                  : "Show the link full screen for a projector"
+              }
             >
               <Presentation className="size-4" />
               Present link
             </Button>
             {canUpdate && (
-              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditOpen(true)}
+              >
                 <Pencil className="size-4" />
                 Edit
               </Button>
@@ -272,7 +289,10 @@ function EventDetail({ event }: { event: Event }) {
 
         {/* Facts strip */}
         <div className="grid gap-px border border-border bg-border sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-[minmax(0,2.1fr)_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,0.75fr)]">
-          <Fact label={ended ? "Join link (closed)" : "Join link"} className="sm:col-span-2 xl:col-span-4 2xl:col-span-1">
+          <Fact
+            label={ended ? "Join link (closed)" : "Join link"}
+            className="sm:col-span-2 xl:col-span-4 2xl:col-span-1"
+          >
             {ended ? (
               <div className="flex h-9 items-center border border-dashed border-border px-3 font-mono text-[13px] text-muted-foreground line-through decoration-muted-foreground/40">
                 <span className="truncate">{displayUrl(url)}</span>
@@ -282,7 +302,11 @@ function EventDetail({ event }: { event: Event }) {
             )}
           </Fact>
           <Fact label="Seats">
-            <SeatMeter used={event.participants_count} total={event.max_vms} className="max-w-[9rem]" />
+            <SeatMeter
+              used={event.participants_count}
+              total={event.max_vms}
+              className="max-w-[9rem]"
+            />
             <p className="mt-1 text-xs text-muted-foreground">
               {event.participants_count >= event.max_vms
                 ? "All taken"
@@ -294,7 +318,11 @@ function EventDetail({ event }: { event: Event }) {
             <span
               className={cn(
                 "block font-mono text-[13px] tabular-nums",
-                ui.phase === "closing" ? "text-warning" : ended ? "text-muted-foreground" : "",
+                ui.phase === "closing"
+                  ? "text-warning"
+                  : ended
+                    ? "text-muted-foreground"
+                    : "",
               )}
             >
               {formatDateTime(event.deadline, timeZone)}
@@ -321,34 +349,38 @@ function EventDetail({ event }: { event: Event }) {
             </span>
             <span className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground">
               <Keyboard className="size-3.5" />
-              {event.keyboard_layout ? getKeyboardLabel(event.keyboard_layout) : "VM default"}
+              {event.keyboard_layout
+                ? getKeyboardLabel(event.keyboard_layout)
+                : "VM default"}
             </span>
           </Fact>
         </div>
 
         {/* Participants */}
         <ParticipantsSection
-            rows={rows}
-            vmsHidden={vmsError}
-            vmsLoading={vmsLoading}
-            canScreenshot={canScreenshot}
-            view={view}
-            onViewChange={(v) => updateParams({ [VIEW_PARAM]: v === "screens" ? null : v })}
-            openVmId={openVm?.id ?? null}
-            onOpen={(vm) => updateParams({ [VM_PARAM]: vm.id })}
-            onRemove={canDelete ? (row) => setToRemove(row) : undefined}
-            now={now}
-            emptyHint={
-              ended ? (
-                "The deadline passed before anyone joined."
-              ) : (
-                <>
-                  Share the join link. Each person who opens it and enters a name
-                  shows up here with a live view of their screen.
-                </>
-              )
-            }
-          />
+          rows={rows}
+          vmsHidden={vmsError}
+          vmsLoading={vmsLoading}
+          canScreenshot={canScreenshot}
+          view={view}
+          onViewChange={(v) =>
+            updateParams({ [VIEW_PARAM]: v === "screens" ? null : v })
+          }
+          openVmId={openVm?.id ?? null}
+          onOpen={(vm) => updateParams({ [VM_PARAM]: vm.id })}
+          onRemove={canDelete ? (row) => setToRemove(row) : undefined}
+          now={now}
+          emptyHint={
+            ended ? (
+              "The deadline passed before anyone joined."
+            ) : (
+              <>
+                Share the join link. Each person who opens it and enters a name
+                shows up here with a live view of their screen.
+              </>
+            )
+          }
+        />
       </div>
 
       <VmDrawer
@@ -369,10 +401,16 @@ function EventDetail({ event }: { event: Event }) {
       />
 
       {canUpdate && (
-        <EventFormDialog open={editOpen} onOpenChange={setEditOpen} event={event} />
+        <EventFormDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          event={event}
+        />
       )}
 
-      {presenting && <PresentOverlay event={event} onClose={() => setPresenting(false)} />}
+      {presenting && (
+        <PresentOverlay event={event} onClose={() => setPresenting(false)} />
+      )}
 
       <ConfirmDialog
         open={!!toRemove}
@@ -462,12 +500,7 @@ function Fact({
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "min-w-0 bg-card px-4 py-3.5",
-        className,
-      )}
-    >
+    <div className={cn("min-w-0 bg-card px-4 py-3.5", className)}>
       <p className="mb-2 text-xs text-muted-foreground">{label}</p>
       {children}
     </div>
@@ -485,7 +518,10 @@ function DetailSkeleton() {
       <div className="h-24 animate-pulse border border-border bg-card" />
       <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="aspect-[16/10] animate-pulse border border-border bg-card" />
+          <div
+            key={i}
+            className="aspect-[16/10] animate-pulse border border-border bg-card"
+          />
         ))}
       </div>
     </div>

@@ -73,7 +73,9 @@ export function EventsPage() {
       </header>
 
       <PolicyGate requiredPolicies={[Policy.EVENTS_GET]} title="Events hidden">
-        <EventsTableContainer onCreate={canCreate ? () => setCreateOpen(true) : undefined} />
+        <EventsTableContainer
+          onCreate={canCreate ? () => setCreateOpen(true) : undefined}
+        />
       </PolicyGate>
 
       <CreateEventDialog open={createOpen} onOpenChange={setCreateOpen} />
@@ -109,7 +111,11 @@ function EventsTableContainer({ onCreate }: { onCreate?: () => void }) {
       {isLoading || !events ? (
         <TableSkeleton />
       ) : (
-        <EventsTable events={events} onCreate={onCreate} onDelete={setToDelete} />
+        <EventsTable
+          events={events}
+          onCreate={onCreate}
+          onDelete={setToDelete}
+        />
       )}
 
       <ConfirmDialog
@@ -253,7 +259,9 @@ function EventsTable({
               <span
                 className={cn(
                   "font-mono text-xs tabular-nums",
-                  filter === value ? "text-primary" : "text-muted-foreground/70",
+                  filter === value
+                    ? "text-primary"
+                    : "text-muted-foreground/70",
                 )}
               >
                 {counts[value]}
@@ -318,12 +326,27 @@ function EventsTable({
           </colgroup>
           <thead className="bg-card shadow-[inset_0_-1px_0_0_var(--border)]">
             <tr className="h-10 text-left text-xs font-medium text-muted-foreground">
-              <th scope="col" className="pl-5 pr-3 font-medium">Event</th>
-              <th scope="col" className="px-3 font-medium">Status</th>
-              <th scope="col" className="px-3 font-medium">Machine</th>
-              <th scope="col" className="px-3 font-medium">Seats</th>
-              <th scope="col" className="px-3 font-medium">Deadline</th>
-              <th scope="col" className="hidden px-3 font-medium 2xl:table-cell">Join link</th>
+              <th scope="col" className="pl-5 pr-3 font-medium">
+                Event
+              </th>
+              <th scope="col" className="px-3 font-medium">
+                Status
+              </th>
+              <th scope="col" className="px-3 font-medium">
+                Machine
+              </th>
+              <th scope="col" className="px-3 font-medium">
+                Seats
+              </th>
+              <th scope="col" className="px-3 font-medium">
+                Deadline
+              </th>
+              <th
+                scope="col"
+                className="hidden px-3 font-medium 2xl:table-cell"
+              >
+                Join link
+              </th>
               <th scope="col" className="pr-3">
                 <span className="sr-only">Actions</span>
               </th>
@@ -363,7 +386,11 @@ function EventRow({
 
   const handleRowClick = (e: React.MouseEvent<HTMLTableRowElement>) => {
     const target = e.target as HTMLElement;
-    if (target.closest('[data-no-row-click="true"], button, a, input, [role="menu"]')) {
+    if (
+      target.closest(
+        '[data-no-row-click="true"], button, a, input, [role="menu"]',
+      )
+    ) {
       return;
     }
     navigate(href);
@@ -446,7 +473,12 @@ function EventRow({
       </td>
       <td className="pr-3">
         <div className="flex items-center justify-end gap-1">
-          <EventRowMenu event={event} url={url} ended={ended} onDelete={onDelete} />
+          <EventRowMenu
+            event={event}
+            url={url}
+            ended={ended}
+            onDelete={onDelete}
+          />
           <ChevronRight className="size-4 text-muted-foreground/50 transition-colors group-hover/row:text-muted-foreground" />
         </div>
       </td>
@@ -489,11 +521,15 @@ function EventRowMenu({
         className="w-56 border-border bg-popover p-1"
         onClick={(e) => e.stopPropagation()}
       >
-        <DropdownMenuItem onSelect={() => copyToClipboard(url, "Join link copied")}>
+        <DropdownMenuItem
+          onSelect={() => copyToClipboard(url, "Join link copied")}
+        >
           <Copy className="size-4" />
           Copy join link
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => window.open(url, "_blank", "noopener")}>
+        <DropdownMenuItem
+          onSelect={() => window.open(url, "_blank", "noopener")}
+        >
           <ExternalLink className="size-4" />
           Open join page
         </DropdownMenuItem>

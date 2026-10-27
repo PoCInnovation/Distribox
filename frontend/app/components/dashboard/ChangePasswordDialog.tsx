@@ -36,7 +36,8 @@ function scorePassword(pw: string): { score: Strength; label: string } {
   const long = pw.length >= 12;
   const veryLong = pw.length >= 16;
   if (veryLong && classes >= 3) return { score: 4, label: "Strong" };
-  if ((long && classes >= 2) || classes >= 4) return { score: 3, label: "Good" };
+  if ((long && classes >= 2) || classes >= 4)
+    return { score: 3, label: "Good" };
   if (classes >= 2 || long) return { score: 2, label: "Fair" };
   return { score: 2, label: "Weak" };
 }
@@ -79,7 +80,11 @@ export function ChangePasswordDialog({
   const differs = newPassword.length > 0 && newPassword !== currentPassword;
   const matches = confirmPassword.length > 0 && confirmPassword === newPassword;
   const canSubmit =
-    currentPassword.length > 0 && longEnough && differs && matches && !isLoading;
+    currentPassword.length > 0 &&
+    longEnough &&
+    differs &&
+    matches &&
+    !isLoading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,7 +162,9 @@ export function ChangePasswordDialog({
               </Requirement>
               <Requirement
                 ok={differs}
-                pending={newPassword.length === 0 || currentPassword.length === 0}
+                pending={
+                  newPassword.length === 0 || currentPassword.length === 0
+                }
               >
                 Different from the current one
               </Requirement>
@@ -189,7 +196,9 @@ export function ChangePasswordDialog({
                 ) : (
                   <X className="h-3.5 w-3.5" />
                 )}
-                {matches ? "Passwords match" : "Doesn’t match the new password yet"}
+                {matches
+                  ? "Passwords match"
+                  : "Doesn’t match the new password yet"}
               </p>
             )}
           </div>
@@ -268,7 +277,9 @@ function PasswordInput({
         <button
           type="button"
           onClick={onToggleShow}
-          aria-label={show ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          aria-label={
+            show ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`
+          }
           aria-pressed={show}
           tabIndex={-1}
           className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
