@@ -158,6 +158,11 @@ When an event reaches its deadline, the share link stops working, all VM credent
 
 ## Quickstart
 
+Use an x86_64 Linux host with Docker Engine and the Compose plugin. The
+[host setup guide](docs/host-setup.md) covers supported distributions, dry runs,
+NixOS flakes, and troubleshooting. Review planned changes with
+`bash setup.sh --dry-run`; run the installer as your regular user.
+
 To keep VM data on another partition, follow the [storage setup](#store-vm-data-on-another-partition) after `setup.sh` and before starting Compose.
 
 ```bash

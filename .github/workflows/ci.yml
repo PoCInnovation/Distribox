@@ -5,6 +5,33 @@ on:
   pull_request:
 
 jobs:
+  host-setup-tests:
+    name: Test host installer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: bash -n setup.sh
+      - run: shellcheck -x setup.sh tests/test_runit.sh
+      - run: python3 -m unittest discover -s tests -v
+      - name: Exercise real runit supervisor registration and reruns
+        run: >-
+          docker run --rm -v "$PWD:/repo:ro" alpine:3.22
+          sh -c 'apk add --no-cache bash runit && bash /repo/tests/test_runit.sh'
+
+  nixos-host-eval:
+    name: Evaluate NixOS host module
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Evaluate enabled, disabled, and customized NixOS hosts
+        run: >-
+          docker run --rm -v "$PWD:/repo:ro" nixos/nix:2.31.2
+          nix --extra-experimental-features 'nix-command flakes'
+          eval --impure --json --file /repo/tests/nixos-eval.nix --apply 'checks: checks {}'
+
   frontend-format:
     name: Check Frontend Format
     runs-on: ubuntu-latest
