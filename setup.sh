@@ -34,7 +34,11 @@ and the default NAT network, create shared storage, and add user groups.
   --help, -h   Show this help.
 
 Supported: Debian/Ubuntu, Arch, Fedora/RHEL, openSUSE, Alpine, Gentoo, Void,
-Solus, and NixOS (declarative flake module). See docs/host-setup.md.
+Solus, and NixOS (declarative flake module).
+
+Install Docker Engine and Compose separately. On minimal Alpine, install Bash
+first. Package managers keep their native prompts; APK applies changes directly.
+Log out and back in after setup to apply all group memberships.
 EOF
 }
 
@@ -44,7 +48,7 @@ die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 
 on_error() {
     printf '\nError during %s (line %s, exit %s): %s\n' "$PHASE" "$2" "$1" "$3" >&2
-    printf 'Resolve the error above, then rerun setup. See docs/host-setup.md for recovery.\n' >&2
+    printf 'Resolve the error above, then rerun setup. Use --check to inspect the host.\n' >&2
     exit "$1"
 }
 
@@ -99,7 +103,7 @@ read_os_release() {
             alpine|gentoo|void|solus) DISTRO=$candidate; return ;;
         esac
     done
-    die "Unsupported distribution '${ID:-unknown}'. No changes made. See docs/host-setup.md."
+    die "Unsupported distribution '${ID:-unknown}'. No changes made. Use --help for supported systems."
 }
 
 detect_platform() {
@@ -179,7 +183,7 @@ install_packages() {
             require_command emerge 'This host must provide Portage.'
             yes=(--ask)
             "$ASSUME_YES" && yes=(--ask=n)
-            info 'Portage must enable QEMU targets for x86_64 and libvirt networking; see the guide if USE changes are requested.'
+            info 'If Portage requests USE changes, enable the requested flags in package.use and rerun; setup leaves Portage configuration to you.'
             run_root emerge "${yes[@]}" --noreplace 'app-emulation/libvirt[libvirtd,qemu,virt-network,policykit]' 'app-emulation/qemu[vnc,qemu_softmmu_targets_x86_64]' sys-firmware/edk2 sys-apps/dbus
             ;;
         void)
@@ -348,12 +352,12 @@ configure_storage() {
     info 'Prepare shared directories; existing VM files keep their ownership and permissions'
     local directory
     for directory in "$STORAGE_DIR" "$STORAGE_DIR/images" "$STORAGE_DIR/vms"; do
-        [[ ! -L $directory ]] || die "$directory is a symlink. Use a bind mount for custom storage; see the guide."
+        [[ ! -L $directory ]] || die "$directory is a symlink. Use a bind mount for custom storage; see the storage section in README.md."
     done
     run_root install -d -m 2775 -o root -g distribox "$STORAGE_DIR" "$STORAGE_DIR/images" "$STORAGE_DIR/vms"
     # QEMU identities differ by distro. Libvirt manages individual disk ownership.
     if command -v getenforce >/dev/null && [[ $(getenforce) != Disabled ]]; then
-        warn 'SELinux is enabled. Check the custom-storage and Docker policy instructions in docs/host-setup.md before starting VMs.'
+        warn 'SELinux is enabled. Configure image-storage labels and backend access to the libvirt socket before starting VMs; see README.md.'
     fi
 }
 
@@ -383,7 +387,7 @@ check_host() {
     [[ -c $TUN_DEVICE ]] || die "Missing TUN device $TUN_DEVICE. Enable the host's tun kernel module before starting guests."
     local active
     active=$(virsh_query net-list --name)
-    printf '%s\n' "$active" | grep -Fx default >/dev/null || die "The libvirt 'default' network is inactive. See the network troubleshooting guide."
+    printf '%s\n' "$active" | grep -Fx default >/dev/null || die "The libvirt 'default' network is inactive. Inspect its definition with virsh net-dumpxml default, host routes, firewall, and daemon logs."
     local directory
     for directory in "$STORAGE_DIR" "$STORAGE_DIR/images" "$STORAGE_DIR/vms"; do
         [[ -d $directory ]] || die "Missing storage directory $directory."
@@ -414,7 +418,9 @@ Add to your nixosSystem modules (with distribox in your outputs arguments):
 
 Review and apply your host configuration with nixos-rebuild switch --flake.
 Log out and back in, then run: bash setup.sh --check
-Full example and local-checkout instructions: docs/host-setup.md#nixos-flakes
+For a local checkout, use inputs.distribox.url = "path:/absolute/path/to/Distribox".
+For a customized default network bridge, set services.distriboxHost.networkInterface
+to that bridge's name. Keep your existing QEMU runtime identity and Docker policy.
 EOF
 }
 
@@ -448,7 +454,7 @@ main() {
     else
         info 'Host setup complete. Log out and back in to apply all user group changes.'
         printf 'Next: configure .env, then run docker compose --profile master up -d --build\n'
-        printf 'For a slave node use the dashboard guide. Details: docs/host-setup.md\n'
+        printf 'For a slave node use the dashboard setup guide.\n'
     fi
 }
 
