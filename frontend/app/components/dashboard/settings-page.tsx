@@ -191,7 +191,7 @@ function Row({
 export default function SettingsPage() {
   const authz = useAuthz();
   const { user } = authz;
-  const { data: settings, isLoading, error } = useSettings();
+  const { data: settings, error, isFetching, refetch } = useSettings();
   const updateSettings = useUpdateSettings();
   const effectiveTimezone = useTimezone();
 
@@ -285,7 +285,37 @@ export default function SettingsPage() {
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  if (isLoading || (!draft && !error)) {
+  const loadError = error && (
+    <div className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
+      <p role="alert">
+        <span className="text-destructive">
+          {draft
+            ? "Settings could not be refreshed. Your unsaved changes are preserved."
+            : "Settings could not be loaded."}
+        </span>{" "}
+        <span className="text-muted-foreground">{error.message}</span>
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-3"
+        disabled={isFetching}
+        onClick={() => void refetch()}
+      >
+        {isFetching ? (
+          <>
+            <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+            Retrying…
+          </>
+        ) : (
+          "Retry"
+        )}
+      </Button>
+    </div>
+  );
+
+  if (!draft && !error) {
     return (
       <div className="flex h-full items-center justify-center">
         <LoaderCircle className="h-8 w-8 animate-spin text-primary" />
@@ -293,9 +323,20 @@ export default function SettingsPage() {
     );
   }
 
+  if (!draft) {
+    return (
+      <div className="relative min-h-full p-8">
+        <h1 className="mb-8 font-mono text-3xl font-bold tracking-tight">
+          Settings
+        </h1>
+        <div className="max-w-3xl">{loadError}</div>
+      </div>
+    );
+  }
+
   const admin = isAdmin(user);
   const keyboardLabel =
-    KEYBOARD_LAYOUTS.find((k) => k.value === draft?.keyboard)?.label ??
+    KEYBOARD_LAYOUTS.find((k) => k.value === draft.keyboard)?.label ??
     "None (VM default)";
 
   return (
@@ -347,14 +388,7 @@ export default function SettingsPage() {
         </nav>
 
         <div className="max-w-3xl space-y-12 pb-24">
-          {error && (
-            <div className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
-              <span className="text-destructive">
-                Settings could not be loaded.
-              </span>{" "}
-              <span className="text-muted-foreground">{error.message}</span>
-            </div>
-          )}
+          {loadError}
 
           {/* ---------------- Account ---------------- */}
           <Section
@@ -443,7 +477,7 @@ export default function SettingsPage() {
             <Row label="vCPUs" htmlFor="default-vcpus">
               <DefaultNumberField
                 id="default-vcpus"
-                value={draft!.vcpus}
+                value={draft.vcpus}
                 onChange={(v) => patch({ vcpus: v })}
                 min={1}
                 max={64}
@@ -454,7 +488,7 @@ export default function SettingsPage() {
             <Row label="Memory" htmlFor="default-mem">
               <DefaultNumberField
                 id="default-mem"
-                value={draft!.mem}
+                value={draft.mem}
                 onChange={(v) => patch({ mem: v })}
                 min={1}
                 max={512}
@@ -465,7 +499,7 @@ export default function SettingsPage() {
             <Row label="Disk" htmlFor="default-disk">
               <DefaultNumberField
                 id="default-disk"
-                value={draft!.disk}
+                value={draft.disk}
                 onChange={(v) => patch({ disk: v })}
                 min={1}
                 max={4000}
@@ -487,10 +521,10 @@ export default function SettingsPage() {
                 <span
                   className={cn(
                     "font-mono text-sm",
-                    !draft!.os && "text-muted-foreground",
+                    !draft.os && "text-muted-foreground",
                   )}
                 >
-                  {draft!.os || "System default"}
+                  {draft.os || "System default"}
                 </span>
                 {canReadImages && (
                   <span className="flex gap-1">
@@ -502,7 +536,7 @@ export default function SettingsPage() {
                     >
                       {imagePickerOpen ? "Close picker" : "Change…"}
                     </Button>
-                    {draft!.os && (
+                    {draft.os && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -517,7 +551,7 @@ export default function SettingsPage() {
               {imagePickerOpen && canReadImages && (
                 <div className="mt-3">
                   <VMImageSelect
-                    selectedOS={draft!.os}
+                    selectedOS={draft.os}
                     setSelectedOS={(value) => {
                       patch({ os: value });
                       setImagePickerOpen(false);
@@ -533,7 +567,7 @@ export default function SettingsPage() {
               htmlFor="default-keyboard"
             >
               <Select
-                value={draft!.keyboard || KEYBOARD_NONE}
+                value={draft.keyboard || KEYBOARD_NONE}
                 onValueChange={(v) =>
                   patch({ keyboard: v === KEYBOARD_NONE ? "" : v })
                 }
@@ -573,7 +607,7 @@ export default function SettingsPage() {
               <div className="max-w-sm">
                 <TimezoneCombobox
                   id="timezone"
-                  value={draft!.timezone}
+                  value={draft.timezone}
                   onChange={(tz) => patch({ timezone: tz })}
                 />
               </div>
