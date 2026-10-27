@@ -199,6 +199,10 @@ export function isForbiddenError(error: unknown): error is ApiHttpError {
   return error instanceof ApiHttpError && error.status === 403;
 }
 
+export function isNotFoundError(error: unknown): error is ApiHttpError {
+  return error instanceof ApiHttpError && error.status === 404;
+}
+
 export function rememberForbiddenError(
   endpoint: string,
   error: ApiHttpError,

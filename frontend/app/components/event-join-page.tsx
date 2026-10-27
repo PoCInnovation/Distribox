@@ -13,10 +13,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { getPublicEvent, joinEvent } from "@/lib/api/events";
+import { ApiHttpError, isNotFoundError } from "@/lib/api/core";
 import type { PublicEvent } from "@/lib/types/event";
 import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { EventInfoCard } from "@/components/event-info-card";
 import { useNow } from "@/components/dashboard/events/event-model";
+
+function getEventLoadError(
+  error: unknown,
+): { kind: "not-found" } | { kind: "retryable"; message: string } {
+  if (isNotFoundError(error)) return { kind: "not-found" };
+
+  let message = "The event could not be loaded. Please try again.";
+  if (error instanceof ApiHttpError) {
+    if (error.status >= 500) {
+      message = "The server is temporarily unavailable. Please try again.";
+    }
+  } else if (error === null || error instanceof TypeError) {
+    message =
+      "Could not connect to the server. Check your connection and try again.";
+  }
+
+  return { kind: "retryable", message };
+}
 
 export function EventJoinPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -28,6 +47,9 @@ export function EventJoinPage() {
     data: event,
     isLoading,
     isError,
+    error,
+    isFetching,
+    refetch,
   } = useQuery<PublicEvent>({
     queryKey: ["public-event", slug],
     queryFn: () => getPublicEvent(slug!),
@@ -60,6 +82,7 @@ export function EventJoinPage() {
 
   const expired = event ? new Date(event.deadline) <= now : false;
   const full = event ? event.participants_count >= event.max_vms : false;
+  const loadError = getEventLoadError(error);
 
   return (
     <AuthShell
@@ -75,7 +98,7 @@ export function EventJoinPage() {
           <div className="h-7 w-64 animate-pulse bg-secondary" />
           <div className="h-40 animate-pulse border border-border bg-card" />
         </div>
-      ) : isError || !event ? (
+      ) : loadError.kind === "not-found" ? (
         <Notice
           icon={<Link2Off className="size-5" />}
           title="No event at this link"
@@ -85,6 +108,29 @@ export function EventJoinPage() {
             <span className="font-mono text-foreground/85">/events/{slug}</span>{" "}
             does not exist or was deleted. Check the address with the organiser.
           </p>
+        </Notice>
+      ) : isError || !event ? (
+        <Notice
+          icon={<AlertCircle className="size-5" />}
+          title="Unable to load the event"
+          tone="warning"
+        >
+          <p role="alert">{loadError.message}</p>
+          <Button
+            type="button"
+            className="mt-3"
+            disabled={isFetching}
+            onClick={() => void refetch()}
+          >
+            {isFetching ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Retrying…
+              </>
+            ) : (
+              "Retry"
+            )}
+          </Button>
         </Notice>
       ) : (
         <section>
