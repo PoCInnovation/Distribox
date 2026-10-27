@@ -22,21 +22,18 @@ def test_web_dir_exports_the_installed_gliss_client():
 
 
 @pytest.mark.asyncio
-async def test_gliss_module_serves_only_exported_files(tmp_path, monkeypatch):
-    (tmp_path / "client.js").write_text("export {}")
-    monkeypatch.setattr(tunnel, "web_dir", lambda: tmp_path)
+async def test_gliss_modules_serve_only_exported_files(tmp_path, monkeypatch):
+    export = tmp_path / "web"
+    export.mkdir()
+    (export / "client.js").write_text("export {}")
+    (tmp_path / "secret.js").write_text("export {}")
+    monkeypatch.setattr(tunnel, "web_dir", lambda: export)
     response = await gliss_module("client.js")
     assert response.media_type == "text/javascript"
     assert response.headers["cache-control"] == "no-cache"
-    for path in ("../client.js", "missing.js", ""):
+    for path in ("../secret.js", "missing.js", ""):
         with pytest.raises(HTTPException):
             await gliss_module(path)
-
-
-@pytest.mark.asyncio
-async def test_versioned_gliss_module_rejects_paths_outside_the_export(tmp_path, monkeypatch):
-    monkeypatch.setattr(tunnel, "web_dir", lambda: tmp_path)
-    for path in ("../client.js", "missing.js", ""):
         with pytest.raises(HTTPException):
             await gliss_versioned_module(GLISS_VERSION, path)
 
