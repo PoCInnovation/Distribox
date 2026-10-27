@@ -158,6 +158,17 @@ When an event reaches its deadline, the share link stops working, all VM credent
 
 ## Quickstart
 
+Use an x86_64 Linux host with Docker Engine and the Compose plugin. Run the
+installer as your regular user; `bash setup.sh --help` lists its options and
+`bash setup.sh --dry-run` shows planned changes. Log out and back in afterward
+to apply group memberships. On minimal Alpine installations, install Bash first
+with `apk add bash`. On NixOS, the script prints flake integration instructions.
+
+VMs use libvirt's `default` NAT network. Setup preserves it if present; otherwise,
+it creates one on `virbr0` with DHCP on `192.168.122.0/24`. SELinux hosts also need
+appropriate image-storage labels and a policy allowing the backend to access
+the libvirt socket; setup leaves those policies to the administrator.
+
 To keep VM data on another partition, follow the [storage setup](#store-vm-data-on-another-partition) after `setup.sh` and before starting Compose.
 
 ```bash

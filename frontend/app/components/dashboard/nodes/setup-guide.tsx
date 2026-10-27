@@ -123,24 +123,12 @@ SLAVE_PORT=8081`}
       <li className="space-y-2">
         <StepTitle n={4}>Apply user group changes</StepTitle>
         <p className="ml-8 text-muted-foreground">
-          If you are using a macOS system,{" "}
-          <span className="font-bold text-foreground">
-            close your current terminal session
-          </span>{" "}
-          and open a new one, this will be enough to apply the new user groups.
-        </p>
-        <p className="ml-8 text-muted-foreground">
-          If you are using Linux, you will need to{" "}
+          After setup, you will need to{" "}
           <span className="font-bold text-foreground">
             log out and log back in
           </span>{" "}
           to apply the changes.
         </p>
-        <p className="ml-8 text-muted-foreground">
-          Alternatively, you can run the following command to apply the changes{" "}
-          <span className="font-bold">in your current session only.</span>
-        </p>
-        <Code>newgrp distribox libvirt</Code>
       </li>
 
       <li className="space-y-2">
