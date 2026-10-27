@@ -1,15 +1,15 @@
 import { DndContext, DragOverlay } from "@dnd-kit/core";
-import { Users as UsersIcon, Plus, Search, InfoIcon } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Policy } from "@/lib/types/policies";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PolicyGate } from "@/components/policy/policy-gate";
 import { cn } from "@/lib/utils";
-import { getPolicyColor } from "@/lib/get-policy-color";
 import { UserCard } from "./user-card";
 import { CreateUserModal } from "./create-user-modal";
 import { DraggablePolicyBadge } from "./draggable-policy-badge";
+import { PolicyChip } from "./policy-badge";
 import { useUsersPoliciesPage } from "@/hooks/use-users-policies-page";
 
 export default function UsersPoliciesPage() {
@@ -26,9 +26,9 @@ export default function UsersPoliciesPage() {
     setCreateModalOpen,
     activeDragId,
     leftPanelWidth,
-    allPolicies,
-    filteredPolicies,
+    filteredPolicyGroups,
     filteredUsers,
+    users,
     handleDragStart,
     handleDragEnd,
     handleAddPolicy,
@@ -52,81 +52,94 @@ export default function UsersPoliciesPage() {
     <PolicyGate requiredPolicies={Policy.USERS_GET}>
       <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex h-full overflow-hidden">
-          <div
-            className="hidden md:flex border-r border-border bg-sidebar/30 flex-col overflow-hidden"
+          <aside
+            className="hidden flex-col overflow-hidden bg-sidebar/30 md:flex"
             style={{ width: `${leftPanelWidth}%` }}
           >
-            <div className="p-6 border-b border-border flex-shrink-0">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <UsersIcon className="h-5 w-5" />
-                Available Policies
-              </h2>
-              <p className="flex flex-row space-x-2 text-xs text-muted-foreground mt-1 mb-4">
-                <InfoIcon className="text-accent h-4 w-4" />
-                <span>
-                  <span className="text-accent font-bold">Drag and Drop</span>{" "}
-                  policies to user cards
-                </span>
+            <div className="shrink-0 border-b border-border px-5 pt-6 pb-4">
+              <h2 className="font-mono text-xl font-semibold">Policies</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Drag a policy onto a user to grant it.
               </p>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <div className="relative mt-4">
+                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search policies..."
                   value={policySearchQuery}
                   onChange={(e) => setPolicySearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-9"
                 />
               </div>
             </div>
             <div
               className={cn(
-                "flex-1 overflow-y-auto overflow-x-hidden",
+                "flex-1 overflow-x-hidden overflow-y-auto",
                 activeDragId && "overflow-hidden",
               )}
             >
-              <div className="p-4 space-y-2">
-                {filteredPolicies.map(({ policy, description }) => (
-                  <DraggablePolicyBadge
-                    key={policy}
-                    policy={policy}
-                    description={description}
-                  />
+              <div className="space-y-5 px-5 py-5">
+                {filteredPolicyGroups.map(({ group, policies }) => (
+                  <section key={group.id}>
+                    <h3 className="mb-2 flex items-center gap-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                      <span className={cn("size-1.5", group.tone.dot)} />
+                      {group.label}
+                    </h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {policies.map(({ policy, description }) => (
+                        <DraggablePolicyBadge
+                          key={policy}
+                          policy={policy}
+                          description={description}
+                        />
+                      ))}
+                    </div>
+                  </section>
                 ))}
-                {filteredPolicies.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
+                {filteredPolicyGroups.length === 0 && (
+                  <div className="py-8 text-center text-sm text-muted-foreground">
                     No policies found
                   </div>
                 )}
               </div>
             </div>
-          </div>
+          </aside>
 
           <div
-            className="hidden md:block w-2 bg-border hover:bg-primary cursor-col-resize transition-colors flex-shrink-0 relative group"
+            className="group relative hidden w-px shrink-0 cursor-col-resize bg-border md:block"
             onMouseDown={(e) => handleResizeStart(e.clientX)}
           >
-            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-transparent group-hover:bg-primary/50 transition-colors" />
+            <div className="absolute inset-y-0 -left-1 w-2 transition-colors group-hover:bg-primary/40" />
           </div>
 
-          {/* Right Panel - Users */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="p-6 border-b border-border">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">Users</h2>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search users..."
-                  value={userSearchQuery}
-                  onChange={(e) => setUserSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 pt-6 pb-4">
+              <h2 className="font-mono text-xl font-semibold">
+                Users
+                <span className="ml-2 text-sm font-normal text-muted-foreground tabular-nums">
+                  {users.length}
+                </span>
+              </h2>
+              <div className="ml-auto flex items-center gap-2">
+                <div className="relative w-64">
+                  <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search users..."
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <PolicyGate requiredPolicies={Policy.USERS_CREATE}>
+                  <Button onClick={() => setCreateModalOpen(true)}>
+                    <Plus />
+                    New user
+                  </Button>
+                </PolicyGate>
               </div>
             </div>
 
-            <ScrollArea className="flex-1">
-              <div className="p-6 space-y-4 pb-24">
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="space-y-3 p-6">
                 {filteredUsers.map((user) => (
                   <UserCard
                     key={user.id}
@@ -136,50 +149,24 @@ export default function UsersPoliciesPage() {
                     onCopyPassword={handleCopyPassword}
                     onDeleteUser={handleDeleteUser}
                     isDeletingUser={isDeletingUser}
-                    availablePolicies={allPolicies}
                   />
                 ))}
                 {filteredUsers.length === 0 && (
-                  <div className="text-center py-12 text-muted-foreground">
+                  <div className="py-12 text-center text-muted-foreground">
                     No users found
                   </div>
                 )}
               </div>
             </ScrollArea>
-
-            <PolicyGate requiredPolicies={Policy.USERS_CREATE}>
-              <div className="fixed bottom-6 right-6">
-                <Button
-                  size="lg"
-                  className="rounded-full shadow-lg gap-2 px-6"
-                  onClick={() => setCreateModalOpen(true)}
-                >
-                  <Plus className="h-5 w-5" />
-                  <span className="font-medium">Create New User</span>
-                </Button>
-              </div>
-            </PolicyGate>
           </div>
         </div>
 
-        <DragOverlay>
-          {activeDragId &&
-            (() => {
-              const policyName = activeDragId.replace("policy-", "");
-              const colors = getPolicyColor(policyName);
-              return (
-                <div
-                  className={cn(
-                    "px-4 py-2.5 text-sm font-medium border-2 rounded-sm shadow-lg opacity-90",
-                    colors.bg,
-                    colors.border,
-                    colors.text,
-                  )}
-                >
-                  {policyName}
-                </div>
-              );
-            })()}
+        <DragOverlay dropAnimation={null}>
+          {activeDragId && (
+            <span className="inline-block bg-card shadow-lg shadow-black/40">
+              <PolicyChip policy={activeDragId.replace("policy-", "")} />
+            </span>
+          )}
         </DragOverlay>
 
         <CreateUserModal

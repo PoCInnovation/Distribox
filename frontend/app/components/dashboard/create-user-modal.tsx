@@ -56,7 +56,7 @@ export function CreateUserModal({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create New User</DialogTitle>
+          <DialogTitle>New user</DialogTitle>
           <DialogDescription>
             {generatedPassword
               ? "User created successfully! Save the password below."
