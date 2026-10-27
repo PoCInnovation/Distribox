@@ -110,7 +110,7 @@ Distribox supports a distributed setup where additional machines act as slave no
 Once connected, each slave node reports its status and resource usage in realtime.
 
 <div align="center">
-  <img src=".github/assets/connected-slave.png" alt="Connected Slave Node" width="400"/>
+  <img src=".github/assets/connected-slave.png" alt="Connected Slave Node" width="700"/>
 </div>
 
 ---
@@ -119,7 +119,7 @@ Once connected, each slave node reports its status and resource usage in realtim
 Monitor CPU, memory, and disk usage for the master node, individual slave nodes, or the entire cluster from the dashboard. When provisioning a VM, you can choose which node to deploy on and see its available resources.
 
 <div align="center">
-  <img src=".github/assets/provision-target-node.png" alt="Provision Target Node" width="700"/>
+  <img src=".github/assets/host-metrics.png" alt="Host Metrics" width="700"/>
 </div>
 
 ---

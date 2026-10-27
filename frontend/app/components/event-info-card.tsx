@@ -1,87 +1,77 @@
-import type { ReactNode } from "react";
-import { Calendar, Cpu, HardDrive, MemoryStick, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DistroLogo } from "@/components/distro-logo";
 import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
+import { resolveOsInfo } from "@/lib/vm-os";
+import type { Event } from "@/lib/types/event";
+import {
+  deadlineText,
+  useNow,
+} from "@/components/dashboard/events/event-model";
 
-interface EventInfoCardProps {
-  name: string;
-  vmOs: string;
-  vmDistribution?: string;
-  vmVcpus: number;
-  vmMem: number;
-  vmDiskSize: number;
-  participantsCount: number;
-  maxVms: number;
-  deadline: string;
-  description?: string;
-  children?: ReactNode;
-  className?: string;
-}
-
+/**
+ * What a participant gets, as a two-column ledger. Public page: no image
+ * registry lookup, the OS label comes from the image file name.
+ */
 export function EventInfoCard({
-  name,
-  vmOs,
-  vmDistribution,
-  vmVcpus,
-  vmMem,
-  vmDiskSize,
-  participantsCount,
-  maxVms,
-  deadline,
-  description,
-  children,
+  event,
   className,
-}: EventInfoCardProps) {
+}: {
+  event: Event;
+  className?: string;
+}) {
   const timeZone = useTimezone();
+  const now = useNow(30_000);
+  const os = resolveOsInfo(event.vm_os, undefined);
+  const distribution = event.vm_distribution || os.distribution;
+  const left = Math.max(0, event.max_vms - event.participants_count);
+  const ended = new Date(event.deadline) <= now;
 
   return (
-    <div className={cn("rounded-2xl border border-border bg-card", className)}>
-      {/* Event header */}
-      <div className="border-b border-border px-6 pt-3 pb-3 text-center">
-        <h2 className="text-2xl font-bold">{name}</h2>
-        {description && (
-          <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-        )}
-      </div>
+    <dl
+      className={cn(
+        "grid grid-cols-[max-content_minmax(0,1fr)] border border-border bg-card text-sm",
+        "[&>dt]:border-b [&>dt]:border-border [&>dd]:border-b [&>dd]:border-border [&>dt:last-of-type]:border-b-0 [&>dd:last-of-type]:border-b-0",
+        className,
+      )}
+    >
+      <dt className="px-4 py-2.5 text-muted-foreground">Machine</dt>
+      <dd className="flex min-w-0 items-center gap-2.5 px-4 py-2.5">
+        <DistroLogo
+          distribution={distribution}
+          className="size-6 bg-secondary"
+        />
+        <span className="truncate">{os.label}</span>
+      </dd>
 
-      {/* VM specs */}
-      <div
-        className={cn(
-          "grid grid-cols-2 gap-3 p-4",
-          children && "border-b border-border",
-        )}
-      >
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <DistroLogo
-            distribution={vmDistribution || vmOs.replace(".qcow2", "")}
-            className="h-5 w-5 rounded-sm bg-transparent"
-          />
-          {vmOs.replace(".qcow2", "")}
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Cpu className="h-3.5 w-3.5 text-primary" />
-          {vmVcpus} vCPUs
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <MemoryStick className="h-3.5 w-3.5 text-accent" />
-          {vmMem} GB RAM
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <HardDrive className="h-3.5 w-3.5 text-chart-4" />
-          {vmDiskSize} GB Disk
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Users className="h-3.5 w-3.5" />
-          {participantsCount}/{maxVms} joined
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Calendar className="h-3.5 w-3.5" />
-          {formatDateTime(deadline, timeZone)}
-        </div>
-      </div>
+      <dt className="px-4 py-2.5 text-muted-foreground">Size</dt>
+      <dd className="flex flex-wrap gap-x-2 px-4 py-2.5 font-mono tabular-nums">
+        <span className="whitespace-nowrap">{event.vm_vcpus} vCPU</span>
+        <span className="text-border">/</span>
+        <span className="whitespace-nowrap">{event.vm_mem} GB memory</span>
+        <span className="text-border">/</span>
+        <span className="whitespace-nowrap">{event.vm_disk_size} GB disk</span>
+      </dd>
 
-      {children}
-    </div>
+      <dt className="px-4 py-2.5 text-muted-foreground">
+        {ended ? "Joining closed" : "Joining closes"}
+      </dt>
+      <dd className="px-4 py-2.5">
+        <span className="font-mono tabular-nums">
+          {formatDateTime(event.deadline, timeZone)}
+        </span>
+        <span className="ml-2 whitespace-nowrap text-muted-foreground">
+          {deadlineText(event.deadline, now)}
+        </span>
+      </dd>
+
+      <dt className="px-4 py-2.5 text-muted-foreground">Seats</dt>
+      <dd className="px-4 py-2.5">
+        <span className="font-mono tabular-nums">
+          {left}
+          <span className="text-muted-foreground"> of {event.max_vms}</span>
+        </span>
+        <span className="ml-2 text-muted-foreground">left</span>
+      </dd>
+    </dl>
   );
 }

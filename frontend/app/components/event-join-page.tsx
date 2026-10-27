@@ -1,36 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Image } from "@unpic/react";
-import { AlertCircle, Loader2, Server } from "lucide-react";
+import {
+  AlertCircle,
+  CalendarX,
+  Link2Off,
+  Loader2,
+  UsersRound,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { getPublicEvent, joinEvent } from "@/lib/api/events";
-import type { Event, EventJoinResponse } from "@/lib/types/event";
+import type { Event } from "@/lib/types/event";
+import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { EventInfoCard } from "@/components/event-info-card";
-import { SecretField } from "@/components/ui/secret-field";
-import { SshConnectionButton } from "@/components/ssh-connection-button";
-
-function useNow(intervalMs = 1000) {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
+import { useNow } from "@/components/dashboard/events/event-model";
 
 export function EventJoinPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const now = useNow(10000);
+  const now = useNow(10_000);
+  const timeZone = useTimezone();
 
   const {
     data: event,
     isLoading,
     isError,
-    error,
   } = useQuery<Event>({
     queryKey: ["public-event", slug],
     queryFn: () => getPublicEvent(slug!),
@@ -41,7 +38,6 @@ export function EventJoinPage() {
   const [name, setName] = useState("");
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [joinResult, setJoinResult] = useState<EventJoinResponse | null>(null);
 
   const handleJoin = async () => {
     if (!name.trim() || !slug) return;
@@ -50,159 +46,162 @@ export function EventJoinPage() {
 
     try {
       const result = await joinEvent(slug, name.trim());
-      setJoinResult(result);
+      // Straight onto the machine; the client toolbar offers SSH from there.
+      navigate(
+        `/client?credential=${encodeURIComponent(result.credential_password)}`,
+      );
     } catch (err) {
-      setJoinError(err instanceof Error ? err.message : "Failed to join event");
-    } finally {
+      setJoinError(
+        err instanceof Error ? err.message : "Could not join the event.",
+      );
       setJoining(false);
     }
   };
 
+  const expired = event ? new Date(event.deadline) <= now : false;
+  const full = event ? event.participants_count >= event.max_vms : false;
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-primary to-background px-4 py-12">
-      <div className="w-full max-w-lg">
-        {/* Branding header */}
-        <div className="mb-8 flex flex-col items-center gap-3">
-          <Image
-            src="/favicon.ico"
-            width={120}
-            height={120}
-            alt=""
-            draggable={false}
-          />
-          <h1 className="font-mono text-4xl font-bold tracking-wider">
-            DISTRIBOX
-          </h1>
+    <AuthShell
+      tagline={
+        event && !expired && !full
+          ? "You have been invited to an event. Enter your name and you land on your own virtual machine, right in the browser."
+          : "Event links hand out virtual machines for labs, workshops and hackathons, one per person."
+      }
+      contentClassName="max-w-md"
+    >
+      {isLoading || !slug ? (
+        <div className="space-y-4" aria-busy="true" aria-label="Loading event">
+          <div className="h-7 w-64 animate-pulse bg-secondary" />
+          <div className="h-40 animate-pulse border border-border bg-card" />
         </div>
+      ) : isError || !event ? (
+        <Notice
+          icon={<Link2Off className="size-5" />}
+          title="No event at this link"
+          tone="muted"
+        >
+          <p>
+            <span className="font-mono text-foreground/85">/events/{slug}</span>{" "}
+            does not exist or was deleted. Check the address with the organiser.
+          </p>
+        </Notice>
+      ) : (
+        <section>
+          <h1 className="font-mono text-2xl font-semibold tracking-tight text-balance text-foreground">
+            {event.name}
+          </h1>
 
-        {isLoading && (
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-12 text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin" />
-            <p>Loading event...</p>
-          </div>
-        )}
-
-        {isError && (
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-destructive/50 bg-card p-12 text-center">
-            <AlertCircle className="h-8 w-8 text-destructive" />
-            <p className="text-lg font-medium text-destructive">
-              Event not found
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {error instanceof Error
-                ? error.message
-                : "This event may not exist or has been removed."}
-            </p>
-          </div>
-        )}
-
-        {event && joinResult && (
-          <div className="flex flex-col items-center gap-4 rounded-2xl border border-chart-3/50 bg-card p-8 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-chart-3/10">
-              <Server className="h-7 w-7 text-chart-3" />
-            </div>
-            <h2 className="text-xl font-bold">Your VM is ready</h2>
-            <div className="w-full space-y-2 rounded-lg bg-muted/30 p-4 text-left">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">VM Name</span>
-                <span className="font-mono">{joinResult.vm_name}</span>
-              </div>
-              <div className="space-y-2 text-sm">
-                <span className="text-muted-foreground">Access secret</span>
-                <SecretField value={joinResult.credential_password} />
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Save your access secret to reconnect later.
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button
-                onClick={() =>
-                  navigate(
-                    `/client?credential=${encodeURIComponent(joinResult.credential_password)}`,
-                  )
-                }
-              >
-                Open web client
-              </Button>
-              <SshConnectionButton
-                credential={joinResult.credential_password}
-              />
-            </div>
-          </div>
-        )}
-
-        {event && !joinResult && (
           <EventInfoCard
-            name={event.name}
-            description="Enter your name to get your Virtual Machine"
-            vmOs={event.vm_os}
-            vmDistribution={event.vm_distribution}
-            vmVcpus={event.vm_vcpus}
-            vmMem={event.vm_mem}
-            vmDiskSize={event.vm_disk_size}
-            participantsCount={event.participants_count}
-            maxVms={event.max_vms}
-            deadline={event.deadline}
-          >
-            {/* Join form */}
-            <div className="p-6">
-              {new Date(event.deadline) < now ? (
-                <div className="flex flex-col items-center gap-2 text-center">
-                  <AlertCircle className="h-6 w-6 text-destructive" />
-                  <p className="font-medium text-destructive">
-                    This event has expired
-                  </p>
-                </div>
-              ) : event.participants_count >= event.max_vms ? (
-                <div className="flex flex-col items-center gap-2 text-center">
-                  <AlertCircle className="h-6 w-6 text-amber-500" />
-                  <p className="font-medium text-amber-500">
-                    This event is full
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="participant-name">Your Name</Label>
-                    <Input
-                      id="participant-name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g., John Doe"
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && name.trim() && handleJoin()
-                      }
-                    />
-                  </div>
+            event={event}
+            className={expired || full ? "mt-6 opacity-70" : "mt-6"}
+          />
 
-                  {joinError && (
-                    <div className="flex items-start gap-2 rounded-md border border-destructive bg-destructive/10 p-3">
-                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                      <p className="text-sm text-destructive">{joinError}</p>
-                    </div>
-                  )}
+          {expired ? (
+            <Notice
+              icon={<CalendarX className="size-5" />}
+              title="Joining is closed"
+              tone="muted"
+              className="mt-6"
+            >
+              <p>
+                The deadline was {formatDateTime(event.deadline, timeZone)}. If
+                you already joined, use the link you were sent then. Otherwise
+                ask the organiser for a new event.
+              </p>
+            </Notice>
+          ) : full ? (
+            <Notice
+              icon={<UsersRound className="size-5" />}
+              title={`All ${event.max_vms} seats are taken`}
+              tone="warning"
+              className="mt-6"
+            >
+              <p>Ask the organiser to add seats, then reload this page.</p>
+            </Notice>
+          ) : (
+            <form
+              className="mt-8 space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleJoin();
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="participant-name">Your name</Label>
+                <Input
+                  id="participant-name"
+                  value={name}
+                  autoFocus
+                  autoComplete="name"
+                  maxLength={64}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ada Lovelace"
+                  disabled={joining}
+                  className="h-10 placeholder:text-muted-foreground/50"
+                />
+              </div>
 
-                  <Button
-                    className="w-full"
-                    disabled={!name.trim() || joining}
-                    onClick={handleJoin}
-                  >
-                    {joining ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Provisioning your VM...
-                      </>
-                    ) : (
-                      "Get My Virtual Machine"
-                    )}
-                  </Button>
-                </div>
+              {joinError && (
+                <p
+                  role="alert"
+                  className="flex items-start gap-2 border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                >
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                  {joinError}
+                </p>
               )}
-            </div>
-          </EventInfoCard>
-        )}
+
+              <Button
+                type="submit"
+                className="h-10 w-full"
+                disabled={!name.trim() || joining}
+              >
+                {joining ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Starting your machine…
+                  </>
+                ) : (
+                  "Get my machine"
+                )}
+              </Button>
+            </form>
+          )}
+        </section>
+      )}
+    </AuthShell>
+  );
+}
+
+function Notice({
+  icon,
+  title,
+  tone,
+  className,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  tone: "muted" | "warning";
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`flex gap-3 border bg-card p-4 ${tone === "warning" ? "border-warning/40" : "border-border"} ${className ?? ""}`}
+    >
+      <span
+        className={
+          tone === "warning" ? "text-warning" : "text-muted-foreground"
+        }
+      >
+        {icon}
+      </span>
+      <div className="min-w-0 space-y-1 text-sm text-muted-foreground">
+        <p className="font-mono font-medium text-foreground">{title}</p>
+        {children}
       </div>
-    </main>
+    </div>
   );
 }

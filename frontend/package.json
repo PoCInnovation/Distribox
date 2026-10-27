@@ -23,8 +23,6 @@
     "@react-router/serve": "^7.18.4",
     "@tanstack/react-query": "^5.90.19",
     "@unpic/react": "^1.0.1",
-    "ag-grid-community": "^34.3.1",
-    "ag-grid-react": "^34.3.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -39,8 +37,7 @@
     "react-router-dom": "^7.18.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
-    "zod": "^4.3.6",
-    "zustand": "^5.0.11"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@react-router/dev": "^7.18.4",

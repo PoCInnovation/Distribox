@@ -1,283 +1,587 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import {
-  Calendar,
-  Clock,
-  Cpu,
-  HardDrive,
-  MemoryStick,
+  CalendarClock,
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  MoreHorizontal,
+  Pencil,
   Plus,
+  Presentation,
+  Search,
+  SearchX,
   Trash2,
-  Users,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { copyToClipboard } from "@/components/ui/secret-field";
+import { PolicyGate } from "@/components/policy/policy-gate";
+import { PolicyNotice } from "@/components/policy/policy-notice";
 import { useEvents, useDeleteEvent } from "@/hooks/useEvents";
-import { CreateEventDialog } from "./create-event-dialog";
 import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { useAuthz } from "@/contexts/authz-context";
+import { isForbiddenError } from "@/lib/api";
 import { Policy } from "@/lib/types";
-import { PolicyGate } from "@/components/policy/policy-gate";
 import type { Event } from "@/lib/types/event";
+import { cn } from "@/lib/utils";
+import { CreateEventDialog } from "./create-event-dialog";
+import { CopyText } from "./copy-text";
+import { EventMachine, EventStatus, SeatMeter } from "./events/event-bits";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { DistroLogo } from "../distro-logo";
+  deadlineText,
+  eventShareUrl,
+  getEventPhase,
+  useNow,
+} from "./events/event-model";
+import { EmptyState } from "./events/empty-state";
 
-function timeRemaining(deadline: string, now: Date): string {
-  const end = new Date(deadline);
-  const diff = end.getTime() - now.getTime();
+type Filter = "all" | "active" | "ended";
 
-  if (diff <= 0) return "Expired";
-
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-  if (days > 0) return `${days}d ${hours}h remaining`;
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  return `${hours}h ${minutes}m remaining`;
-}
-
-function useNow(intervalMs = 1000) {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
-
-function EventCard({
-  event,
-  onSelect,
-  onDelete,
-  canDelete,
-}: {
-  event: Event;
-  onSelect: () => void;
-  onDelete: () => void;
-  canDelete: boolean;
-}) {
-  const now = useNow(10000);
-  const timeZone = useTimezone();
-  const expired = new Date(event.deadline) < now;
+export function EventsPage() {
+  const authz = useAuthz();
+  const canCreate = authz.hasPolicy(Policy.EVENTS_CREATE);
+  const [createOpen, setCreateOpen] = useState(false);
 
   return (
-    <Card
-      className={`group relative cursor-pointer border-border bg-card transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 ${
-        expired ? "opacity-70" : ""
-      }`}
-      onClick={onSelect}
-    >
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="min-w-0 flex-1">
-            <CardTitle className="truncate text-lg">{event.name}</CardTitle>
-            <CardDescription className="mt-1 font-mono text-xs">
-              /{event.slug}
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="default"
-              className={
-                expired
-                  ? "border-destructive bg-destructive/10 text-destructive"
-                  : "border-chart-3 bg-chart-3/10 text-chart-3"
-              }
-            >
-              {expired ? "Expired" : "Active"}
-            </Badge>
-            {canDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground opacity-0 transition-opacity hover:text-destructive hover:bg-destructive/10 group-hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Users className="h-4 w-4 shrink-0" />
-            <span>
-              {event.participants_count}/{event.max_vms} participants
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4 shrink-0" />
-            <span className="truncate">
-              {timeRemaining(event.deadline, now)}
-            </span>
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-border/50 bg-muted/30 p-3">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            VM Spec
+    <div className="h-full p-8">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="mb-2 font-mono text-3xl font-bold tracking-tight text-balance">
+            Events
+          </h1>
+          <p className="max-w-2xl text-muted-foreground">
+            Hand out one identical VM per person through a public link, until
+            the deadline or the last seat.
           </p>
-          <div className="flex flex-wrap gap-3">
-            <div className="flex items-center gap-1.5 text-xs text-foreground">
-              <DistroLogo
-                distribution={
-                  event.vm_distribution || event.vm_os.replace(".qcow2", "")
-                }
-                className="w-5 h-5 rounded-none bg-transparent"
-              />
-              {event.vm_distribution || event.vm_os.replace(".qcow2", "")}
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-foreground">
-              <Cpu className="h-3.5 w-3.5 text-primary" />
-              {event.vm_vcpus} vCPU
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-foreground">
-              <MemoryStick className="h-3.5 w-3.5 text-chart-2" />
-              {event.vm_mem} GB
-            </div>
-            <div className="flex items-center gap-1.5 text-xs text-foreground">
-              <HardDrive className="h-3.5 w-3.5 text-chart-4" />
-              {event.vm_disk_size} GB
-            </div>
-          </div>
         </div>
+        {canCreate && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" />
+            New event
+          </Button>
+        )}
+      </header>
 
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Calendar className="h-3.5 w-3.5" />
-          <span>Deadline: {formatDateTime(event.deadline, timeZone)}</span>
-        </div>
-      </CardContent>
-    </Card>
+      <PolicyGate requiredPolicies={[Policy.EVENTS_GET]} title="Events hidden">
+        <EventsTableContainer
+          onCreate={canCreate ? () => setCreateOpen(true) : undefined}
+        />
+      </PolicyGate>
+
+      <CreateEventDialog open={createOpen} onOpenChange={setCreateOpen} />
+    </div>
   );
 }
 
-export function EventsPage() {
-  const navigate = useNavigate();
-  const authz = useAuthz();
+function EventsTableContainer({ onCreate }: { onCreate?: () => void }) {
   const { data: events, isLoading, isError, error } = useEvents();
-  const deleteEventMutation = useDeleteEvent();
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const deleteEvent = useDeleteEvent();
+  const [toDelete, setToDelete] = useState<Event | null>(null);
 
-  const canCreate = authz.hasPolicy(Policy.EVENTS_CREATE);
-  const canDelete = authz.hasPolicy(Policy.EVENTS_DELETE);
-
-  const handleDelete = () => {
-    if (!deleteConfirmId) return;
-    deleteEventMutation.mutate(deleteConfirmId, {
-      onSuccess: () => setDeleteConfirmId(null),
-    });
-  };
-
-  const eventToDelete = events?.find((e) => e.id === deleteConfirmId);
+  if (isError && isForbiddenError(error)) {
+    return (
+      <PolicyNotice
+        title="Events hidden"
+        missingPolicies={error.missingPolicies}
+      />
+    );
+  }
+  if (isError) {
+    return (
+      <PolicyNotice
+        title="Events unavailable"
+        description={error instanceof Error ? error.message : "Unknown error"}
+        missingPolicies={[]}
+      />
+    );
+  }
 
   return (
-    <PolicyGate requiredPolicies={[Policy.EVENTS_GET]} title="Events Hidden">
-      <div className="space-y-6">
-        {canCreate && (
-          <div className="flex justify-end">
-            <Button onClick={() => setCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Event
+    <>
+      {isLoading || !events ? (
+        <TableSkeleton />
+      ) : (
+        <EventsTable
+          events={events}
+          onCreate={onCreate}
+          onDelete={setToDelete}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!toDelete}
+        onOpenChange={(open) => {
+          if (!open) setToDelete(null);
+        }}
+        title="Delete this event?"
+        description={
+          <>
+            <p>
+              The join link stops working and{" "}
+              {toDelete?.participants_count
+                ? `all ${toDelete.participants_count} participant ${toDelete.participants_count === 1 ? "VM is" : "VMs are"}`
+                : "any participant VMs are"}{" "}
+              stopped and deleted. This cannot be undone.
+            </p>
+            <p className="border border-border bg-background px-3 py-2 font-mono text-xs text-foreground">
+              {toDelete?.name}
+            </p>
+          </>
+        }
+        confirmLabel={
+          <>
+            <Trash2 />
+            Delete event
+          </>
+        }
+        destructive
+        pending={deleteEvent.isPending}
+        onConfirm={() => {
+          if (!toDelete) return;
+          deleteEvent.mutate(toDelete.id, {
+            onSuccess: () => setToDelete(null),
+          });
+        }}
+      />
+    </>
+  );
+}
+
+function EventsTable({
+  events,
+  onCreate,
+  onDelete,
+}: {
+  events: Event[];
+  onCreate?: () => void;
+  onDelete: (event: Event) => void;
+}) {
+  const now = useNow(30_000);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+
+  const counts = useMemo(() => {
+    const c = { all: events.length, active: 0, ended: 0 };
+    for (const e of events) {
+      if (getEventPhase(e, now).phase === "ended") c.ended += 1;
+      else c.active += 1;
+    }
+    return c;
+  }, [events, now]);
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = events.filter((e) => {
+      const ended = getEventPhase(e, now).phase === "ended";
+      if (filter === "active" && ended) return false;
+      if (filter === "ended" && !ended) return false;
+      if (!q) return true;
+      return (
+        e.name.toLowerCase().includes(q) ||
+        e.slug.includes(q) ||
+        e.vm_os.toLowerCase().includes(q) ||
+        e.participants.some((p) => p.participant_name.toLowerCase().includes(q))
+      );
+    });
+    // Running events first, soonest deadline on top; ended ones after, most recent first.
+    return list.sort((a, b) => {
+      const ta = new Date(a.deadline).getTime();
+      const tb = new Date(b.deadline).getTime();
+      const ea = ta <= now.getTime();
+      const eb = tb <= now.getTime();
+      if (ea !== eb) return ea ? 1 : -1;
+      return ea ? tb - ta : ta - tb;
+    });
+  }, [events, query, filter, now]);
+
+  const hasFilters = query !== "" || filter !== "all";
+
+  return (
+    <section aria-label="Events" className="border border-border bg-card">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search events or participants"
+            aria-label="Search events"
+            className="h-8 bg-background pl-9 pr-8 text-sm"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+              className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          )}
+        </div>
+
+        <div
+          role="radiogroup"
+          aria-label="Filter events"
+          className="flex h-8 items-stretch border border-border text-sm"
+        >
+          {(
+            [
+              ["all", "All"],
+              ["active", "Active"],
+              ["ended", "Ended"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={filter === value}
+              onClick={() => setFilter(value)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 transition-colors not-first:border-l not-first:border-border",
+                filter === value
+                  ? "bg-primary/10 text-foreground"
+                  : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+              )}
+            >
+              {label}
+              <span
+                className={cn(
+                  "font-mono text-xs tabular-nums",
+                  filter === value
+                    ? "text-primary"
+                    : "text-muted-foreground/70",
+                )}
+              >
+                {counts[value]}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <span className="ml-auto text-sm tabular-nums text-muted-foreground">
+          {hasFilters
+            ? `${rows.length} of ${events.length}`
+            : `${events.length} ${events.length === 1 ? "event" : "events"}`}
+        </span>
+      </div>
+
+      {events.length === 0 ? (
+        <EmptyState
+          icon={<CalendarClock className="size-6" />}
+          title="No events yet"
+          description="An event gives everyone who opens its link their own VM, built from the same image and size, until the deadline."
+          action={
+            onCreate ? (
+              <Button size="sm" onClick={onCreate}>
+                <Plus className="size-4" />
+                New event
+              </Button>
+            ) : null
+          }
+        />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          icon={<SearchX className="size-6" />}
+          title="No events match"
+          description={
+            query
+              ? `Nothing matches “${query}” with the current filter.`
+              : "Nothing matches the current filter."
+          }
+          action={
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setQuery("");
+                setFilter("all");
+              }}
+            >
+              Clear filters
             </Button>
-          </div>
-        )}
-
-        {isLoading && (
-          <div className="flex h-64 items-center justify-center text-muted-foreground">
-            <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            Loading events...
-          </div>
-        )}
-
-        {isError && (
-          <div className="flex h-64 items-center justify-center text-destructive">
-            Failed to load events: {error?.message ?? "Unknown error"}
-          </div>
-        )}
-
-        {events && events.length === 0 && (
-          <div className="flex h-64 flex-col items-center justify-center gap-3 text-muted-foreground">
-            <Calendar className="h-12 w-12" />
-            <p className="text-lg">No events yet</p>
-            {canCreate && (
-              <p className="text-sm">
-                Create your first event to start distributing VMs.
-              </p>
-            )}
-          </div>
-        )}
-
-        {events && events.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-            {events.map((event) => (
-              <EventCard
+          }
+        />
+      ) : (
+        <table className="w-full table-fixed border-collapse text-sm">
+          <colgroup>
+            <col />
+            <col className="w-[8.5rem]" />
+            <col className="w-[13rem]" />
+            <col className="w-[8rem]" />
+            <col className="w-[11rem]" />
+            <col className="hidden w-[14rem] 2xl:table-column" />
+            <col className="w-[5rem]" />
+          </colgroup>
+          <thead className="bg-card shadow-[inset_0_-1px_0_0_var(--border)]">
+            <tr className="h-10 text-left text-xs font-medium text-muted-foreground">
+              <th scope="col" className="pl-5 pr-3 font-medium">
+                Event
+              </th>
+              <th scope="col" className="px-3 font-medium">
+                Status
+              </th>
+              <th scope="col" className="px-3 font-medium">
+                Machine
+              </th>
+              <th scope="col" className="px-3 font-medium">
+                Seats
+              </th>
+              <th scope="col" className="px-3 font-medium">
+                Deadline
+              </th>
+              <th
+                scope="col"
+                className="hidden px-3 font-medium 2xl:table-cell"
+              >
+                Join link
+              </th>
+              <th scope="col" className="pr-3">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((event) => (
+              <EventRow
                 key={event.id}
                 event={event}
-                onSelect={() => navigate(`/dashboard/events/${event.id}`)}
-                onDelete={() => setDeleteConfirmId(event.id)}
-                canDelete={canDelete}
+                now={now}
+                onDelete={() => onDelete(event)}
               />
             ))}
-          </div>
-        )}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
 
-        <CreateEventDialog
-          open={createDialogOpen}
-          onOpenChange={setCreateDialogOpen}
-        />
+function EventRow({
+  event,
+  now,
+  onDelete,
+}: {
+  event: Event;
+  now: Date;
+  onDelete: () => void;
+}) {
+  const navigate = useNavigate();
+  const timeZone = useTimezone();
+  const ui = getEventPhase(event, now);
+  const ended = ui.phase === "ended";
+  const url = eventShareUrl(event.slug);
+  const href = `/dashboard/events/${event.id}`;
 
-        <Dialog
-          open={!!deleteConfirmId}
-          onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+  const handleRowClick = (e: React.MouseEvent<HTMLTableRowElement>) => {
+    const target = e.target as HTMLElement;
+    if (
+      target.closest(
+        '[data-no-row-click="true"], button, a, input, [role="menu"]',
+      )
+    ) {
+      return;
+    }
+    navigate(href);
+  };
+
+  return (
+    <tr
+      tabIndex={0}
+      onClick={handleRowClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && e.target === e.currentTarget) navigate(href);
+      }}
+      className="group/row h-[60px] cursor-pointer border-b border-border/70 transition-colors last:border-b-0 hover:bg-secondary/55 focus-visible:bg-secondary/55 focus-visible:outline-none"
+    >
+      <td className="pl-5 pr-3">
+        <Link
+          to={href}
+          className={cn(
+            "block truncate font-mono text-[13.5px] font-medium hover:text-primary",
+            ended ? "text-foreground/70" : "text-foreground",
+          )}
+          title={event.name}
         >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete Event</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to delete{" "}
-                <strong>{eventToDelete?.name}</strong>? This will stop and
-                remove all VMs associated with this event. This action cannot be
-                undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setDeleteConfirmId(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={deleteEventMutation.isPending}
-              >
-                {deleteEventMutation.isPending ? "Deleting..." : "Delete Event"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          {event.name}
+        </Link>
+        <span className="block truncate text-xs text-muted-foreground">
+          by {event.created_by}
+        </span>
+      </td>
+      <td className="px-3">
+        <EventStatus ui={ui} />
+      </td>
+      <td className={cn("px-3", ended && "opacity-70")}>
+        <EventMachine
+          image={event.vm_os}
+          vcpus={event.vm_vcpus}
+          mem={event.vm_mem}
+          disk={event.vm_disk_size}
+        />
+      </td>
+      <td className="px-3">
+        <SeatMeter
+          used={event.participants_count}
+          total={event.max_vms}
+          dimmed={ended}
+          className="max-w-[6.5rem]"
+        />
+      </td>
+      <td className="px-3">
+        <span
+          className={cn(
+            "block font-mono text-[13px] tabular-nums",
+            ended
+              ? "text-muted-foreground"
+              : ui.phase === "closing"
+                ? "text-warning"
+                : "text-foreground",
+          )}
+        >
+          {ended ? "ended " : "closes "}
+          {deadlineText(event.deadline, now)}
+        </span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {formatDateTime(event.deadline, timeZone)}
+        </span>
+      </td>
+      <td className="hidden px-3 2xl:table-cell">
+        {ended ? (
+          <span className="font-mono text-[13px] text-muted-foreground/60 line-through decoration-muted-foreground/40">
+            /events/{event.slug}
+          </span>
+        ) : (
+          <CopyText
+            value={url}
+            display={`/events/${event.slug}`}
+            label="join link"
+            className="text-[13px]"
+          />
+        )}
+      </td>
+      <td className="pr-3">
+        <div className="flex items-center justify-end gap-1">
+          <EventRowMenu
+            event={event}
+            url={url}
+            ended={ended}
+            onDelete={onDelete}
+          />
+          <ChevronRight className="size-4 text-muted-foreground/50 transition-colors group-hover/row:text-muted-foreground" />
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function EventRowMenu({
+  event,
+  url,
+  ended,
+  onDelete,
+}: {
+  event: Event;
+  url: string;
+  ended: boolean;
+  onDelete: () => void;
+}) {
+  const navigate = useNavigate();
+  const authz = useAuthz();
+  const canUpdate = authz.hasPolicy(Policy.EVENTS_UPDATE);
+  const canDelete = authz.hasPolicy(Policy.EVENTS_DELETE);
+  const href = `/dashboard/events/${event.id}`;
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Actions for ${event.name}`}
+          data-no-row-click="true"
+          className="text-muted-foreground hover:text-foreground data-[state=open]:bg-secondary data-[state=open]:text-foreground"
+        >
+          <MoreHorizontal className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-56 border-border bg-popover p-1"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <DropdownMenuItem
+          onSelect={() => copyToClipboard(url, "Join link copied")}
+        >
+          <Copy className="size-4" />
+          Copy join link
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => window.open(url, "_blank", "noopener")}
+        >
+          <ExternalLink className="size-4" />
+          Open join page
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={ended}
+          onSelect={() => navigate(`${href}?present=1`)}
+        >
+          <Presentation className="size-4" />
+          Present link
+        </DropdownMenuItem>
+        {canUpdate && (
+          <DropdownMenuItem onSelect={() => navigate(`${href}?edit=1`)}>
+            <Pencil className="size-4" />
+            Edit event
+          </DropdownMenuItem>
+        )}
+        {canDelete && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+              <Trash2 className="size-4 text-destructive" />
+              Delete event
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div
+      className="border border-border bg-card"
+      aria-busy="true"
+      aria-label="Loading events"
+    >
+      <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+        <div className="h-8 w-72 animate-pulse bg-secondary" />
+        <div className="h-8 w-56 animate-pulse bg-secondary" />
       </div>
-    </PolicyGate>
+      <div className="divide-y divide-border/70">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex h-[60px] items-center gap-8 px-5">
+            <div className="h-3.5 w-48 animate-pulse bg-secondary" />
+            <div className="h-3.5 w-20 animate-pulse bg-secondary" />
+            <div className="h-3.5 w-40 animate-pulse bg-secondary" />
+            <div className="h-3.5 w-24 animate-pulse bg-secondary" />
+            <div className="h-3.5 w-32 animate-pulse bg-secondary" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

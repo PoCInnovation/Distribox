@@ -1,57 +1,79 @@
+import type { ComponentProps } from "react";
+import { XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { InfoIcon, XIcon } from "lucide-react";
-import { getPolicyColor } from "~/lib/get-policy-color";
+import { policyTone } from "@/lib/policy-groups";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+interface PolicyChipProps extends ComponentProps<"span"> {
+  policy: string;
+  onRemove?: () => void;
+}
+
+/** A policy label, coloured by its group, with the resource prefix dimmed. */
+export function PolicyChip({
+  policy,
+  onRemove,
+  className,
+  ...props
+}: PolicyChipProps) {
+  const tone = policyTone(policy);
+  const split = policy.indexOf(":") + 1;
+
+  return (
+    <span
+      {...props}
+      className={cn(
+        "inline-flex h-7 max-w-full items-center gap-1 border px-2 font-mono text-xs whitespace-nowrap transition-colors",
+        tone.chip,
+        className,
+      )}
+    >
+      <span className="truncate">
+        <span className="opacity-55">{policy.slice(0, split)}</span>
+        {policy.slice(split)}
+      </span>
+      {onRemove && (
+        <button
+          type="button"
+          aria-label={`Remove ${policy}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="-mr-1 grid size-5 shrink-0 cursor-pointer place-items-center opacity-55 transition-opacity hover:opacity-100"
+        >
+          <XIcon className="size-3.5" />
+        </button>
+      )}
+    </span>
+  );
+}
+
 interface PolicyBadgeProps {
   policy: string;
   description: string;
   onRemove?: () => void;
-  removable?: boolean;
 }
 
 export function PolicyBadge({
   policy,
   description,
   onRemove,
-  removable = false,
 }: PolicyBadgeProps) {
-  const colors = getPolicyColor(policy);
-
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div
-          className={cn(
-            "inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-2 rounded-sm shadow-sm transition-all",
-            colors.bg,
-            colors.border,
-            colors.hover,
-            colors.text,
-          )}
-        >
-          <span>{policy}</span>
-          {removable && onRemove && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove();
-              }}
-              className="ml-1 hover:opacity-70 transition-opacity font-bold text-base leading-none"
-            >
-              <XIcon className="h-4 w-4 cursor-pointer" />
-            </button>
-          )}
-        </div>
+        <PolicyChip
+          policy={policy}
+          onRemove={onRemove}
+          className={policyTone(policy).hover}
+        />
       </TooltipTrigger>
-      <TooltipContent className="flex flex-row space-x-2">
-        <InfoIcon className="h-4 w-4 text-muted-foreground" />
-        <p>{description}</p>
-      </TooltipContent>
+      {description && <TooltipContent>{description}</TooltipContent>}
     </Tooltip>
   );
 }

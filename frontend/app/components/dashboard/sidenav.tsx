@@ -125,15 +125,15 @@ export function DashboardSidenav() {
           to={item.href}
           aria-current={isActive ? "page" : undefined}
           className={cn(
-            "group relative flex h-12 items-center gap-3 rounded-xl border px-3 text-sm font-medium transition-[padding,background-color,border-color,color] duration-200 ease-out",
+            "group relative flex h-11 items-center gap-3 px-3 text-sm font-medium transition-[padding,background-color,color] duration-200 ease-out",
             isActive
-              ? "border-sidebar-primary/50 bg-sidebar-primary/15 text-sidebar-primary"
-              : "border-transparent text-sidebar-foreground/75 hover:border-sidebar-border hover:bg-sidebar-accent/65 hover:text-sidebar-foreground",
+              ? "bg-sidebar-primary/10 text-sidebar-foreground"
+              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
             collapsed ? "w-full justify-center gap-0 px-0" : "",
           )}
         >
-          {!collapsed && isActive && (
-            <span className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
+          {isActive && (
+            <span className="absolute inset-y-0 left-0 w-0.5 bg-sidebar-primary" />
           )}
           <Icon
             className={cn(
@@ -236,13 +236,16 @@ export function DashboardSidenav() {
               <Link
                 to="/dashboard/settings"
                 className={cn(
-                  "flex h-12 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium transition-[padding,background-color,color] duration-200 ease-out",
+                  "relative flex h-11 w-full items-center gap-3 px-3 text-sm font-medium transition-[padding,background-color,color] duration-200 ease-out",
                   pathname === "/dashboard/settings"
-                    ? "bg-sidebar-primary/15 text-sidebar-primary"
-                    : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                    ? "bg-sidebar-primary/10 text-sidebar-foreground [&>svg]:text-sidebar-primary"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                   collapsed ? "justify-center gap-0 px-0" : "",
                 )}
               >
+                {pathname === "/dashboard/settings" && (
+                  <span className="absolute inset-y-0 left-0 w-0.5 bg-sidebar-primary" />
+                )}
                 <Settings className="h-4 w-4 shrink-0" />
                 <span
                   className={cn(
@@ -278,7 +281,7 @@ export function DashboardSidenav() {
                     role="button"
                     tabIndex={0}
                     className={cn(
-                      "flex h-12 w-full cursor-pointer items-center gap-3 rounded-lg px-3 text-sm font-medium text-sidebar-foreground/75 transition-[padding,background-color,color] duration-200 ease-out hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                      "flex h-11 w-full cursor-pointer items-center gap-3 px-3 text-sm font-medium text-sidebar-foreground/70 transition-[padding,background-color,color] duration-200 ease-out hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                       collapsed ? "justify-center gap-0 px-0" : "",
                     )}
                     aria-label="Open user menu"

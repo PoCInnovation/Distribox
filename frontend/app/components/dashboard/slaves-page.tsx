@@ -1,598 +1,384 @@
-import { useState } from "react";
-import {
-  Server,
-  Plus,
-  Trash2,
-  Cpu,
-  MemoryStick,
-  HardDrive,
-  Clock,
-  TriangleAlert,
-  Info,
-  BookOpen,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { BookOpen, Plus, Server } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { SecretField } from "@/components/ui/secret-field";
-import { useSlaves } from "@/hooks/useSlaves";
+import { PolicyNotice } from "@/components/policy/policy-notice";
 import { useAuthz } from "@/contexts/authz-context";
+import { useSlaves } from "@/hooks/useSlaves";
+import { useClusterHostInfo } from "@/hooks/useHostInfo";
+import { useTimezone } from "@/hooks/useTimezone";
+import { getVMs } from "@/lib/api";
 import { Policy } from "@/lib/types";
-import { PolicyGate } from "@/components/policy/policy-gate";
-import type { Slave } from "@/lib/types/slave";
-import { toast } from "sonner";
+import { VMState } from "@/lib/types/vm-state";
+import { cn } from "@/lib/utils";
+import { CapacityBar } from "./nodes/capacity-bar";
+import { DeleteNodeDialog } from "./nodes/delete-node-dialog";
+import {
+  buildClusterNodes,
+  formatGb,
+  type Capacity,
+  type ClusterNode,
+} from "./nodes/node-model";
+import { NODE_GRID, NodeRow } from "./nodes/node-row";
+import { RegisterNodeDialog } from "./nodes/register-node-dialog";
+import { SlaveSetupGuide } from "./nodes/setup-guide";
 
-function SlaveSetupTutorial() {
-  return (
-    <ol className="space-y-6 text-sm">
-      <li className="space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-            1
-          </span>
-          <span className="font-medium">Register the slave on this master</span>
-        </div>
-        <p className="ml-8 text-muted-foreground">
-          Click <strong>Register Slave</strong> above and enter a name, the
-          hostname or IP of the remote machine, and its API port. An API key
-          will be generated. Copy it, you will need it next.
-        </p>
-      </li>
-
-      <li className="space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-            2
-          </span>
-          <span className="font-medium">Configure the slave machine</span>
-        </div>
-        <p className="ml-8 text-muted-foreground">
-          On the remote machine, clone Distribox and set the following
-          environment variables in your <code>.env</code> file:
-        </p>
-        <pre className="ml-8 overflow-x-auto rounded-md bg-muted px-4 py-3 font-mono text-xs leading-relaxed">
-          {`DISTRIBOX_MODE=slave
-MASTER_URL=http://<master-ip>:8080
-SLAVE_API_KEY=<key-from-step-1>
-SLAVE_PORT=8081`}
-        </pre>
-        <div className="ml-8 flex items-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-foreground">
-          <TriangleAlert className="h-4 w-4 shrink-0 text-accent" />
-          <span>
-            The <code>MASTER_URL</code> needs to be reachable by the slave and
-            point to the Distribox backend.
-          </span>
-        </div>
-      </li>
-
-      <li className="space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-            3
-          </span>
-          <span className="font-medium">Run the setup script</span>
-        </div>
-        <p className="ml-8 text-muted-foreground">
-          At the root of the Distribox repository, run the setup. This will
-          install the necessary dependencies, create the necessary user groups,
-          add them to your user and create the necessary files on your host.
-          Make sure that you are not running this as root, but rather the user
-          that is going to run Distribox.
-        </p>
-        <div className="ml-8 flex items-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-foreground">
-          <TriangleAlert className="h-4 w-4 shrink-0 text-accent" />
-          <span>
-            Make sure that you are not running this as root, but rather the user
-            that is going to run Distribox.
-          </span>
-        </div>
-        <pre className="ml-8 overflow-x-auto rounded-md bg-muted px-4 py-3 font-mono text-xs">
-          ./setup.sh
-        </pre>
-        <div className="ml-8 flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-foreground">
-          <Info className="h-4 w-4 shrink-0 text-primary" />
-          <span>The setup script will ask for your password if necessary.</span>
-        </div>
-        <p className="ml-8 text-muted-foreground">
-          If your system is not supported, we are probably working on it, but
-          please open an issue on{" "}
-          <a
-            href="https://github.com/PoCInnovation/Distribox/issues/new"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline text-primary"
-          >
-            GitHub
-          </a>{" "}
-          so we can help you.
-        </p>
-      </li>
-
-      <li className="space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-            4
-          </span>
-          <span className="font-medium">Apply user group changes</span>
-        </div>
-        <p className="ml-8 text-muted-foreground">
-          If you are using a macOS system,{" "}
-          <span className="font-bold text-accent">
-            close your current terminal session
-          </span>{" "}
-          and open a new one, this will be enough to apply the new user groups.
-        </p>
-        <p className="ml-8 text-muted-foreground">
-          If you are using Linux, you will need to{" "}
-          <span className="font-bold text-accent">log out and log back in</span>{" "}
-          to apply the changes.
-        </p>
-        <p className="ml-8 text-muted-foreground">
-          Alternatively, you can run the following command to apply the changes{" "}
-          <span className="font-bold">in your current session only.</span>
-        </p>
-        <pre className="ml-8 overflow-x-auto rounded-md bg-muted px-4 py-3 font-mono text-xs">
-          newgrp distribox libvirt
-        </pre>
-      </li>
-
-      <li className="space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-            5
-          </span>
-          <span className="font-medium">Start the slave</span>
-        </div>
-        <p className="ml-8 text-muted-foreground">
-          Start Distribox in slave mode using Docker Compose:
-        </p>
-        <pre className="ml-8 overflow-x-auto rounded-md bg-muted px-4 py-3 font-mono text-xs">
-          docker compose --profile slave up -d
-        </pre>
-        <p className="ml-8 text-muted-foreground">
-          The slave will send a heartbeat every 30 seconds. Once received, the
-          slave will appear here as{" "}
-          <Badge variant="default" className="bg-chart-3">
-            online
-          </Badge>{" "}
-          and you can start creating VMs on it. Good to go!
-        </p>
-      </li>
-
-      <li className="space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-            6
-          </span>
-          <span className="font-medium">Stopping the slave</span>
-        </div>
-        <p className="ml-8 text-muted-foreground">
-          We recommend that you always stop the slave gracefully with the
-          following command in order to avoid ghost VMs.
-        </p>
-        <pre className="ml-8 overflow-x-auto rounded-md bg-muted px-4 py-3 font-mono text-xs">
-          docker compose --profile slave down
-        </pre>
-      </li>
-    </ol>
-  );
-}
-
-function SlaveStatusBadge({ status }: { status: string }) {
-  const variant =
-    status === "online"
-      ? "default"
-      : status === "maintenance"
-        ? "secondary"
-        : "destructive";
-  const className = status === "online" ? "bg-chart-3" : undefined;
-
-  return (
-    <Badge variant={variant} className={className}>
-      {status}
-    </Badge>
-  );
-}
-
-function formatRelativeTime(dateString: string): string {
-  const now = Date.now();
-  const then = new Date(dateString).getTime();
-  const diffMs = now - then;
-
-  if (diffMs < 0) return "just now";
-
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return "just now";
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-
-  const months = Math.floor(days / 30);
-  return `${months}mo ago`;
-}
-
-function ResourceBar({
-  icon: Icon,
-  label,
-  total,
-  availablePercent,
-  unit,
-  online,
-  iconColor,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  total: number;
-  availablePercent: number;
-  unit: string;
-  online: boolean;
-  iconColor: string;
-}) {
-  const usedPercent = 100 - availablePercent;
-
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-xs">
-        <div className={`flex items-center gap-1.5 ${iconColor}`}>
-          <Icon className="h-3.5 w-3.5" />
-          <span className="font-medium text-foreground">
-            {label}{" "}
-            <span className="font-normal text-muted-foreground">
-              ({total} {unit})
-            </span>
-          </span>
-        </div>
-        {online && (
-          <span className="font-mono text-muted-foreground">
-            {usedPercent.toFixed(0)}%
-          </span>
-        )}
-      </div>
-      {online && <Progress value={usedPercent} className="h-1.5" />}
-    </div>
-  );
-}
-
-function SlaveCard({
-  slave,
-  onDelete,
-  canDelete,
-}: {
-  slave: Slave;
-  onDelete: () => void;
-  canDelete: boolean;
-}) {
-  const isOnline = slave.status === "online";
-
-  return (
-    <Card className="relative border-border bg-card transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Server className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-lg">{slave.name}</CardTitle>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <SlaveStatusBadge status={slave.status} />
-            {canDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                onClick={onDelete}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Address */}
-        <div className="space-y-1">
-          <span className="text-xs font-medium text-muted-foreground">
-            Address
-          </span>
-          <SecretField
-            value={`${slave.hostname}:${slave.port}`}
-            placeholder="•••.•••.•••.•••:••••"
-            toastMessage="Address copied to clipboard"
-          />
-        </div>
-
-        {/* Resources */}
-        <div className="space-y-3">
-          <ResourceBar
-            icon={Cpu}
-            label="CPU"
-            total={slave.total_cpu}
-            availablePercent={slave.available_cpu}
-            unit="vCPUs"
-            online={isOnline}
-            iconColor="text-primary"
-          />
-          <ResourceBar
-            icon={MemoryStick}
-            label="Memory"
-            total={slave.total_mem}
-            availablePercent={slave.available_mem}
-            unit="GB"
-            online={isOnline}
-            iconColor="text-chart-2"
-          />
-          <ResourceBar
-            icon={HardDrive}
-            label="Disk"
-            total={slave.total_disk}
-            availablePercent={slave.available_disk}
-            unit="GB"
-            online={isOnline}
-            iconColor="text-chart-4"
-          />
-        </div>
-
-        {/* API Key */}
-        <div className="space-y-1">
-          <span className="text-xs font-medium text-muted-foreground">
-            API Key
-          </span>
-          <SecretField
-            value={slave.api_key}
-            toastMessage="API key copied to clipboard"
-          />
-        </div>
-
-        {/* Timestamps */}
-        <div className="flex flex-col gap-1 border-t border-border pt-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="h-3.5 w-3.5" />
-            <span title={new Date(slave.created_at).toLocaleString()}>
-              Registered {formatRelativeTime(slave.created_at)}
-            </span>
-          </div>
-          {slave.last_heartbeat && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
-              <span title={new Date(slave.last_heartbeat).toLocaleString()}>
-                Last heartbeat {formatRelativeTime(slave.last_heartbeat)}
-              </span>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+function useNow(intervalMs = 10_000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), intervalMs);
+    return () => window.clearInterval(id);
+  }, [intervalMs]);
+  return now;
 }
 
 export function SlavesPage() {
+  const authz = useAuthz();
+  const canCreate = authz.hasPolicy(Policy.SLAVES_CREATE);
+  const canDelete = authz.hasPolicy(Policy.SLAVES_DELETE);
+  const canReadHost = authz.hasPolicy(Policy.HOST_GET);
+  const canReadVms = authz.hasPolicy(Policy.VMS_GET);
+
   const {
     slaves,
     isLoading,
+    forbidden,
+    error,
     createSlave,
     isCreating,
     deleteSlave,
     isDeleting,
   } = useSlaves();
-  const authz = useAuthz();
-  const canCreate = authz.hasPolicy(Policy.SLAVES_CREATE);
-  const canDelete = authz.hasPolicy(Policy.SLAVES_DELETE);
+  const cluster = useClusterHostInfo(canReadHost && !forbidden, 10_000);
+  const vmsQuery = useQuery({
+    queryKey: ["vms"],
+    queryFn: getVMs,
+    enabled: canReadVms && !forbidden,
+    retry: false,
+    refetchInterval: 15_000,
+  });
+  const timezone = useTimezone();
+  const now = useNow();
 
-  const [createOpen, setCreateOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Slave | null>(null);
-  const [tutorialOpen, setTutorialOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", hostname: "", port: "8081" });
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ClusterNode | null>(null);
 
-  const handleCreate = async () => {
-    try {
-      const result = await createSlave({
-        name: form.name,
-        hostname: form.hostname,
-        port: parseInt(form.port, 10),
-      });
-      toast.success(
-        `Slave "${result.name}" registered. API key has been generated.`,
-      );
-      setCreateOpen(false);
-      setForm({ name: "", hostname: "", port: "8081" });
-    } catch {
-      toast.error("Failed to register slave");
-    }
-  };
+  const nodes = useMemo(
+    () =>
+      buildClusterNodes({
+        slaves,
+        cluster: cluster.data,
+        vms: vmsQuery.data,
+      }),
+    [slaves, cluster.data, vmsQuery.data],
+  );
 
   const handleDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      await deleteSlave(deleteTarget.id);
-      toast.success(`Slave "${deleteTarget.name}" unregistered`);
-      setDeleteTarget(null);
-    } catch {
-      toast.error("Failed to unregister slave");
-    }
+    if (!deleteTarget?.id) return;
+    await deleteSlave(deleteTarget.id);
+    toast.success(`${deleteTarget.name} unregistered`);
+    setExpanded(null);
+    setDeleteTarget(null);
   };
 
-  if (isLoading) {
+  if (forbidden) {
     return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground">
-        Loading slaves...
-      </div>
+      <PolicyNotice
+        title="Slaves are hidden"
+        description="Listing slaves needs a policy your account does not have."
+        missingPolicies={forbidden.missingPolicies}
+      />
     );
   }
 
   return (
     <div className="space-y-6">
-      <PolicyGate requiredPolicies={[Policy.SLAVES_CREATE]}>
-        <div className="flex justify-end gap-2">
-          {slaves.length > 0 && (
-            <Button variant="outline" onClick={() => setTutorialOpen(true)}>
-              <BookOpen className="mr-2 h-4 w-4" />
-              Setup Guide
-            </Button>
-          )}
-          <Button onClick={() => setCreateOpen(true)} disabled={!canCreate}>
-            <Plus className="mr-2 h-4 w-4" />
-            Register Slave
-          </Button>
-        </div>
-      </PolicyGate>
+      <ClusterSummary
+        nodes={nodes}
+        isLoading={isLoading}
+        vms={vmsQuery.data}
+        onRegister={canCreate ? () => setRegisterOpen(true) : undefined}
+        onGuide={() => setGuideOpen(true)}
+        showActions={isLoading || slaves.length > 0}
+      />
 
-      {slaves.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-10">
-            <div className="mx-auto max-w-2xl space-y-8">
-              <div className="flex flex-col items-center text-center">
-                <Server className="mb-4 h-12 w-12 text-muted-foreground/50" />
-                <p className="mb-1 text-lg font-medium">No slaves registered</p>
-                <p className="text-sm text-muted-foreground">
-                  Slave nodes let you distribute VMs across multiple machines.
-                  Follow the steps below to get started.
-                </p>
-              </div>
-              <SlaveSetupTutorial />
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {slaves.map((slave) => (
-            <SlaveCard
-              key={slave.id}
-              slave={slave}
-              onDelete={() => setDeleteTarget(slave)}
-              canDelete={canDelete}
-            />
-          ))}
+      {error && !forbidden && (
+        <div className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
+          <span className="text-destructive">
+            Could not load the slave list.
+          </span>{" "}
+          <span className="text-muted-foreground">
+            {error.message}. Retrying every 10 s.
+          </span>
         </div>
       )}
 
-      {/* Create Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Register Slave Node</DialogTitle>
-            <DialogDescription>
-              Add a new slave node to your Distribox cluster. The slave must be
-              running Distribox in slave mode and reachable at the given
-              address.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="slave-name">Name</Label>
-              <Input
-                id="slave-name"
-                placeholder="e.g. gpu-node-1"
-                value={form.name}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, name: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="slave-hostname">Hostname / IP</Label>
-              <Input
-                id="slave-hostname"
-                placeholder="e.g. 192.168.1.100"
-                value={form.hostname}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, hostname: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="slave-port">Port</Label>
-              <Input
-                id="slave-port"
-                type="number"
-                placeholder="8081"
-                value={form.port}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, port: e.target.value }))
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={!form.name || !form.hostname || isCreating}
-            >
-              {isCreating ? "Registering..." : "Register"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <section aria-label="Slaves" className="border border-border">
+        <div
+          className={cn(
+            NODE_GRID,
+            "border-b border-border bg-background/60 px-5 py-2 text-[11px] text-muted-foreground",
+          )}
+        >
+          <span className="pl-[3px]">Name</span>
+          <span>Address</span>
+          <span>vCPU used</span>
+          <span>Memory used</span>
+          <span>Disk used</span>
+          <span className="text-right">VMs</span>
+          <span />
+        </div>
+        <ul>
+          {isLoading ? (
+            <SkeletonRows />
+          ) : (
+            nodes.map((node) => {
+              const key = node.id ?? "master";
+              return (
+                <NodeRow
+                  key={key}
+                  node={node}
+                  expanded={expanded === key}
+                  onToggle={() => setExpanded((e) => (e === key ? null : key))}
+                  canDelete={canDelete}
+                  onDelete={() => setDeleteTarget(node)}
+                  timezone={timezone}
+                  now={now}
+                />
+              );
+            })
+          )}
+        </ul>
+        {!isLoading && slaves.length === 0 && (
+          <EmptySlaves
+            onRegister={canCreate ? () => setRegisterOpen(true) : undefined}
+          />
+        )}
+      </section>
 
-      {/* Delete Confirmation */}
-      <Dialog
-        open={!!deleteTarget}
+      <RegisterNodeDialog
+        open={registerOpen}
+        onOpenChange={setRegisterOpen}
+        onRegister={createSlave}
+        isRegistering={isCreating}
+        existingNames={nodes.map((n) => n.name)}
+        onOpenGuide={() => setGuideOpen(true)}
+      />
+
+      <DeleteNodeDialog
+        node={deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Unregister Slave</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to unregister{" "}
-              <strong>{deleteTarget?.name}</strong>? VMs running on this slave
-              will become unreachable from the master.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? "Unregistering..." : "Unregister"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onConfirm={handleDelete}
+        isDeleting={isDeleting}
+      />
 
-      {/* Setup Guide */}
-      <Dialog open={tutorialOpen} onOpenChange={setTutorialOpen}>
-        <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
+      <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Slave Setup Guide</DialogTitle>
             <DialogDescription>
               Follow these steps to set up a new slave node.
             </DialogDescription>
           </DialogHeader>
-          <SlaveSetupTutorial />
+          <div className="mt-2">
+            <SlaveSetupGuide />
+          </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function sumCapacity(
+  nodes: ClusterNode[],
+  pick: (n: ClusterNode) => Capacity | null,
+) {
+  let total = 0;
+  let used = 0;
+  let any = false;
+  for (const node of nodes) {
+    if (node.status !== "online") continue;
+    const c = pick(node);
+    if (!c) continue;
+    any = true;
+    total += c.total;
+    used += c.used;
+  }
+  return any
+    ? { total, used, percent: total ? (used / total) * 100 : 0, live: true }
+    : null;
+}
+
+function ClusterSummary({
+  nodes,
+  isLoading,
+  vms,
+  onRegister,
+  onGuide,
+  showActions,
+}: {
+  nodes: ClusterNode[];
+  isLoading: boolean;
+  vms: { state: string }[] | undefined;
+  onRegister?: () => void;
+  onGuide: () => void;
+  /** Hidden when the empty state below carries the same actions. */
+  showActions: boolean;
+}) {
+  const online = nodes.filter((n) => n.status === "online").length;
+  // Summed from the rows below so the strip always agrees with the list.
+  const cpu = sumCapacity(nodes, (n) => n.cpu);
+  const mem = sumCapacity(nodes, (n) => n.mem);
+  const disk = sumCapacity(nodes, (n) => n.disk);
+  const running = vms?.filter((vm) => vm.state === VMState.RUNNING).length ?? 0;
+
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-stretch divide-x divide-border border border-border bg-card">
+        <Stat label="Hosts">
+          <span className="flex items-center gap-2">
+            <span className="flex items-center gap-1" aria-hidden>
+              {nodes.map((n) => (
+                <span
+                  key={n.id ?? "master"}
+                  className={cn(
+                    "h-2 w-2",
+                    n.status === "online" && "bg-success",
+                    n.status === "offline" && "bg-destructive",
+                    n.status === "maintenance" && "bg-warning",
+                  )}
+                />
+              ))}
+            </span>
+            <span className="font-mono tabular-nums">
+              {isLoading ? "…" : `${online} / ${nodes.length}`}
+            </span>
+            <span className="text-xs text-muted-foreground">online</span>
+          </span>
+        </Stat>
+        <Stat label="vCPU in use" className="w-40">
+          <CapacityBar
+            label=""
+            ariaLabel="vCPU"
+            capacity={cpu}
+            format={(n) => `${Math.round(n)}`}
+          />
+        </Stat>
+        <Stat label="Memory in use" className="w-44">
+          <CapacityBar
+            label=""
+            ariaLabel="Memory"
+            capacity={mem}
+            format={formatGb}
+          />
+        </Stat>
+        <Stat label="Disk in use" className="w-44">
+          <CapacityBar
+            label=""
+            ariaLabel="Disk"
+            capacity={disk}
+            format={formatGb}
+          />
+        </Stat>
+        <Stat label="VMs">
+          {vms ? (
+            <span className="font-mono tabular-nums">
+              {vms.length}
+              <span className="text-xs text-muted-foreground">
+                {" "}
+                · {running} running
+              </span>
+            </span>
+          ) : (
+            <span className="font-mono text-muted-foreground/60">—</span>
+          )}
+        </Stat>
+      </div>
+      {showActions && (
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onGuide}>
+            <BookOpen className="h-4 w-4" />
+            Setup guide
+          </Button>
+          {onRegister && (
+            <Button onClick={onRegister}>
+              <Plus className="h-4 w-4" />
+              Register slave
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 flex-col justify-between gap-1.5 px-4 py-2.5",
+        className,
+      )}
+    >
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <div className="text-sm">{children}</div>
+    </div>
+  );
+}
+
+function SkeletonRows() {
+  return (
+    <>
+      {[0, 1, 2].map((i) => (
+        <li
+          key={i}
+          className="border-b border-border border-l-[3px] border-l-border px-5 py-4"
+        >
+          <div className="h-10 animate-pulse bg-secondary/40" />
+        </li>
+      ))}
+    </>
+  );
+}
+
+function EmptySlaves({ onRegister }: { onRegister?: () => void }) {
+  return (
+    <div className="border-t border-border px-5 py-10">
+      <div className="mx-auto max-w-2xl space-y-8">
+        <div className="flex flex-col items-center text-center">
+          <Server className="mb-4 h-12 w-12 text-muted-foreground/50" />
+          <p className="mb-1 text-lg font-medium">No slaves registered</p>
+          <p className="text-sm text-muted-foreground">
+            Slave nodes let you distribute VMs across multiple machines. Follow
+            the steps below to get started.
+          </p>
+          {onRegister && (
+            <Button className="mt-5" onClick={onRegister}>
+              <Plus className="h-4 w-4" />
+              Register slave
+            </Button>
+          )}
+        </div>
+        <SlaveSetupGuide />
+      </div>
     </div>
   );
 }

@@ -1,13 +1,12 @@
-import { cn } from "@/lib/utils";
 import { useDraggable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
-import { getPolicyColor } from "~/lib/get-policy-color";
+import { cn } from "@/lib/utils";
+import { policyTone } from "@/lib/policy-groups";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { InfoIcon } from "lucide-react";
+import { PolicyChip } from "./policy-badge";
 
 interface DraggablePolicyBadgeProps {
   policy: string;
@@ -18,48 +17,28 @@ export function DraggablePolicyBadge({
   policy,
   description,
 }: DraggablePolicyBadgeProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: `policy-${policy}`,
-      data: { policy, description },
-    });
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  const colors = getPolicyColor(policy);
+  // The DragOverlay follows the pointer, so the source stays put.
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `policy-${policy}`,
+    data: { policy, description },
+  });
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div
+        <PolicyChip
           ref={setNodeRef}
-          style={style}
+          policy={policy}
           {...listeners}
           {...attributes}
-          className="cursor-grab active:cursor-grabbing truncate"
-        >
-          <div
-            className={cn(
-              "w-full px-4 py-2.5 text-sm font-medium transition-all duration-200",
-              "border-2 rounded-sm shadow-sm",
-              "cursor-grab active:cursor-grabbing",
-              colors.bg,
-              colors.border,
-              colors.hover,
-              colors.text,
-            )}
-          >
-            {policy}
-          </div>
-        </div>
+          className={cn(
+            "cursor-grab touch-none active:cursor-grabbing",
+            policyTone(policy).hover,
+            isDragging && "opacity-40",
+          )}
+        />
       </TooltipTrigger>
-      <TooltipContent className="flex flex-row space-x-2">
-        <InfoIcon className="h-4 w-4 text-muted-foreground" />
-        <p>{description}</p>
-      </TooltipContent>
+      <TooltipContent>{description}</TooltipContent>
     </Tooltip>
   );
 }

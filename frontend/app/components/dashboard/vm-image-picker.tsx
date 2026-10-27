@@ -1,34 +1,19 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import {
+  CheckIcon,
+  CloudIcon,
+  HardDriveIcon,
+  SearchIcon,
+  UploadIcon,
+  XIcon,
+} from "lucide-react";
 import { useImages } from "@/hooks/useImages";
 import { cn } from "~/lib/utils";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
-import {
-  CloudIcon,
-  FrownIcon,
-  LoaderCircleIcon,
-  XIcon,
-  SearchIcon,
-  HardDriveIcon,
-  LayoutGridIcon,
-  TerminalIcon,
-  MonitorIcon,
-  BoxIcon,
-  CheckIcon,
-  UploadIcon,
-} from "lucide-react";
 import { DistroLogo } from "@/components/distro-logo";
 import { Policy, type ImageMetadata } from "~/lib/types";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { useAuthz } from "@/contexts/authz-context";
 import { UploadImageDialog } from "@/components/dashboard/upload-image-dialog";
+import { titleOfImage } from "@/components/dashboard/provision/model";
 
 interface VMImageSelectProps {
   selectedOS: string;
@@ -36,235 +21,269 @@ interface VMImageSelectProps {
   enabled?: boolean;
 }
 
-const FAMILY_ICONS: Record<string, React.ReactNode> = {
-  All: <LayoutGridIcon className="h-4 w-4 shrink-0" />,
-  Linux: <TerminalIcon className="h-4 w-4 shrink-0" />,
-  Windows: <MonitorIcon className="h-4 w-4 shrink-0" />,
-  BSD: <BoxIcon className="h-4 w-4 shrink-0" />,
-};
+const TILE_BASE =
+  "relative flex min-h-[4.5rem] w-full min-w-0 items-center gap-3 border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60";
 
-function getFamilyIcon(family: string): React.ReactNode {
-  return FAMILY_ICONS[family] ?? <BoxIcon className="h-4 w-4 shrink-0" />;
-}
-
-function EmptyVMImageSelect() {
-  return (
-    <Empty className="border border-dashed">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <CloudIcon />
-        </EmptyMedia>
-        <EmptyTitle>Cloud Storage Empty</EmptyTitle>
-        <EmptyDescription>
-          The public registry is empty, or you haven't uploaded any images on
-          your personal bucket yet.
-        </EmptyDescription>
-      </EmptyHeader>
-    </Empty>
-  );
-}
-
-function LoadingVMImageSelect() {
-  return (
-    <Empty className="border border-dashed">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <LoaderCircleIcon className="h-6 w-6 animate-spin" />
-        </EmptyMedia>
-        <EmptyTitle>Fetching images...</EmptyTitle>
-        <EmptyDescription>
-          Please wait while we fetch the distribox images for you. Hang tight!
-        </EmptyDescription>
-      </EmptyHeader>
-    </Empty>
-  );
-}
-
-function ErrorVMImageSelect({ error }: { error: Error | null }) {
-  return (
-    <Empty className="border border-dashed">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <XIcon className="h-6 w-6 text-destructive" />
-        </EmptyMedia>
-        <EmptyTitle className="flex space-x-2 text-destructive">
-          <span>Failed to fetch images</span>
-          <FrownIcon />
-        </EmptyTitle>
-        <EmptyDescription>
-          <span className="text-destructive">
-            {error?.message || "Unknown error occurred"}
-          </span>
-          <br />
-          If you are using the public registry, please try again later or
-          contact the Distribox team on{" "}
-          <a
-            href="https://github.com/PoCInnovation/distribox/issues"
-            className="text-primary underline"
-          >
-            GitHub
-          </a>{" "}
-          if the issue persists. If you are using your own private registry,
-          please check that your bucket is accessible from the host machine and
-          contains valid qcow2 images.
-        </EmptyDescription>
-      </EmptyHeader>
-    </Empty>
-  );
-}
-
-function ImagePicker({
-  images,
-  selectedOS,
-  setSelectedOS,
-  action,
+function ImageTile({
+  image,
+  selected,
+  onSelect,
 }: {
-  images: ImageMetadata[];
-  selectedOS: string;
-  setSelectedOS: (value: string, distribution?: string) => void;
-  action?: React.ReactNode;
+  image: ImageMetadata;
+  selected: boolean;
+  onSelect: () => void;
 }) {
-  const [search, setSearch] = useState("");
-  const [activeFamily, setActiveFamily] = useState("All");
-
-  const families = useMemo(() => {
-    const unique = [...new Set(images.map((img) => img.family))].sort();
-    return ["All", ...unique];
-  }, [images]);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return images.filter((img) => {
-      const matchesFamily =
-        activeFamily === "All" || img.family === activeFamily;
-      const matchesSearch =
-        !q ||
-        img.distribution.toLowerCase().includes(q) ||
-        img.version.toLowerCase().includes(q) ||
-        img.name.toLowerCase().includes(q) ||
-        img.image.toLowerCase().includes(q);
-      return matchesFamily && matchesSearch;
-    });
-  }, [images, search, activeFamily]);
-
+  const { title, subtitle } = titleOfImage(image);
   return (
-    <div className="border rounded-lg overflow-hidden">
-      {/* Search bar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/20">
-        <SearchIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-        <input
-          placeholder="Search images..."
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        {action}
-      </div>
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      title={image.image}
+      onClick={onSelect}
+      className={cn(
+        TILE_BASE,
+        selected
+          ? "border-primary bg-primary/5"
+          : "border-border bg-card hover:border-foreground/30",
+      )}
+    >
+      <DistroLogo distribution={image.distribution} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium leading-5">
+          {title}
+        </span>
+        <span className="mt-0.5 flex min-w-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
+          <span className="truncate">{subtitle}</span>
+          {image.firmware === "efi" && (
+            <span className="shrink-0 border border-border px-1 text-[10px] leading-4 text-foreground/70">
+              UEFI
+            </span>
+          )}
+        </span>
+      </span>
+      {selected && (
+        <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center bg-primary text-primary-foreground">
+          <CheckIcon className="h-3 w-3" strokeWidth={3} />
+        </span>
+      )}
+    </button>
+  );
+}
 
-      <div className="flex h-72">
-        {/* Left: Family filter sidebar */}
-        <div className="border-r flex flex-col py-1 shrink-0 bg-muted/10">
-          {families.map((family) => (
-            <button
-              key={family}
-              type="button"
-              onClick={() => setActiveFamily(family)}
-              className={cn(
-                "flex items-center justify-center sm:justify-start gap-2 px-2 sm:px-3 py-2 text-sm text-left transition-colors hover:bg-muted",
-                activeFamily === family
-                  ? "bg-muted text-foreground font-medium border-l-2 border-primary"
-                  : "text-muted-foreground border-l-2 border-transparent",
-              )}
-            >
-              {getFamilyIcon(family)}
-              <span className="truncate hidden sm:inline">{family}</span>
-            </button>
-          ))}
-        </div>
+function UploadTile({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        TILE_BASE,
+        "border-dashed border-border text-muted-foreground hover:border-primary/60 hover:text-foreground",
+      )}
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-dashed border-current/50">
+        <UploadIcon className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium leading-5">
+          Upload an image
+        </span>
+        <span className="mt-0.5 block font-mono text-xs text-muted-foreground">
+          qcow2, vmdk, vdi, raw, zip
+        </span>
+      </span>
+    </button>
+  );
+}
 
-        {/* Right: scrollable image list */}
-        <div className="flex-1 relative min-w-0">
-          <ScrollArea className="h-full">
-            <div className="p-2 space-y-1">
-              {filtered.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-2">
-                  <HardDriveIcon className="h-8 w-8 opacity-30" />
-                  <span className="text-sm">No images match your search.</span>
-                </div>
-              ) : (
-                filtered.map((image) => (
-                  <button
-                    key={image.image}
-                    type="button"
-                    onClick={() =>
-                      setSelectedOS(image.image, image.distribution)
-                    }
-                    className={cn(
-                      "w-full text-left flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-                      selectedOS === image.image
-                        ? "bg-primary/10 border border-primary/40 hover:bg-primary/15"
-                        : "border border-transparent hover:bg-muted/60",
-                    )}
-                  >
-                    <DistroLogo distribution={image.distribution} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">
-                          {image.distribution}
-                        </span>
-                        <Badge
-                          variant="secondary"
-                          className="text-xs px-1.5 py-0 h-4"
-                        >
-                          {image.version}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className="text-xs px-1.5 py-0 h-4 hidden sm:inline-flex"
-                        >
-                          {image.family}
-                        </Badge>
-                        {image.firmware === "efi" && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs px-1.5 py-0 h-4"
-                          >
-                            UEFI
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground truncate mt-0.5 font-mono">
-                        {image.image}
-                      </div>
-                    </div>
-                    {selectedOS === image.image && (
-                      <CheckIcon className="h-4 w-4 text-primary shrink-0" />
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-          {/* Bottom gradient to signal scrollability */}
-          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none rounded-b-lg" />
+function SkeletonTiles() {
+  return (
+    <div
+      className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3"
+      aria-busy="true"
+      aria-label="Loading images"
+    >
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          className="flex min-h-[4.5rem] items-center gap-3 border border-border p-3"
+        >
+          <div className="h-9 w-9 animate-pulse bg-muted" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3 w-24 animate-pulse bg-muted" />
+            <div className="h-2.5 w-16 animate-pulse bg-muted" />
+          </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }
 
-function UploadImageButton({ onClick }: { onClick: () => void }) {
+function Notice({
+  icon,
+  title,
+  children,
+  tone = "muted",
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  children?: React.ReactNode;
+  tone?: "muted" | "error";
+  action?: React.ReactNode;
+}) {
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      className="h-7 px-2 text-xs"
-      onClick={onClick}
+    <div
+      className={cn(
+        "flex flex-col items-start gap-3 border border-dashed p-5 sm:flex-row sm:items-center",
+        tone === "error" ? "border-destructive/50" : "border-border",
+      )}
     >
-      <UploadIcon className="h-3.5 w-3.5" />
-      Upload
-    </Button>
+      <span
+        className={cn(
+          "flex h-9 w-9 shrink-0 items-center justify-center border",
+          tone === "error"
+            ? "border-destructive/50 text-destructive"
+            : "border-border text-muted-foreground",
+        )}
+      >
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{title}</p>
+        {children && (
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {children}
+          </p>
+        )}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function ImageGrid({
+  images,
+  selectedOS,
+  setSelectedOS,
+  onUpload,
+}: {
+  images: ImageMetadata[];
+  selectedOS: string;
+  setSelectedOS: (value: string, distribution?: string) => void;
+  onUpload?: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [activeFamily, setActiveFamily] = useState("all");
+
+  const families = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const img of images) {
+      counts.set(img.family, (counts.get(img.family) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [images]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return images.filter((img) => {
+      if (activeFamily !== "all" && img.family !== activeFamily) return false;
+      if (!q) return true;
+      return [img.distribution, img.version, img.name, img.image, img.family]
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
+    });
+  }, [images, search, activeFamily]);
+
+  const chip = (active: boolean) =>
+    cn(
+      "h-7 shrink-0 border px-2.5 font-mono text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+      active
+        ? "border-primary bg-primary/10 text-foreground"
+        : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+    );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <label className="flex h-8 w-full items-center gap-2 border border-input bg-background px-3 focus-within:border-ring sm:w-56">
+          <SearchIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search images"
+            aria-label="Search images"
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearch("")}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <XIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </label>
+        <div
+          className="flex flex-wrap gap-1.5"
+          role="tablist"
+          aria-label="Image family"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeFamily === "all"}
+            className={chip(activeFamily === "all")}
+            onClick={() => setActiveFamily("all")}
+          >
+            all {images.length}
+          </button>
+          {families.map(([family, count]) => (
+            <button
+              key={family}
+              type="button"
+              role="tab"
+              aria-selected={activeFamily === family}
+              className={chip(activeFamily === family)}
+              onClick={() => setActiveFamily(family)}
+            >
+              {family} {count}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <Notice
+          icon={<HardDriveIcon className="h-4 w-4" />}
+          title="No image matches"
+        >
+          Try another word, or clear the family filter.
+        </Notice>
+      ) : (
+        <div
+          role="radiogroup"
+          aria-label="Image"
+          className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3"
+        >
+          {filtered.map((image) => (
+            <ImageTile
+              key={image.image}
+              image={image}
+              selected={selectedOS === image.image}
+              onSelect={() => setSelectedOS(image.image, image.distribution)}
+            />
+          ))}
+          {onUpload && <UploadTile onClick={onUpload} />}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -277,35 +296,59 @@ export function VMImageSelect({
   const authz = useAuthz();
   const canUpload = authz.hasPolicy(Policy.IMAGES_UPLOAD);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const openUpload = canUpload ? () => setUploadOpen(true) : undefined;
 
-  const uploadButton = canUpload ? (
-    <UploadImageButton onClick={() => setUploadOpen(true)} />
-  ) : null;
+  const uploadAction = openUpload ? (
+    <button
+      type="button"
+      onClick={openUpload}
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 border border-border px-3 text-xs font-medium hover:border-primary/60 hover:text-foreground"
+    >
+      <UploadIcon className="h-3.5 w-3.5" />
+      Upload an image
+    </button>
+  ) : undefined;
 
   let content: React.ReactNode;
   if (isLoading) {
-    content = <LoadingVMImageSelect />;
+    content = <SkeletonTiles />;
   } else if (error || !images) {
-    content = <ErrorVMImageSelect error={error} />;
+    content = (
+      <Notice
+        tone="error"
+        icon={<XIcon className="h-4 w-4" />}
+        title="Images could not be loaded"
+        action={uploadAction}
+      >
+        {error?.message || "Unknown error"}. If this is the public registry, try
+        again in a moment. If it is your own bucket, check that the host can
+        reach it and that it contains qcow2 images.
+      </Notice>
+    );
   } else if (images.length === 0) {
-    content = <EmptyVMImageSelect />;
+    content = (
+      <Notice
+        icon={<CloudIcon className="h-4 w-4" />}
+        title="No images yet"
+        action={uploadAction}
+      >
+        The registry is empty and nothing has been uploaded on this host.
+      </Notice>
+    );
   } else {
     content = (
-      <ImagePicker
+      <ImageGrid
         images={images}
         selectedOS={selectedOS}
         setSelectedOS={setSelectedOS}
-        action={uploadButton}
+        onUpload={openUpload}
       />
     );
   }
 
   return (
-    <div className="space-y-2">
+    <>
       {content}
-      {uploadButton && (!images || images.length === 0) && (
-        <div className="flex justify-end">{uploadButton}</div>
-      )}
       {canUpload && (
         <UploadImageDialog
           open={uploadOpen}
@@ -313,6 +356,6 @@ export function VMImageSelect({
           onUploaded={(image) => setSelectedOS(image.image, image.distribution)}
         />
       )}
-    </div>
+    </>
   );
 }

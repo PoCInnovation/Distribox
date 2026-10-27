@@ -1,27 +1,31 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { Plus, KeyIcon, ChevronDown, Trash2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, KeyRound, ChevronDown, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Policy, type User } from "@/lib/types";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PolicyGate } from "../policy/policy-gate";
 import { Button } from "@/components/ui/button";
 import { PolicyBadge } from "./policy-badge";
 import { useTimezone, formatDateOnly } from "@/hooks/useTimezone";
+import { useAuthz } from "@/contexts/authz-context";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  POLICY_GROUPS,
+  policyDescription,
+  sortPolicies,
+} from "@/lib/policy-groups";
 
 interface UserCardProps {
   user: User;
@@ -30,7 +34,6 @@ interface UserCardProps {
   onCopyPassword: (userId: string) => void;
   onDeleteUser: (userId: string) => Promise<void>;
   isDeletingUser: boolean;
-  availablePolicies: { policy: string; description: string }[];
 }
 
 export function UserCard({
@@ -40,149 +43,165 @@ export function UserCard({
   onCopyPassword,
   onDeleteUser,
   isDeletingUser,
-  availablePolicies,
 }: UserCardProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const timeZone = useTimezone();
+  const canEdit = useAuthz().hasPolicy(Policy.USERS_UPDATE_POLICIES);
 
   const { setNodeRef, isOver } = useDroppable({
     id: `user-${user.id}`,
     data: { userId: user.id, username: user.user },
   });
 
-  const unassignedPolicies = availablePolicies.filter(
-    (p) => !user.policies.some((up) => up.policy === p.policy),
-  );
+  const assigned = new Set(user.policies.map((p) => p.policy));
+  const addable = POLICY_GROUPS.map((group) => ({
+    group,
+    policies: group.policies.filter((p) => !assigned.has(p)),
+  })).filter((g) => g.policies.length > 0);
+  const policies = sortPolicies(user.policies, (p) => p.policy);
 
   return (
-    <Card
+    <div
       ref={setNodeRef}
       className={cn(
-        "transition-all duration-200 hover:shadow-md w-full",
-        isOver && "ring-2 ring-primary bg-primary/5",
+        "border border-border bg-card p-4 transition-colors",
+        isOver && "border-primary bg-primary/5",
       )}
     >
-      <CardHeader className="pb-3">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="text-lg font-semibold">{user.user}</CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              Created {formatDateOnly(user.created_at, timeZone)}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
-            <PolicyGate requiredPolicies={Policy.USERS_UPDATE_POLICIES}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Policy
-                    <ChevronDown className="h-3 w-3 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="end"
-                  className="w-56 max-h-64 overflow-y-auto"
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate font-mono text-base font-semibold">
+            {user.user}
+          </h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Created {formatDateOnly(user.created_at, timeZone)}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <PolicyGate requiredPolicies={Policy.USERS_UPDATE_POLICIES}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Plus />
+                  Add policy
+                  <ChevronDown className="size-3.5 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="max-h-80 w-64 overflow-y-auto"
+              >
+                {addable.length === 0 ? (
+                  <div className="px-2 py-1.5 text-center text-xs text-muted-foreground">
+                    All policies assigned
+                  </div>
+                ) : (
+                  addable.map(({ group, policies }) => (
+                    <Fragment key={group.id}>
+                      <DropdownMenuLabel className="flex items-center gap-2 pt-2 text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
+                        <span className={cn("size-1.5", group.tone.dot)} />
+                        {group.label}
+                      </DropdownMenuLabel>
+                      {policies.map((policy) => (
+                        <DropdownMenuItem
+                          key={policy}
+                          onSelect={() => onAddPolicy(user.id, policy)}
+                          className="flex cursor-pointer flex-col items-start gap-0.5"
+                        >
+                          <span
+                            className={cn("font-mono text-xs", group.tone.text)}
+                          >
+                            {policy}
+                          </span>
+                          <span className="line-clamp-2 text-[11px] text-muted-foreground">
+                            {policyDescription(policy)}
+                          </span>
+                        </DropdownMenuItem>
+                      ))}
+                    </Fragment>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </PolicyGate>
+          <PolicyGate requiredPolicies={Policy.USERS_GET_PASSWORD}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={`Copy ${user.user}'s password`}
+                  onClick={() => onCopyPassword(user.id)}
                 >
-                  {unassignedPolicies.length === 0 ? (
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">
-                      All policies assigned
-                    </div>
-                  ) : (
-                    unassignedPolicies.map(({ policy, description }) => (
-                      <DropdownMenuItem
-                        key={policy}
-                        onClick={() => onAddPolicy(user.id, policy)}
-                        className="flex flex-col items-start gap-1 cursor-pointer focus:bg-secondary focus:text-white"
-                      >
-                        <span className="text-xs font-medium">{policy}</span>
-                        <span className="text-[10px] text-muted-foreground line-clamp-2">
-                          {description}
-                        </span>
-                      </DropdownMenuItem>
-                    ))
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </PolicyGate>
-            <PolicyGate requiredPolicies={Policy.USERS_GET_PASSWORD}>
-              <Button
-                className="cursor-pointer"
-                size="sm"
-                onClick={() => onCopyPassword(user.id)}
-              >
-                <KeyIcon className="h-4 w-4" />
-              </Button>
-            </PolicyGate>
-            <PolicyGate requiredPolicies={Policy.USERS_DELETE}>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setDeleteDialogOpen(true)}
-                disabled={isDeletingUser}
-                className="cursor-pointer"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </PolicyGate>
-          </div>
+                  <KeyRound />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Copy password</TooltipContent>
+            </Tooltip>
+          </PolicyGate>
+          <PolicyGate requiredPolicies={Policy.USERS_DELETE}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={`Delete ${user.user}`}
+                  onClick={() => setDeleteDialogOpen(true)}
+                  disabled={isDeletingUser}
+                  className="text-destructive hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete user</TooltipContent>
+            </Tooltip>
+          </PolicyGate>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Policies:</p>
-          {user.policies.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">
-              No policies assigned
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {user.policies.map((policyObj) => (
-                <PolicyBadge
-                  key={policyObj.policy}
-                  description={policyObj.description}
-                  policy={policyObj.policy}
-                  removable
-                  onRemove={() => onRemovePolicy(user.id, policyObj.policy)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </CardContent>
+      </div>
 
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete User</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete{" "}
-              <span className="font-mono font-medium">{user.user}</span>? This
-              action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
-              disabled={isDeletingUser}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={isDeletingUser}
-              onClick={async () => {
-                await onDeleteUser(user.id);
-                setDeleteDialogOpen(false);
-              }}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete User
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
+      {policies.length === 0 ? (
+        <p
+          className={cn(
+            "mt-3 border border-dashed border-border px-3 py-2 text-xs text-muted-foreground",
+            isOver && "border-primary/60",
+          )}
+        >
+          No policies
+        </p>
+      ) : (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {policies.map((p) => (
+            <PolicyBadge
+              key={p.policy}
+              policy={p.policy}
+              description={p.description}
+              onRemove={
+                canEdit ? () => onRemovePolicy(user.id, p.policy) : undefined
+              }
+            />
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete user"
+        description={
+          <p>
+            Delete{" "}
+            <span className="font-mono text-foreground">{user.user}</span>? This
+            can't be undone.
+          </p>
+        }
+        confirmLabel="Delete user"
+        destructive
+        pending={isDeletingUser}
+        onConfirm={async () => {
+          await onDeleteUser(user.id);
+          setDeleteDialogOpen(false);
+        }}
+      />
+    </div>
   );
 }

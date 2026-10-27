@@ -1,4 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useMutationState,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useMemo } from "react";
+import { toast } from "sonner";
 import {
   getVMs,
   startVM,
@@ -9,7 +16,41 @@ import {
   renameVM,
 } from "@/lib/api";
 import type { VirtualMachineMetadata } from "@/lib/types/virtual-machine";
-import { toast } from "sonner";
+import { isTransitional } from "@/lib/vm-state-ui";
+
+export type VmOperation =
+  "start" | "stop" | "restart" | "delete" | "duplicate" | "rename";
+
+const VM_MUTATION_KEY = ["vm-operation"] as const;
+
+interface VmOperationVariables {
+  vmId: string;
+  op: VmOperation;
+  name?: string;
+}
+
+/** Poll faster while any VM is in a transitional state (e.g. Stopping). */
+const IDLE_POLL_MS = 10_000;
+const BUSY_POLL_MS = 1_500;
+
+/**
+ * Pending operations keyed by VM id, read straight from the mutation cache so
+ * every consumer (table rows, drawer, bulk bar) agrees on which VM is busy.
+ */
+export function usePendingVmOperations(): Map<string, VmOperation> {
+  const pending = useMutationState<VmOperationVariables>({
+    filters: { mutationKey: VM_MUTATION_KEY, status: "pending" },
+    select: (mutation) => mutation.state.variables as VmOperationVariables,
+  });
+
+  return useMemo(() => {
+    const map = new Map<string, VmOperation>();
+    for (const vars of pending) {
+      if (vars?.vmId) map.set(vars.vmId, vars.op);
+    }
+    return map;
+  }, [pending]);
+}
 
 export function useVMs() {
   const queryClient = useQueryClient();
@@ -23,118 +64,67 @@ export function useVMs() {
     queryKey: ["vms"],
     queryFn: getVMs,
     retry: false,
-  });
-
-  const startVMMutation = useMutation<
-    void, // Change return type to void
-    Error,
-    { vmId: string }
-  >({
-    mutationFn: async ({ vmId }) => {
-      await startVM(vmId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vms"] });
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return false;
+      return data.some((vm) => isTransitional(vm.state))
+        ? BUSY_POLL_MS
+        : IDLE_POLL_MS;
     },
   });
 
-  const duplicateVMMutation = useMutation<
-    void, // Change return type to void
-    Error,
-    { vmId: string }
-  >({
-    mutationFn: async ({ vmId }) => {
-      await duplicateVM(vmId);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["vms"] });
+
+  const operation = useMutation<void, Error, VmOperationVariables>({
+    mutationKey: VM_MUTATION_KEY,
+    mutationFn: async ({ vmId, op, name }) => {
+      switch (op) {
+        case "start":
+          return startVM(vmId);
+        case "stop":
+          return stopVM(vmId);
+        case "restart":
+          return restartVM(vmId);
+        case "delete":
+          return deleteVM(vmId);
+        case "duplicate":
+          return duplicateVM(vmId);
+        case "rename":
+          return renameVM(vmId, name ?? "");
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vms"] });
-    },
+    onSettled: () => invalidate(),
   });
 
-  const stopVMMutation = useMutation<
-    void, // Change return type to void
-    Error,
-    { vmId: string }
-  >({
-    mutationFn: async ({ vmId }) => {
-      await stopVM(vmId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vms"] });
-    },
-  });
-
-  const restartVMMutation = useMutation<
-    void, // Change return type to void
-    Error,
-    { vmId: string }
-  >({
-    mutationFn: async ({ vmId }) => {
-      await restartVM(vmId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vms"] });
-    },
-  });
-
-  const deleteVMMutation = useMutation<void, Error, { vmId: string }>({
-    mutationFn: async ({ vmId }) => {
-      await deleteVM(vmId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vms"] });
-    },
-  });
-
-  const renameVMMutation = useMutation<
-    void,
-    Error,
-    { vmId: string; name: string }
-  >({
-    mutationFn: async ({ vmId, name }) => {
-      await renameVM(vmId, name);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["vms"] });
-    },
-  });
-
-  const handleStartVM = (vmId: string) => startVMMutation.mutate({ vmId });
-  const handleStopVM = (vmId: string) => stopVMMutation.mutate({ vmId });
-  const handleRestartVM = (vmId: string) => restartVMMutation.mutate({ vmId });
-  const handleDeleteVM = (vmId: string) => deleteVMMutation.mutate({ vmId });
-  const handleDuplicateVM = (vmId: string) =>
-    toast.promise(duplicateVMMutation.mutateAsync({ vmId }), {
-      loading: "Duplicating VM...",
-      success: "VM duplicated successfully",
-      error: "Failed to duplicate VM",
+  const run = (vars: VmOperationVariables) =>
+    operation.mutateAsync(vars).catch((err: Error) => {
+      toast.error(err.message || `Could not ${vars.op} the VM`);
+      throw err;
     });
-  const handleRenameVM = (vmId: string, name: string) =>
-    renameVMMutation.mutateAsync({ vmId, name });
 
-  const isMutating =
-    startVMMutation.isPending ||
-    stopVMMutation.isPending ||
-    restartVMMutation.isPending ||
-    deleteVMMutation.isPending;
+  const pendingById = usePendingVmOperations();
 
   return {
     vms,
     isLoading,
     isError,
     error,
-    startVM: handleStartVM,
-    stopVM: handleStopVM,
-    restartVM: handleRestartVM,
-    deleteVM: handleDeleteVM,
-    duplicateVM: handleDuplicateVM,
-    renameVM: handleRenameVM,
-    isMutating,
-    isStartingVM: startVMMutation.isPending,
-    isStoppingVM: stopVMMutation.isPending,
-    isRestartingVM: restartVMMutation.isPending,
-    isDeletingVM: deleteVMMutation.isPending,
-    isDuplicatingVM: duplicateVMMutation.isPending,
-    isRenamingVM: renameVMMutation.isPending,
+    pendingById,
+    startVM: (vmId: string) => run({ vmId, op: "start" }).catch(() => {}),
+    stopVM: (vmId: string) => run({ vmId, op: "stop" }).catch(() => {}),
+    restartVM: (vmId: string) => run({ vmId, op: "restart" }).catch(() => {}),
+    deleteVM: (vmId: string) =>
+      run({ vmId, op: "delete" })
+        .then(() => toast.success("VM deleted"))
+        .catch(() => {}),
+    duplicateVM: (vmId: string) =>
+      toast.promise(operation.mutateAsync({ vmId, op: "duplicate" }), {
+        loading: "Duplicating VM…",
+        success: "VM duplicated",
+        error: (err: Error) => err.message || "Could not duplicate the VM",
+      }),
+    /** Resolves when renamed; rejects with the API error (dialog shows it). */
+    renameVM: (vmId: string, name: string) =>
+      operation.mutateAsync({ vmId, op: "rename", name }).then(() => {}),
   };
 }

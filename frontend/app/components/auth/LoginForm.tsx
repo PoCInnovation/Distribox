@@ -1,11 +1,11 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { Link } from "react-router";
+import { AlertCircle, ArrowRight } from "lucide-react";
 import { login } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-console.log("LoginForm module loaded");
 
 export function LoginForm() {
   const [username, setUsername] = useState("");
@@ -13,26 +13,11 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  console.log("LoginForm component mounted");
-
-  const handleSubmit = async (e?: FormEvent<HTMLFormElement>) => {
-    console.log("handleSubmit called - preventing default");
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-
-    console.log("=== Login form submitted ===");
-    console.log("Username:", username);
-    console.log(
-      "Form values - username:",
-      username,
-      "password length:",
-      password.length,
-    );
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
     if (!username || !password) {
-      setError("Please enter both username and password");
+      setError("Enter your username and password.");
       return;
     }
 
@@ -40,79 +25,77 @@ export function LoginForm() {
     setError(null);
 
     try {
-      console.log("Calling login function...");
       await login(username, password);
-      console.log(
-        "Login successful! Token stored. Redirecting to dashboard...",
-      );
-
-      // Use window.location for a hard navigation to ensure client-side state is fresh
+      // Hard navigation so client-side state starts fresh with the new token.
       window.location.href = "/dashboard";
     } catch (err) {
-      console.error("Login error:", err);
-      console.error("Error details:", {
-        message: err instanceof Error ? err.message : "Unknown error",
-        stack: err instanceof Error ? err.stack : undefined,
-      });
       setError(
-        err instanceof Error ? err.message : "Login failed. Please try again.",
+        err instanceof Error ? err.message : "Sign-in failed. Try again.",
       );
       setIsLoading(false);
     }
   };
 
-  const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    console.log("Button clicked!");
-    e.preventDefault();
-    e.stopPropagation();
-    handleSubmit();
-  };
-
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-4"
-      onSubmitCapture={(e) => e.preventDefault()}
-    >
+    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
       <div className="space-y-2">
         <Label htmlFor="username">Username</Label>
         <Input
           id="username"
+          name="username"
           type="text"
-          placeholder="Enter your username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
           disabled={isLoading}
           autoComplete="username"
+          autoFocus
+          spellCheck={false}
+          autoCapitalize="none"
+          aria-invalid={error ? true : undefined}
+          className="h-10 bg-card"
         />
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
         <Input
           id="password"
+          name="password"
           type="password"
-          placeholder="Enter your password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
           disabled={isLoading}
           autoComplete="current-password"
+          aria-invalid={error ? true : undefined}
+          className="h-10 bg-card"
         />
       </div>
+
       {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+        <p
+          role="alert"
+          className="flex items-start gap-2 border border-destructive/40 border-l-2 border-l-destructive bg-destructive/8 px-3 py-2.5 text-sm text-foreground"
+        >
+          <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
           {error}
-        </div>
+        </p>
       )}
-      <Button
-        type="button"
-        className="w-full"
-        disabled={isLoading}
-        onClick={handleButtonClick}
-      >
-        {isLoading ? "Signing in..." : "Sign In"}
+
+      <Button type="submit" className="h-10 w-full" disabled={isLoading}>
+        {isLoading ? "Signing in…" : "Sign in"}
       </Button>
+
+      <p className="pt-2 text-sm text-muted-foreground">
+        Have a VM credential instead?{" "}
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+        >
+          Connect with it
+          <ArrowRight className="size-3.5" />
+        </Link>
+      </p>
     </form>
   );
 }

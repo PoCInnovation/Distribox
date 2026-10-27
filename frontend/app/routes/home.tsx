@@ -1,18 +1,20 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { Image } from "@unpic/react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import type { Route } from "./+types/home";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { KeyRoundIcon, UserIcon } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Distribox" },
     {
       name: "description",
-      content: "Meets all your needs to share Virtual Machines.",
+      content: "Connect to a virtual machine with a credential.",
     },
   ];
 }
@@ -20,6 +22,7 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
   const navigate = useNavigate();
   const [credential, setCredential] = useState("");
+  const [revealed, setRevealed] = useState(false);
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -30,60 +33,77 @@ export default function Home() {
   };
 
   return (
-    <main className="relative min-h-screen px-4 py-6 md:px-8 md:py-8">
-      <Image
-        className="absolute right-6 top-6 z-10 md:right-10 md:top-10"
-        src="/favicon.ico"
-        width={90}
-        height={90}
-        alt="Distribox logo"
-      />
-      <header className="flex justify-start">
-        <div className="flex items-center gap-3 text-md text-muted-foreground">
-          <Link to="/auth/login">
-            <Button variant="outline" size="lg">
-              Sign In
-            </Button>
-          </Link>
-          <p>Have a Distribox user? Sign in to manage your VMs.</p>
-          <UserIcon className="h-6 w-6" />
-        </div>
-      </header>
+    <AuthShell panelFooter="Credentials are issued per virtual machine by whoever runs it.">
+      <section>
+        <h1 className="font-mono text-2xl font-semibold tracking-tight text-foreground">
+          Connect to a VM
+        </h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Paste the credential you were given. It opens the machine's screen in
+          this browser.
+        </p>
 
-      <div className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-4xl items-center justify-center">
-        <section className="w-full text-center">
-          <h1 className="mb-4 text-5xl font-bold text-foreground md:text-6xl">
-            Welcome to <span className="text-primary">Distribox</span>
-          </h1>
-          <p className="mb-10 text-md text-muted-foreground">
-            Meets all your VM distribution and access needs.
-          </p>
-
-          <p className="flex flex-row items-center space-x-2 justify-center mb-4 text-xl text-foreground">
-            <span>
-              You were given{" "}
-              <span className="font-bold text-primary">credentials?</span>
-            </span>
-            <KeyRoundIcon className="text-primary" />
-          </p>
-
-          <form
-            className="mx-auto flex w-full max-w-3xl flex-col items-stretch gap-3 md:flex-row"
-            onSubmit={onSubmit}
+        <form className="mt-8 space-y-5" onSubmit={onSubmit}>
+          <div className="space-y-2">
+            <Label htmlFor="vm-credential">VM credential</Label>
+            <div className="relative">
+              {/* A VM credential is not a login password: plain text input, masked by CSS,
+                  with password-manager opt-outs so browsers never offer to save it. */}
+              <Input
+                id="vm-credential"
+                name="vm-access-code"
+                type="text"
+                inputMode="text"
+                value={credential}
+                onChange={(event) => setCredential(event.target.value)}
+                placeholder="e.g. correct-horse-battery"
+                autoComplete="off"
+                spellCheck={false}
+                autoCapitalize="none"
+                autoCorrect="off"
+                data-1p-ignore
+                data-lpignore="true"
+                data-bwignore
+                data-form-type="other"
+                className={cn(
+                  "h-10 bg-card pr-10 font-mono",
+                  !revealed && "masked-secret",
+                )}
+              />
+              <button
+                type="button"
+                onClick={() => setRevealed((v) => !v)}
+                aria-label={revealed ? "Hide credential" : "Show credential"}
+                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+              >
+                {revealed ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
+                )}
+              </button>
+            </div>
+          </div>
+          <Button
+            type="submit"
+            className="h-10 w-full"
+            disabled={!credential.trim()}
           >
-            <Input
-              type="password"
-              value={credential}
-              onChange={(event) => setCredential(event.target.value)}
-              placeholder="Paste them here!"
-              className="h-12 border-border bg-secondary/40 text-base"
-            />
-            <Button type="submit" size="lg" className="md:px-8 h-12">
-              Connect
-            </Button>
-          </form>
-        </section>
-      </div>
-    </main>
+            Connect
+          </Button>
+        </form>
+
+        <p className="mt-8 text-sm text-muted-foreground">
+          Manage machines instead?{" "}
+          <Link
+            to="/auth/login"
+            className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+          >
+            Sign in
+            <ArrowRight className="size-3.5" />
+          </Link>
+        </p>
+      </section>
+    </AuthShell>
   );
 }

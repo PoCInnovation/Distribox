@@ -1,36 +1,54 @@
-import { AlertTriangle } from "lucide-react";
+import { HardDriveDownload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface RecoveryBannerProps {
   count: number;
   onOpenRecovery: () => void;
+  onDismiss: () => void;
 }
 
-export function RecoveryBanner({ count, onOpenRecovery }: RecoveryBannerProps) {
+/**
+ * Inline notice shown at the top of the overview when VMs exist on disk but
+ * are not tracked in the database. It sits in the page flow (not a toast) and
+ * can be dismissed for the session.
+ */
+export function RecoveryBanner({
+  count,
+  onOpenRecovery,
+  onDismiss,
+}: RecoveryBannerProps) {
   if (count === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 animate-slide-in">
-      <div className="flex items-center gap-4 rounded-lg border border-accent/50 bg-accent/10 backdrop-blur-sm px-5 py-4 shadow-lg shadow-accent/10">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20">
-          <AlertTriangle className="h-5 w-5 text-accent" />
-        </div>
-        <div className="mr-2">
-          <p className="text-sm font-medium text-foreground">
-            {count} untracked VM{count > 1 ? "s" : ""} found
-          </p>
-          <p className="text-xs text-muted-foreground">
-            VMs exist on disk but not in the database
-          </p>
-        </div>
-        <Button
-          size="sm"
-          className="shrink-0 bg-accent text-accent-foreground hover:bg-accent/80 cursor-pointer"
-          onClick={onOpenRecovery}
-        >
-          Enter Recovery
-        </Button>
-      </div>
+    <div
+      role="status"
+      className="flex items-center gap-3 border border-accent/30 border-l-2 border-l-accent bg-accent/8 py-2.5 pl-4 pr-2"
+    >
+      <HardDriveDownload className="size-4 shrink-0 text-accent" />
+      <p className="min-w-0 flex-1 text-sm text-foreground">
+        <span className="font-mono">{count}</span> untracked VM
+        {count > 1 ? "s" : ""} found on disk.
+        <span className="ml-1 text-muted-foreground">
+          Recover {count > 1 ? "them" : "it"} into the database or delete the
+          files.
+        </span>
+      </p>
+      <Button
+        size="sm"
+        variant="outline"
+        className="shrink-0"
+        onClick={onOpenRecovery}
+      >
+        Review
+      </Button>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss until next session"
+        className="flex size-8 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+      >
+        <X className="size-4" />
+      </button>
     </div>
   );
 }

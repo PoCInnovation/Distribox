@@ -1,6 +1,5 @@
 import { Trash2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { DistroLogo } from "@/components/distro-logo";
 import type { RecoverableVM } from "@/lib/types";
 
@@ -18,47 +17,37 @@ export function RecoverableVMCard({
   isOperating,
 }: RecoverableVMCardProps) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-      <div className="flex items-center gap-4 min-w-0">
-        <DistroLogo distribution={vm.distribution} className="w-10 h-10" />
-        <div className="min-w-0">
-          <p className="text-sm font-medium truncate">{vm.name}</p>
-          <p className="text-xs text-muted-foreground font-mono truncate">
-            {vm.vm_id}
-          </p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            <Badge variant="outline" className="text-xs">
-              Distro: {vm.distribution}
-            </Badge>
-            <Badge variant="outline" className="text-xs">
-              Family: {vm.family}
-            </Badge>
-            <Badge variant="outline" className="text-xs">
-              Version: {vm.version}
-            </Badge>
-          </div>
-        </div>
+    <div className="flex items-center gap-4 px-6 py-3.5">
+      <DistroLogo distribution={vm.distribution} className="rounded-none" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-mono text-sm font-medium text-foreground">
+          {vm.name}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {vm.distribution} {vm.version}
+          <span className="mx-1.5 text-border">|</span>
+          {vm.image}
+          <span className="mx-1.5 text-border">|</span>
+          rev {vm.revision}
+        </p>
+        <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground/70">
+          {vm.vm_id}
+        </p>
       </div>
-      <div className="flex items-center gap-2 shrink-0 ml-4">
-        <Button
-          size="sm"
-          variant="outline"
-          className="cursor-pointer"
-          disabled={isOperating}
-          onClick={() => onRecover(vm)}
-        >
-          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+      <div className="flex shrink-0 items-center gap-2">
+        <Button size="sm" disabled={isOperating} onClick={() => onRecover(vm)}>
+          <RotateCcw />
           Recover
         </Button>
         <Button
           size="sm"
-          variant="destructive"
-          className="cursor-pointer"
+          variant="ghost"
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
           disabled={isOperating}
           onClick={() => onClean(vm)}
         >
-          <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-          Clean
+          <Trash2 />
+          Delete files
         </Button>
       </div>
     </div>

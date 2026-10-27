@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { HardDriveDownload, Trash2 } from "lucide-react";
 import { RecoverableVMCard } from "./recoverable-vm-card";
 import type { RecoverableVM } from "@/lib/types";
 
@@ -32,56 +32,64 @@ export function RecoveryDialog({
   isOperating,
   isCleaningAll,
 }: RecoveryDialogProps) {
+  const count = recoverableVMs.length;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl lg:max-w-4xl max-h-[85vh] flex flex-col border-accent/30">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-accent" />
-            VM Recovery Mode
+      <DialogContent className="flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b border-border px-6 py-4">
+          <DialogTitle className="flex items-center gap-2 font-mono">
+            <HardDriveDownload className="size-4 text-accent" />
+            Untracked VMs
           </DialogTitle>
           <DialogDescription>
-            {recoverableVMs.length} untracked VM
-            {recoverableVMs.length !== 1 ? "s" : ""} found on disk. Recover them
-            to the database or clean them up.
+            {count} VM{count === 1 ? "" : "s"} exist on disk without a database
+            record. Recover one to give it a name and resources, or delete its
+            files.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-3 py-2">
-          {recoverableVMs.length === 0 ? (
-            <div className="text-center py-8 text-sm text-muted-foreground">
-              No recoverable VMs found.
-            </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {count === 0 ? (
+            <p className="px-6 py-10 text-center text-sm text-muted-foreground">
+              Nothing left to recover.
+            </p>
           ) : (
-            recoverableVMs.map((vm) => (
-              <RecoverableVMCard
-                key={vm.vm_id}
-                vm={vm}
-                onRecover={onRecover}
-                onClean={onClean}
-                isOperating={isOperating}
-              />
-            ))
+            <ul className="divide-y divide-border">
+              {recoverableVMs.map((vm) => (
+                <li key={vm.vm_id}>
+                  <RecoverableVMCard
+                    vm={vm}
+                    onRecover={onRecover}
+                    onClean={onClean}
+                    isOperating={isOperating}
+                  />
+                </li>
+              ))}
+            </ul>
           )}
         </div>
 
-        {recoverableVMs.length > 1 && (
-          <DialogFooter>
+        {count > 1 && (
+          <DialogFooter className="border-t border-border px-6 py-3 sm:justify-between">
+            <p className="self-center text-xs text-muted-foreground">
+              Deleting removes the disk images of all {count} VMs.
+            </p>
             <Button
               variant="destructive"
+              size="sm"
               onClick={onCleanAll}
               disabled={isCleaningAll || isOperating}
-              className="cursor-pointer"
             >
               {isCleaningAll ? (
                 <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Cleaning all...
+                  <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Deleting all…
                 </>
               ) : (
                 <>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Clean All VMs
+                  <Trash2 />
+                  Delete all files
                 </>
               )}
             </Button>

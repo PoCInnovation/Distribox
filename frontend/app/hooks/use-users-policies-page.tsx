@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { toast } from "sonner";
 import { useUsers } from "@/hooks/useUsers";
-import { POLICY_DESCRIPTIONS } from "@/lib/types/policies";
+import { POLICY_GROUPS, policyDescription } from "@/lib/policy-groups";
 
 export function useUsersPoliciesPage() {
   const {
@@ -27,21 +27,21 @@ export function useUsersPoliciesPage() {
   const [resizeStartX, setResizeStartX] = useState(0);
   const [resizeStartWidth, setResizeStartWidth] = useState(0);
 
-  const allPolicies = useMemo(() => {
-    return Object.entries(POLICY_DESCRIPTIONS).map(([policy, description]) => ({
-      policy,
-      description,
-    }));
-  }, []);
-
-  const filteredPolicies = useMemo(() => {
-    if (!policySearchQuery.trim()) return allPolicies;
-    return allPolicies.filter(
-      (p) =>
-        p.policy.toLowerCase().includes(policySearchQuery.toLowerCase()) ||
-        p.description.toLowerCase().includes(policySearchQuery.toLowerCase()),
-    );
-  }, [allPolicies, policySearchQuery]);
+  const filteredPolicyGroups = useMemo(() => {
+    const query = policySearchQuery.trim().toLowerCase();
+    return POLICY_GROUPS.map((group) => ({
+      group,
+      policies: group.policies
+        .map((policy) => ({ policy, description: policyDescription(policy) }))
+        .filter(
+          (p) =>
+            !query ||
+            group.label.toLowerCase().includes(query) ||
+            p.policy.toLowerCase().includes(query) ||
+            p.description.toLowerCase().includes(query),
+        ),
+    })).filter((g) => g.policies.length > 0);
+  }, [policySearchQuery]);
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -213,8 +213,8 @@ export function useUsersPoliciesPage() {
     leftPanelWidth,
 
     // Computed values
-    allPolicies,
-    filteredPolicies,
+    users: users ?? [],
+    filteredPolicyGroups,
     filteredUsers,
 
     // Handlers
