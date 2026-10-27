@@ -162,7 +162,7 @@ const PAGES: Array<{
   },
   {
     href: "/dashboard/slaves",
-    label: "Nodes",
+    label: "Slaves",
     icon: ServerIcon,
     policies: [Policy.SLAVES_GET],
   },

@@ -61,9 +61,9 @@ export function RegisterNodeDialog({
   const portNum = Number.parseInt(port, 10);
 
   const nameError = !trimmedName
-    ? "Give the node a name."
+    ? "Give the slave a name."
     : existingNames.includes(trimmedName)
-      ? "A node with this name already exists."
+      ? "A slave with this name already exists."
       : null;
   const hostError = !trimmedHost
     ? "Hostname or IP the master can reach."
@@ -110,7 +110,7 @@ export function RegisterNodeDialog({
         ) : (
           <form onSubmit={handleSubmit} noValidate>
             <DialogHeader>
-              <DialogTitle className="font-mono">Register a node</DialogTitle>
+              <DialogTitle className="font-mono">Register slave</DialogTitle>
               <DialogDescription>
                 Tell the master where the slave will listen. You configure the
                 slave machine itself in the next step, with the key this
@@ -122,7 +122,7 @@ export function RegisterNodeDialog({
               <Field
                 id="node-name"
                 label="Name"
-                hint="Shown in the node list and in VM placement."
+                hint="Shown in the slave list and in VM placement."
                 error={touched ? nameError : null}
               >
                 <Input
@@ -130,7 +130,7 @@ export function RegisterNodeDialog({
                   autoFocus
                   autoComplete="off"
                   spellCheck={false}
-                  placeholder="gpu-node-1"
+                  placeholder="gpu-slave-1"
                   className="font-mono"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -268,7 +268,7 @@ function RegisteredStep({
       <div className="mt-5 space-y-5">
         <section>
           <p className="mb-1.5 text-xs text-muted-foreground">
-            API key. Also shown in the node details later.
+            API key. Also shown in the slave details later.
           </p>
           <SecretField
             value={slave.api_key}

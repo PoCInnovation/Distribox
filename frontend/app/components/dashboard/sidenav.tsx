@@ -66,7 +66,7 @@ const navItems = [
   },
   {
     href: "/dashboard/slaves",
-    label: "Nodes",
+    label: "Slaves",
     icon: ServerIcon,
     requiredPolicies: [Policy.SLAVES_GET] as PolicyName[],
   },

@@ -15,7 +15,7 @@ const GROUP_LABELS: Record<string, string> = {
   vms: "Virtual machines",
   events: "Events",
   users: "Users",
-  slaves: "Nodes (slaves)",
+  slaves: "Slaves",
   images: "Images",
   host: "Host",
   auth: "Own account",

@@ -1,6 +1,6 @@
+import { Info, TriangleAlert } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { API_BASE_URL } from "@/lib/api/core";
-import { CodeBlock } from "./code-block";
-import { cn } from "@/lib/utils";
 
 export function slaveEnvSnippet({
   apiKey,
@@ -17,158 +17,156 @@ export function slaveEnvSnippet({
   ].join("\n");
 }
 
-function Step({
-  n,
-  title,
-  children,
-  className,
-}: {
-  n: number;
-  title: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
+function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
   return (
-    <li
-      className={cn("grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3", className)}
-    >
-      <span className="mt-0.5 h-6 w-6 border border-primary/60 text-center font-mono text-xs leading-6 text-primary">
+    <div className="flex items-center gap-2">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
         {n}
       </span>
-      <div className="min-w-0">
-        <p className="text-sm font-medium leading-6">{title}</p>
-        <div className="mt-1.5 space-y-2 text-sm text-muted-foreground">
-          {children}
-        </div>
-      </div>
-    </li>
+      <span className="font-medium">{children}</span>
+    </div>
   );
 }
 
-function Note({
-  tone = "info",
+function Callout({
+  tone,
   children,
 }: {
-  tone?: "info" | "warn";
+  tone: "warning" | "info";
   children: React.ReactNode;
 }) {
+  const Icon = tone === "warning" ? TriangleAlert : Info;
   return (
-    <p
-      className={cn(
-        "border-l-2 py-1 pl-3 text-xs",
-        tone === "warn"
-          ? "border-warning text-warning"
-          : "border-primary/60 text-foreground/80",
-      )}
+    <div
+      className={
+        tone === "warning"
+          ? "ml-8 flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground"
+          : "ml-8 flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-foreground"
+      }
     >
-      {children}
-    </p>
+      <Icon
+        className={`h-4 w-4 shrink-0 ${tone === "warning" ? "text-warning" : "text-primary"}`}
+      />
+      <span>{children}</span>
+    </div>
   );
 }
 
-/**
- * The full "turn a machine into a slave" walkthrough. The numbering is real:
- * each step depends on the previous one.
- */
-export function SlaveSetupGuide({
-  apiKey,
-  port = 8081,
-  startAt = 1,
-}: {
-  /** When known (right after registering) the snippets are filled in. */
-  apiKey?: string;
-  port?: number | string;
-  /** Skip the "register" step when the guide is shown after registering. */
-  startAt?: 1 | 2;
-}) {
-  const env = slaveEnvSnippet({
-    apiKey: apiKey ?? "<key shown after registering>",
-    port,
-  });
-  const n = (i: number) => i - (startAt - 1);
-
+function Code({ children }: { children: string }) {
   return (
-    <ol className="space-y-6">
-      {startAt === 1 && (
-        <Step n={1} title="Register the node on this master">
-          <p>
-            Use <strong className="text-foreground">Register a node</strong> and
-            give it a name, the hostname or IP the master can reach it on, and
-            its API port. You get an API key at the end. Copy it, you need it in
-            the next step.
-          </p>
-        </Step>
-      )}
+    <pre className="ml-8 overflow-x-auto rounded-md bg-muted px-4 py-3 font-mono text-xs leading-relaxed">
+      {children}
+    </pre>
+  );
+}
 
-      <Step n={n(2)} title="Configure the slave machine">
-        <p>
-          On the remote machine, clone Distribox and put these lines in its{" "}
-          <span className="font-mono text-foreground">.env</span>:
+export function SlaveSetupGuide() {
+  return (
+    <ol className="space-y-6 text-sm">
+      <li className="space-y-2">
+        <StepTitle n={1}>Register the slave on this master</StepTitle>
+        <p className="ml-8 text-muted-foreground">
+          Click <strong>Register slave</strong> and enter a name, the hostname
+          or IP of the remote machine, and its API port. An API key will be
+          generated. Copy it, you will need it next.
         </p>
-        <CodeBlock
-          code={env}
-          title=".env on the slave"
-          copyLabel=".env lines copied"
-        />
-        <Note tone="warn">
-          MASTER_URL must be reachable from the slave and point at the Distribox
-          backend, not the dashboard.
-        </Note>
-      </Step>
+      </li>
 
-      <Step n={n(3)} title="Run the setup script">
-        <p>
-          From the root of the repository. It installs libvirt and QEMU, creates
-          the distribox and libvirt groups, adds your user to them and prepares
-          the host directories. It asks for your password when it needs sudo.
+      <li className="space-y-2">
+        <StepTitle n={2}>Configure the slave machine</StepTitle>
+        <p className="ml-8 text-muted-foreground">
+          On the remote machine, clone Distribox and set the following
+          environment variables in your <code>.env</code> file:
         </p>
-        <CodeBlock code="./setup.sh" copyLabel="Command copied" />
-        <Note tone="warn">
-          Run it as the user who will run Distribox, not as root.
-        </Note>
-        <p className="text-xs">
-          Unsupported system? Open an issue on{" "}
+        <Code>
+          {`DISTRIBOX_MODE=slave
+MASTER_URL=http://<master-ip>:8080
+SLAVE_API_KEY=<key-from-step-1>
+SLAVE_PORT=8081`}
+        </Code>
+        <Callout tone="warning">
+          The <code>MASTER_URL</code> needs to be reachable by the slave and
+          point to the Distribox backend.
+        </Callout>
+      </li>
+
+      <li className="space-y-2">
+        <StepTitle n={3}>Run the setup script</StepTitle>
+        <p className="ml-8 text-muted-foreground">
+          At the root of the Distribox repository, run the setup. This will
+          install the necessary dependencies, create the necessary user groups,
+          add them to your user and create the necessary files on your host.
+        </p>
+        <Callout tone="warning">
+          Make sure that you are not running this as root, but rather the user
+          that is going to run Distribox.
+        </Callout>
+        <Code>./setup.sh</Code>
+        <Callout tone="info">
+          The setup script will ask for your password if necessary.
+        </Callout>
+        <p className="ml-8 text-muted-foreground">
+          If your system is not supported, we are probably working on it, but
+          please open an issue on{" "}
           <a
             href="https://github.com/PoCInnovation/Distribox/issues/new"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary underline underline-offset-2"
+            className="text-primary underline"
           >
             GitHub
-          </a>
-          .
+          </a>{" "}
+          so we can help you.
         </p>
-      </Step>
+      </li>
 
-      <Step n={n(4)} title="Pick up the new groups">
-        <p>
-          Linux: log out and back in. macOS: open a new terminal. To continue in
-          the current shell only:
+      <li className="space-y-2">
+        <StepTitle n={4}>Apply user group changes</StepTitle>
+        <p className="ml-8 text-muted-foreground">
+          If you are using a macOS system,{" "}
+          <span className="font-bold text-foreground">
+            close your current terminal session
+          </span>{" "}
+          and open a new one, this will be enough to apply the new user groups.
         </p>
-        <CodeBlock code="newgrp distribox libvirt" copyLabel="Command copied" />
-      </Step>
+        <p className="ml-8 text-muted-foreground">
+          If you are using Linux, you will need to{" "}
+          <span className="font-bold text-foreground">
+            log out and log back in
+          </span>{" "}
+          to apply the changes.
+        </p>
+        <p className="ml-8 text-muted-foreground">
+          Alternatively, you can run the following command to apply the changes{" "}
+          <span className="font-bold">in your current session only.</span>
+        </p>
+        <Code>newgrp distribox libvirt</Code>
+      </li>
 
-      <Step n={n(5)} title="Start the slave">
-        <CodeBlock
-          code="docker compose --profile slave up -d"
-          copyLabel="Command copied"
-        />
-        <p>
-          It sends a heartbeat every 30 s. After the first one the node shows as{" "}
-          <span className="text-success">online</span> here and you can
-          provision VMs on it.
+      <li className="space-y-2">
+        <StepTitle n={5}>Start the slave</StepTitle>
+        <p className="ml-8 text-muted-foreground">
+          Start Distribox in slave mode using Docker Compose:
         </p>
-      </Step>
+        <Code>docker compose --profile slave up -d</Code>
+        <p className="ml-8 text-muted-foreground">
+          The slave will send a heartbeat every 30 seconds. Once received, the
+          slave will appear here as{" "}
+          <Badge variant="default" className="bg-chart-3">
+            online
+          </Badge>{" "}
+          and you can start creating VMs on it. Good to go!
+        </p>
+      </li>
 
-      <Step n={n(6)} title="Stopping it later">
-        <p>
-          Always stop it gracefully so VMs are not left as ghosts on the master:
+      <li className="space-y-2">
+        <StepTitle n={6}>Stopping the slave</StepTitle>
+        <p className="ml-8 text-muted-foreground">
+          We recommend that you always stop the slave gracefully with the
+          following command in order to avoid ghost VMs.
         </p>
-        <CodeBlock
-          code="docker compose --profile slave down"
-          copyLabel="Command copied"
-        />
-      </Step>
+        <Code>docker compose --profile slave down</Code>
+      </li>
     </ol>
   );
 }

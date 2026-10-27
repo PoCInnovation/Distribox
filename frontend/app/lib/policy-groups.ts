@@ -123,7 +123,7 @@ export const POLICY_GROUPS: PolicyGroup[] = [
   },
   {
     id: "nodes",
-    label: "Nodes",
+    label: "Slaves",
     tone: TONES.amber,
     policies: [
       Policy.HOST_GET,

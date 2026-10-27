@@ -213,7 +213,7 @@ export function NodeRow({
           {node.role === "slave" && canDelete && (
             <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
               <p className="text-xs text-muted-foreground">
-                Unregistering removes the node from this master. The machine
+                Unregistering removes the slave from this master. The machine
                 itself is not touched.
               </p>
               <Button
@@ -306,7 +306,7 @@ function NodeDetails({
             </Row>
           )}
           {node.id && (
-            <Row label="Node id">
+            <Row label="Slave id">
               <span className="break-all font-mono text-xs text-muted-foreground">
                 {node.id}
               </span>
@@ -330,7 +330,7 @@ function NodeDetails({
           {node.cpu && !node.cpu.live && node.status === "online" && (
             <Row label="Capacity">
               <span className="text-xs text-muted-foreground">
-                From the node&apos;s last report; live host figures need the
+                From the slave&apos;s last report; live host figures need the
                 host:get policy.
               </span>
             </Row>
@@ -350,7 +350,7 @@ function NodeSidePanel({ node }: { node: ClusterNode }) {
       <div className="border border-warning/40 bg-warning/5 p-4 text-sm">
         <p className="font-medium text-warning">In maintenance</p>
         <p className="mt-1 text-muted-foreground">
-          The node is reachable but not accepting new VMs. It returns to online
+          The slave is reachable but not accepting new VMs. It returns to online
           on its own once maintenance ends.
         </p>
       </div>
@@ -371,13 +371,13 @@ function NodeVmList({ node }: { node: ClusterNode }) {
   if (node.vms.length === 0) {
     return (
       <div className="border border-dashed border-border p-4 text-sm text-muted-foreground">
-        No VMs on this node yet. Pick it as the target when you provision one.
+        No VMs on this host yet. Pick it as the target when you provision one.
       </div>
     );
   }
   return (
     <div>
-      <p className="mb-2 text-xs text-muted-foreground">VMs on this node</p>
+      <p className="mb-2 text-xs text-muted-foreground">VMs on this host</p>
       <ul className="divide-y divide-border/70 border border-border">
         {node.vms.map((vm) => (
           <li

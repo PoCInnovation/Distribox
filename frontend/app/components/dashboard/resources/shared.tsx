@@ -22,7 +22,7 @@ export function NodeSwitch({
   return (
     <div
       role="radiogroup"
-      aria-label="Node"
+      aria-label="Host"
       className={cn(
         "flex h-8 w-fit items-stretch border border-border text-sm",
         className,

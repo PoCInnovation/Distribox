@@ -61,7 +61,7 @@ export function DeleteNodeDialog({
               Unregister {node?.name}
             </DialogTitle>
             <DialogDescription>
-              The master forgets this node. Nothing is changed on the machine
+              The master forgets this slave. Nothing is changed on the machine
               itself, but the master loses track of what runs there.
             </DialogDescription>
           </DialogHeader>
@@ -70,7 +70,7 @@ export function DeleteNodeDialog({
             {vmCount > 0 ? (
               <div className="border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-sm">
                 <span className="font-mono tabular-nums">{vmCount}</span> VM
-                {vmCount > 1 ? "s are" : " is"} placed on this node
+                {vmCount > 1 ? "s are" : " is"} placed on this slave
                 {running > 0 && (
                   <>
                     , <span className="font-mono tabular-nums">{running}</span>{" "}
@@ -83,7 +83,7 @@ export function DeleteNodeDialog({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No VMs are placed on this node.
+                No VMs are placed on this slave.
               </p>
             )}
 
@@ -119,7 +119,7 @@ export function DeleteNodeDialog({
               onClick={() => onOpenChange(false)}
               disabled={isDeleting}
             >
-              Keep node
+              Keep slave
             </Button>
             <Button
               type="submit"

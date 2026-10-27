@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Plus, ServerOff } from "lucide-react";
+import { BookOpen, Plus, Server } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,8 +94,8 @@ export function SlavesPage() {
   if (forbidden) {
     return (
       <PolicyNotice
-        title="Nodes are hidden"
-        description="Listing cluster nodes needs a policy your account does not have."
+        title="Slaves are hidden"
+        description="Listing slaves needs a policy your account does not have."
         missingPolicies={forbidden.missingPolicies}
       />
     );
@@ -115,7 +115,7 @@ export function SlavesPage() {
       {error && !forbidden && (
         <div className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
           <span className="text-destructive">
-            Could not load the node list.
+            Could not load the slave list.
           </span>{" "}
           <span className="text-muted-foreground">
             {error.message}. Retrying every 10 s.
@@ -123,14 +123,14 @@ export function SlavesPage() {
         </div>
       )}
 
-      <section aria-label="Cluster nodes" className="border border-border">
+      <section aria-label="Slaves" className="border border-border">
         <div
           className={cn(
             NODE_GRID,
             "border-b border-border bg-background/60 px-5 py-2 text-[11px] text-muted-foreground",
           )}
         >
-          <span className="pl-[3px]">Node</span>
+          <span className="pl-[3px]">Name</span>
           <span>Address</span>
           <span>vCPU used</span>
           <span>Memory used</span>
@@ -162,7 +162,6 @@ export function SlavesPage() {
         {!isLoading && slaves.length === 0 && (
           <EmptySlaves
             onRegister={canCreate ? () => setRegisterOpen(true) : undefined}
-            onGuide={() => setGuideOpen(true)}
           />
         )}
       </section>
@@ -186,9 +185,9 @@ export function SlavesPage() {
       <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="font-mono">Set up a slave node</DialogTitle>
+            <DialogTitle>Slave Setup Guide</DialogTitle>
             <DialogDescription>
-              Six steps to turn another machine into a node of this cluster.
+              Follow these steps to set up a new slave node.
             </DialogDescription>
           </DialogHeader>
           <div className="mt-2">
@@ -246,7 +245,7 @@ function ClusterSummary({
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="flex flex-wrap items-stretch divide-x divide-border border border-border bg-card">
-        <Stat label="Nodes">
+        <Stat label="Hosts">
           <span className="flex items-center gap-2">
             <span className="flex items-center gap-1" aria-hidden>
               {nodes.map((n) => (
@@ -314,7 +313,7 @@ function ClusterSummary({
           {onRegister && (
             <Button onClick={onRegister}>
               <Plus className="h-4 w-4" />
-              Register a node
+              Register slave
             </Button>
           )}
         </div>
@@ -360,37 +359,25 @@ function SkeletonRows() {
   );
 }
 
-function EmptySlaves({
-  onRegister,
-  onGuide,
-}: {
-  onRegister?: () => void;
-  onGuide: () => void;
-}) {
+function EmptySlaves({ onRegister }: { onRegister?: () => void }) {
   return (
-    <div className="flex flex-col items-start gap-4 border-l-[3px] border-l-border px-5 py-6 md:flex-row md:items-center md:justify-between">
-      <div className="flex items-start gap-3">
-        <ServerOff className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-        <div>
-          <p className="font-mono text-sm font-semibold">No slave nodes yet</p>
-          <p className="mt-1 max-w-prose text-sm text-muted-foreground">
-            Every VM runs on the master for now. Register another machine to
-            spread VMs across hosts; the master schedules them where there is
-            room.
+    <div className="border-t border-border px-5 py-10">
+      <div className="mx-auto max-w-2xl space-y-8">
+        <div className="flex flex-col items-center text-center">
+          <Server className="mb-4 h-12 w-12 text-muted-foreground/50" />
+          <p className="mb-1 text-lg font-medium">No slaves registered</p>
+          <p className="text-sm text-muted-foreground">
+            Slave nodes let you distribute VMs across multiple machines. Follow
+            the steps below to get started.
           </p>
+          {onRegister && (
+            <Button className="mt-5" onClick={onRegister}>
+              <Plus className="h-4 w-4" />
+              Register slave
+            </Button>
+          )}
         </div>
-      </div>
-      <div className="flex shrink-0 gap-2">
-        <Button variant="outline" size="sm" onClick={onGuide}>
-          <BookOpen className="h-3.5 w-3.5" />
-          Setup guide
-        </Button>
-        {onRegister && (
-          <Button size="sm" onClick={onRegister}>
-            <Plus className="h-3.5 w-3.5" />
-            Register a node
-          </Button>
-        )}
+        <SlaveSetupGuide />
       </div>
     </div>
   );
