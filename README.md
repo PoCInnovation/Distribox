@@ -26,7 +26,7 @@ Create virtual machines with custom specs: CPU cores, RAM, disk size, and operat
 ---
 
 ## Graphical VM Streaming
-Distribox uses [gliss](https://github.com/lg-epitech/gliss) to stream VM desktops over WebSocket. For each connection, the backend starts a gliss server on the VM's VNC display and relays it to the browser. gliss is installed with the backend's Python dependencies. No client-side software required.
+Distribox uses [gliss](https://github.com/lg-epitech/gliss) to stream VM desktops over WebSocket. For each connection, the backend on the VM's host starts a gliss server on its VNC display. Slave hosts send encoded video through their authenticated API to the master, which relays it to the browser. gliss is installed with the backend's Python dependencies. No client-side software required.
 
 <div align="center">
   <img src=".github/assets/vm-streaming.png" alt="VM Streaming" width="700"/>
@@ -295,9 +295,18 @@ Copy `.env.example` to `.env` and adjust as needed. Key variables:
 | `FRONTEND_URL` | `http://localhost:3000` | Frontend URL, used for CORS |
 | `ROOT_PATH` | - | Path prefix the reverse proxy serves the API under, `/api` with the provided `nginx.conf` |
 | `VIRT_TYPE` | `kvm` | `kvm`, or `qemu` for software emulation |
+| `GLISS_IN_FLIGHT_FRAMES` | `8` | Maximum frames awaiting browser presentation ACKs, from 1 to 8 |
+| `GLISS_FPS` | `30` | Capture frame-rate cap, from 1 to 60 |
+| `GLISS_H264_BITRATE` | `2000000` | Soft H.264 encoder target, 1000–50000000 bits/second; actual traffic can exceed it |
 | `SSH_*` | disabled | See [SSH gateway](#ssh-gateway) |
 
 `VITE_*` values are baked into the frontend at build time. After changing them, rebuild it with `docker compose --profile master up -d --build frontend`.
+
+Gliss settings apply on the host running the VM. After editing `.env`, recreate the relevant backend container with `docker compose up -d backend` (master) or `docker compose up -d slave` (slave); `docker compose restart` keeps the old environment. Restart the process when running the backend manually. Eight in-flight frames keep 30 fps possible with roughly 250 ms of combined network and browser decode/paint delay. Use a smaller window, such as 4, to limit queued frames on constrained links. Lower `GLISS_FPS` or `GLISS_H264_BITRATE` when actual video traffic exceeds available bandwidth; the bitrate target is not a hard network cap. The backend Docker commands disable WebSocket deflate to avoid recompressing H.264. When launching the backend manually, use `uvicorn app.main:app --host 0.0.0.0 --port 8080 --ws-per-message-deflate false` from `backend/`.
+
+Update slave backends before the master when upgrading desktop streaming. The master requires the slave's `/vms/{vm_id}/desktop/tunnel` WebSocket endpoint; older slaves cannot stream through an updated master. Master-to-slave streaming uses the existing API port and `X-Slave-Token` over the trusted private network. The master retains viewer authorization and resize ownership.
+
+Existing slave VMs may listen only on the private address previously used by the master. Set the slave's `VNC_HOST` to that existing listen address before upgrading; Gliss still connects on the same host. Changing `VNC_LISTEN` or restarting the backend does not rewrite existing VM definitions. Move their VNC listeners to loopback during a planned VM restart, or keep `VNC_HOST` pointed at their current listener. `VNC_LISTEN=127.0.0.1` applies to newly defined VMs.
 
 ## Deployment
 
@@ -331,7 +340,7 @@ ROOT_PATH=/api
 
 ### Firewall
 
-VNC servers listen on ports 5900-5999 on the host. These must **not** be exposed to the network -- VM streaming is handled securely through the backend's WebSocket tunnel. On slave nodes, the master streams from the slave's VNC servers: set `VNC_LISTEN` to an address only the master can reach. Block other access with your firewall:
+VNC servers listen on ports 5900-5999 on the host. These must **not** be exposed to the network -- VM streaming is handled through the backend's authenticated WebSocket tunnel. Keep `VNC_LISTEN` and `VNC_HOST` on loopback, including on slave nodes: each host encodes its own desktops. Block remote VNC access with your firewall:
 
 ```bash
 # ufw
