@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useGuacamoleClient } from "@/hooks/useGuacamoleClient";
+import { useGlissClient } from "@/hooks/useGlissClient";
 import { Image } from "@unpic/react";
 import { SshConnectionButton } from "@/components/ssh-connection-button";
 import { ClipboardDialog } from "./ClipboardDialog";
@@ -51,11 +51,11 @@ const F_KEYS: { label: string; keysym: number }[] = Array.from(
 const HOVER_DELAY_MS = 400;
 const INITIAL_OVERLAY_MS = 8000;
 
-type GuacamoleDisplayProps =
+type DesktopDisplayProps =
   | { mode?: "credential"; credential: string }
   | { mode: "vm"; vmId: string; token: string };
 
-export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
+export function DesktopDisplay(props: DesktopDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sshOpen, setSshOpen] = useState(false);
   const [clipboardOpen, setClipboardOpen] = useState(false);
@@ -86,7 +86,7 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
     exitFullscreen,
     isFullscreen,
     reconnect,
-  } = useGuacamoleClient(options);
+  } = useGlissClient(options);
 
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [initialOverlay, setInitialOverlay] = useState(true);
@@ -205,7 +205,7 @@ export function GuacamoleDisplay(props: GuacamoleDisplayProps) {
     <div className="relative w-full h-screen bg-black overflow-hidden">
       <div
         ref={containerRef}
-        className="guacamole-display flex w-full h-full items-center justify-center"
+        className="flex w-full h-full items-center justify-center"
       />
 
       {(state === "connecting" || state === "reconnecting") && (

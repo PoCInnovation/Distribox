@@ -144,29 +144,28 @@ Once you have created the creation script and the metadata file, you can build t
 
 The script will build the image and output it to the `dist/` directory.
 
-## Guacamole Setup
+## Desktop streaming
 
-Distribox uses [Apache Guacamole](https://guacamole.apache.org/) to stream VM desktops directly to the browser. `guacd` runs as a Docker container alongside the backend — no host installation required.
+Distribox uses [gliss](https://github.com/lg-epitech/gliss) to stream VM desktops directly to the browser. The `gliss-server` package in `backend/requirements.txt` provides the server, so no separate service or build is needed.
 
 ### How it works
 
 ```
-Browser (guacamole-common-js)
+Browser (gliss client served at /gliss/client.js)
   │  WebSocket  ws://backend/tunnel?credential=X
   │
 FastAPI backend (Docker, network_mode: host)
-  │  TCP host.docker.internal:4822
+  │  starts one gliss-server per connection on 127.0.0.1
   │
-guacd (Docker, network_mode: host — guacamole/guacd:1.6.0 patched in guacd/)
-  │  VNC  127.0.0.1:590x
+gliss-server
+  │  VNC  127.0.0.1:590x, or the slave's VNC_LISTEN address
   │
-QEMU/KVM VM (host)
+QEMU/KVM VM
 ```
 
-- `guacd` is started automatically by Docker Compose as part of the `master`, `dev` and `slave` profiles.
-- `guacd` runs with `network_mode: host` so it can reach VNC bound to `127.0.0.1` on the host.
-- The backend reaches `guacd` via `host.docker.internal:4822` (Docker bridge gateway).
-- VNC ports are never exposed outside the host.
+- The backend stops the connection's gliss server when the browser disconnects.
+- The backend serves the browser client from the installed `gliss-server`, so both always match.
+- VNC ports stay private. For VMs on a slave, set `VNC_LISTEN` on the slave to an address the master can reach.
 
 ### Display resizing in X11 guests
 
@@ -207,7 +206,7 @@ virsh -c qemu:///system start <image-id>
 1. Start the VM from the dashboard or via `virsh start <id>`
 2. Create a credential in the VM details dialog
 3. Go to the Distribox home page, paste the credential password, and click **Connect**
-4. The browser opens `/client?credential=X` and streams the desktop via Guacamole
+4. The browser opens `/client?credential=X` and streams the desktop via gliss
 
 ### Connect via virt-viewer (local debug)
 

@@ -26,7 +26,7 @@ Create virtual machines with custom specs: CPU cores, RAM, disk size, and operat
 ---
 
 ## Graphical VM Streaming
-Distribox uses Apache Guacamole to stream VM desktops over WebSocket. The browser connects to the backend, which proxies the Guacamole protocol to guacd, which in turn connects to the VM's VNC server. No client-side software required.
+Distribox uses [gliss](https://github.com/lg-epitech/gliss) to stream VM desktops over WebSocket. For each connection, the backend starts a gliss server on the VM's VNC display and relays it to the browser. gliss is installed with the backend's Python dependencies. No client-side software required.
 
 <div align="center">
   <img src=".github/assets/vm-streaming.png" alt="VM Streaming" width="700"/>
@@ -42,7 +42,7 @@ The system clipboard takes priority when returning to the VM. Guest copies that 
 
 Guests need `spice-vdagent` running in their desktop session. New Ubuntu desktop images and cloud-init seeds install it; for existing/imported Ubuntu or Debian desktops, run `sudo apt install spice-vdagent`, then log out and back in. A full shutdown and start adds the guest channel to existing VMs; saved sessions keep their devices. Unsupported hosts keep working without sharing.
 
-Compose builds the patched guacd image needed for QEMU's outbound clipboard. Rebuild guacd when upgrading. Host support requires libvirt 8.4+ and QEMU 6.1+ with SPICE protocol support.
+Host support requires libvirt 8.4+ and QEMU 6.1+ with SPICE protocol support.
 
 ---
 
@@ -294,7 +294,6 @@ Copy `.env.example` to `.env` and adjust as needed. Key variables:
 | `VITE_TUNNEL_URL` | - | WebSocket URL for VM streaming, defaults to `VITE_API_DOMAIN` + `/tunnel` |
 | `FRONTEND_URL` | `http://localhost:3000` | Frontend URL, used for CORS |
 | `ROOT_PATH` | - | Path prefix the reverse proxy serves the API under, `/api` with the provided `nginx.conf` |
-| `GUACD_HOST` / `GUACD_PORT` | `host.docker.internal` / `4822` | Where the backend reaches guacd |
 | `VIRT_TYPE` | `kvm` | `kvm`, or `qemu` for software emulation |
 | `SSH_*` | disabled | See [SSH gateway](#ssh-gateway) |
 
@@ -332,7 +331,7 @@ ROOT_PATH=/api
 
 ### Firewall
 
-VNC servers listen on ports 5900-5999 on the host. These must **not** be exposed to the network -- VM streaming is handled securely through the Guacamole WebSocket tunnel. Block external access with your firewall:
+VNC servers listen on ports 5900-5999 on the host. These must **not** be exposed to the network -- VM streaming is handled securely through the backend's WebSocket tunnel. On slave nodes, the master streams from the slave's VNC servers: set `VNC_LISTEN` to an address only the master can reach. Block other access with your firewall:
 
 ```bash
 # ufw
@@ -400,7 +399,7 @@ sudo certbot renew --dry-run
 
 - **Backend:** FastAPI, SQLModel, PostgreSQL, libvirt, KVM/QEMU
 - **Frontend:** React Router v7, TypeScript, TailwindCSS v4, shadcn/ui
-- **Streaming:** Apache Guacamole (guacd) over WebSocket
+- **Streaming:** [gliss](https://github.com/lg-epitech/gliss) over WebSocket
 - **Containerization:** Docker Compose
 
 ## Get Involved

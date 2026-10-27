@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from "react-router";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/button";
-import { GuacamoleDisplay } from "@/components/guacamole/GuacamoleDisplay";
+import { DesktopDisplay } from "@/components/desktop/DesktopDisplay";
 import { getAuthToken } from "@/lib/api";
 
 function ClientFallback({ title, message }: { title: string; message: string }) {
@@ -42,7 +42,7 @@ export default function ClientRoute() {
         />
       );
     }
-    return <GuacamoleDisplay key={vmId} mode="vm" vmId={vmId} token={token} />;
+    return <DesktopDisplay key={vmId} mode="vm" vmId={vmId} token={token} />;
   }
 
   if (!credential.trim()) {
@@ -53,5 +53,5 @@ export default function ClientRoute() {
       />
     );
   }
-  return <GuacamoleDisplay key={credential} credential={credential} />;
+  return <DesktopDisplay key={credential} credential={credential} />;
 }

@@ -26,8 +26,6 @@ services:
       - DISTRIBOX_SECRET=${DISTRIBOX_SECRET:-secret}
       - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-registry}
       - AWS_REGION=${AWS_REGION:-eu-west-3}
-      - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
-      - GUACD_PORT=${GUACD_PORT:-4822}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}
       - VIRT_TYPE=${VIRT_TYPE:-kvm}
     network_mode: host
@@ -40,8 +38,6 @@ services:
     depends_on:
       database:
         condition: service_healthy
-      guacd:
-        condition: service_started
     profiles: ["master"]
 
 
@@ -69,8 +65,6 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-}
       - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-registry}
       - AWS_REGION=${AWS_REGION:-eu-west-3}
-      - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
-      - GUACD_PORT=${GUACD_PORT:-4822}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}
       - VIRT_TYPE=${VIRT_TYPE:-kvm}
     network_mode: host
@@ -85,21 +79,7 @@ services:
     depends_on:
       database:
         condition: service_healthy
-      guacd:
-        condition: service_started
     profiles: ["dev"]
-
-
-  guacd:
-    build: ../guacd
-    container_name: distribox-guacd
-    restart: unless-stopped
-    # host networking gives guacd access to 127.0.0.1 on the host so it can
-    # reach VNC ports bound to the loopback interface by libvirt/QEMU.
-    # guacd binds 0.0.0.0:4822, which includes the Docker bridge IP, so the
-    # backend containers can reach it via host.docker.internal:4822.
-    network_mode: host
-    profiles: ["master", "dev", "slave"]
 
 
   slave:
@@ -122,8 +102,6 @@ services:
       - DISTRIBOX_SECRET=${DISTRIBOX_SECRET:-secret}
       - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-registry}
       - AWS_REGION=${AWS_REGION:-eu-west-3}
-      - GUACD_HOST=${GUACD_HOST:-host.docker.internal}
-      - GUACD_PORT=${GUACD_PORT:-4822}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}
       - VNC_LISTEN=${VNC_LISTEN:-127.0.0.1}
       - VIRT_TYPE=${VIRT_TYPE:-kvm}
@@ -137,8 +115,6 @@ services:
     depends_on:
       database:
         condition: service_healthy
-      guacd:
-        condition: service_started
     profiles: ["slave"]
 
 

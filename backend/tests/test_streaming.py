@@ -1,37 +1,32 @@
-import asyncio
-
 import pytest
+from fastapi import HTTPException
 
 from app.core.xml_builder import upgrade_display_devices
 from app.routes import tunnel
-from app.routes.tunnel import _resize_owner
-from app.services.guacamole import (
-    build_instruction,
-    complete_instructions_end,
-    guacd_handshake,
-)
+from app.routes.tunnel import _is_resize, _resize_owner, gliss_module
+from app.services.gliss import web_dir
 
 
-def test_complete_instructions_end_returns_zero_without_full_instruction():
-    assert complete_instructions_end("") == 0
-    assert complete_instructions_end("4.syn") == 0
-    assert complete_instructions_end("4.sync,2.12") == 0
+def test_is_resize_matches_only_resize_messages():
+    assert _is_resize('{"type":"resize","width":1280,"height":800,"id":3}')
+    assert not _is_resize('{"type":"key","keysym":97,"down":true,"id":4}')
+    assert not _is_resize("not json")
+    assert not _is_resize('["resize"]')
 
 
-def test_complete_instructions_end_keeps_partial_tail():
-    text = build_instruction("sync", "12") + build_instruction("img", "1")[:-3]
-    assert complete_instructions_end(text) == len(build_instruction("sync", "12"))
+def test_web_dir_exports_the_installed_gliss_client():
+    assert "export class GlissClient" in (web_dir() / "client.js").read_text()
 
 
-def test_complete_instructions_end_ignores_semicolons_in_data():
-    text = build_instruction("name", "a;b") + build_instruction("sync", "1")
-    assert complete_instructions_end(text) == len(text)
-    assert complete_instructions_end(text[:-1]) == len(build_instruction("name", "a;b"))
-
-
-def test_complete_instructions_end_counts_characters_not_bytes():
-    text = build_instruction("name", "café") + build_instruction("sync", "1")
-    assert complete_instructions_end(text) == len(text)
+@pytest.mark.asyncio
+async def test_gliss_module_serves_only_exported_files(tmp_path, monkeypatch):
+    (tmp_path / "client.js").write_text("export {}")
+    monkeypatch.setattr(tunnel, "web_dir", lambda: tmp_path)
+    response = await gliss_module("client.js")
+    assert response.media_type == "text/javascript"
+    for path in ("../client.js", "missing.js", ""):
+        with pytest.raises(HTTPException):
+            await gliss_module(path)
 
 
 VGA_DOMAIN = """<domain type='kvm'><name>x</name><devices>
@@ -58,34 +53,6 @@ def test_upgrade_display_devices_is_idempotent():
 
 def test_upgrade_display_devices_skips_unknown_layout():
     assert upgrade_display_devices("<domain><devices/></domain>") is None
-
-
-class _Writer:
-    def __init__(self):
-        self.data = b""
-
-    def write(self, data: bytes) -> None:
-        self.data += data
-
-    async def drain(self) -> None:
-        pass
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("resize, expected", [(True, "false"), (False, "true")])
-async def test_guacd_handshake_sets_display_resize(resize, expected):
-    reader = asyncio.StreamReader()
-    reader.feed_data((
-        build_instruction("args", "VERSION_1_5_0", "hostname",
-                          "disable-display-resize")
-        + build_instruction("ready", "$id")
-    ).encode())
-    writer = _Writer()
-
-    await guacd_handshake(reader, writer, "127.0.0.1", 5900, resize=resize)
-
-    connect = build_instruction("connect", "1.5.0", "127.0.0.1", expected)
-    assert writer.data.decode().endswith(connect)
 
 
 @pytest.fixture(autouse=True)

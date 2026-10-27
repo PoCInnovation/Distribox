@@ -18,7 +18,7 @@ def capture_screenshot(vm_id: str) -> bytes:
     """Capture a JPEG screenshot of a running VM via libvirt.
 
     Uses ``virDomainScreenshot`` which reads the framebuffer directly —
-    no VNC or guacd needed.  The raw image (PPM/PNG depending on the
+    no VNC connection needed.  The raw image (PPM/PNG depending on the
     hypervisor) is resized to a small thumbnail and JPEG-compressed.
     """
     conn = QEMUConfig.get_connection()

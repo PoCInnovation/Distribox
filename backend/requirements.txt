@@ -16,3 +16,4 @@ Pillow==12.3.0
 httpx==0.28.1
 asyncssh==2.24.0
 websockets==15.0.1
+gliss-server==0.1.0a3
