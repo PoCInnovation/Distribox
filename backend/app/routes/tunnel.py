@@ -15,7 +15,7 @@ from importlib.metadata import version
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException, Query, WebSocket
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 logger = logging.getLogger(__name__)
 
@@ -141,16 +141,13 @@ async def vm_tunnel(
         await relay_stream(websocket, upstream, resize=resize)
 
 
-@router.get("/gliss/latest/{path:path}")
-async def gliss_latest_module(path: str) -> RedirectResponse:
-    """Redirect to the installed gliss-server's versioned modules."""
-    # Relative, so the redirect keeps the /api prefix that nginx strips.
-    parent = "../" * (path.count("/") + 1)
-    return RedirectResponse(f"{parent}{GLISS_VERSION}/{path}", status_code=307,
-                            headers={"Cache-Control": "no-store"})
+@router.get("/gliss/version")
+async def gliss_version() -> JSONResponse:
+    """The installed gliss-server version, which names its module URLs."""
+    return JSONResponse({"version": GLISS_VERSION}, headers={"Cache-Control": "no-store"})
 
 
-@router.get("/gliss/{gliss_version}/{path:path}")
+@router.get("/gliss/versions/{gliss_version}/{path:path}")
 async def gliss_versioned_module(gliss_version: str, path: str) -> FileResponse:
     """Serve modules under a URL that changes with every gliss-server upgrade."""
     if gliss_version != GLISS_VERSION:

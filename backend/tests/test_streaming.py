@@ -4,8 +4,8 @@ from fastapi.testclient import TestClient
 
 from app.core.xml_builder import upgrade_display_devices
 from app.routes import tunnel
-from app.routes.tunnel import (GLISS_VERSION, _resize_owner, gliss_latest_module,
-                               gliss_module, gliss_versioned_module)
+from app.routes.tunnel import (GLISS_VERSION, _resize_owner, gliss_module,
+                               gliss_versioned_module)
 from app.services.desktop_stream import is_resize
 from app.services.gliss import web_dir
 
@@ -34,35 +34,43 @@ async def test_gliss_module_serves_only_exported_files(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_versioned_gliss_modules_are_immutable(tmp_path, monkeypatch):
-    (tmp_path / "client.js").write_text("export {}")
+async def test_versioned_gliss_module_rejects_paths_outside_the_export(tmp_path, monkeypatch):
     monkeypatch.setattr(tunnel, "web_dir", lambda: tmp_path)
-    response = await gliss_versioned_module(GLISS_VERSION, "client.js")
-    assert response.headers["cache-control"] == "public, max-age=31536000, immutable"
-    for version, path in (("0.0.0", "client.js"), (GLISS_VERSION, "../client.js")):
+    for path in ("../client.js", "missing.js", ""):
         with pytest.raises(HTTPException):
-            await gliss_versioned_module(version, path)
+            await gliss_versioned_module(GLISS_VERSION, path)
 
 
-@pytest.mark.asyncio
-async def test_latest_gliss_module_redirects_relative_to_installed_version():
-    response = await gliss_latest_module("client.js")
-    assert response.status_code == 307
-    assert response.headers["cache-control"] == "no-store"
-    assert response.headers["location"] == f"../{GLISS_VERSION}/client.js"
-    nested = await gliss_latest_module("web/client.js")
-    assert nested.headers["location"] == f"../../{GLISS_VERSION}/web/client.js"
-
-
-def test_latest_gliss_client_resolves_to_the_versioned_module(tmp_path, monkeypatch):
+@pytest.fixture
+def gliss_http(tmp_path, monkeypatch):
     (tmp_path / "client.js").write_text("export {}")
+    (tmp_path / "vendor").mkdir()
+    (tmp_path / "vendor" / "core.js").write_text("export const core = 1")
     monkeypatch.setattr(tunnel, "web_dir", lambda: tmp_path)
     app = FastAPI()
     app.include_router(tunnel.router)
-    response = TestClient(app).get("/gliss/latest/client.js")
-    assert response.url.path == f"/gliss/{GLISS_VERSION}/client.js"
-    assert response.text == "export {}"
-    assert "immutable" in response.headers["cache-control"]
+    return TestClient(app)
+
+
+def test_gliss_version_is_never_cached(gliss_http):
+    response = gliss_http.get("/gliss/version")
+    assert response.json() == {"version": GLISS_VERSION}
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_versioned_gliss_modules_are_immutable(gliss_http):
+    for path in ("client.js", "vendor/core.js"):
+        response = gliss_http.get(f"/gliss/versions/{GLISS_VERSION}/{path}")
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "public, max-age=31536000, immutable"
+    assert gliss_http.get("/gliss/versions/0.0.0/client.js").status_code == 404
+
+
+def test_unversioned_gliss_modules_are_revalidated(gliss_http):
+    for path in ("client.js", "vendor/core.js"):
+        response = gliss_http.get(f"/gliss/{path}")
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-cache"
 
 
 VGA_DOMAIN = """<domain type='kvm'><name>x</name><devices>
