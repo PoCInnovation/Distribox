@@ -184,8 +184,10 @@ export function useGlissClient(
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
     async function initGliss() {
+      // "latest" redirects to the installed gliss version's own URLs, so an
+      // upgrade never reuses a cached client.
       const { GlissClient } = (await import(
-        /* @vite-ignore */ `${API_BASE_URL}/gliss/client.js`
+        /* @vite-ignore */ `${API_BASE_URL}/gliss/latest/client.js`
       )) as GlissModule;
 
       if (cancelled) return;

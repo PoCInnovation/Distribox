@@ -11,12 +11,17 @@ import logging
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from importlib.metadata import version
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException, Query, WebSocket
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 
 logger = logging.getLogger(__name__)
+
+# Browsers and proxies cache the gliss modules, so each gliss-server version
+# gets its own URLs and an upgrade never reuses an old client.
+GLISS_VERSION = version("gliss-server")
 
 
 router = APIRouter()
@@ -136,11 +141,33 @@ async def vm_tunnel(
         await relay_stream(websocket, upstream, resize=resize)
 
 
+@router.get("/gliss/latest/{path:path}")
+async def gliss_latest_module(path: str) -> RedirectResponse:
+    """Redirect to the installed gliss-server's versioned modules."""
+    # Relative, so the redirect keeps the /api prefix that nginx strips.
+    parent = "../" * (path.count("/") + 1)
+    return RedirectResponse(f"{parent}{GLISS_VERSION}/{path}", status_code=307,
+                            headers={"Cache-Control": "no-store"})
+
+
+@router.get("/gliss/{gliss_version}/{path:path}")
+async def gliss_versioned_module(gliss_version: str, path: str) -> FileResponse:
+    """Serve modules under a URL that changes with every gliss-server upgrade."""
+    if gliss_version != GLISS_VERSION:
+        raise HTTPException(status_code=404)
+    return await gliss_file(path, "public, max-age=31536000, immutable")
+
+
 @router.get("/gliss/{path:path}")
 async def gliss_module(path: str) -> FileResponse:
     """Serve the browser modules matching the installed gliss-server."""
+    return await gliss_file(path, "no-cache")
+
+
+async def gliss_file(path: str, cache_control: str) -> FileResponse:
     directory = await asyncio.to_thread(web_dir)
     file = (directory / path).resolve()
     if not file.is_relative_to(directory.resolve()) or not file.is_file():
         raise HTTPException(status_code=404)
-    return FileResponse(file, media_type="text/javascript" if file.suffix == ".js" else None)
+    return FileResponse(file, media_type="text/javascript" if file.suffix == ".js" else None,
+                        headers={"Cache-Control": cache_control})
