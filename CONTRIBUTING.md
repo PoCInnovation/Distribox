@@ -1,112 +1,108 @@
-# Contributing to [PROJECT'S NAME]
+# Contributing to Distribox
 
-## Create an issue
+Start with an [open issue](https://github.com/PoCInnovation/Distribox/issues), or browse the [good first issues](https://github.com/PoCInnovation/Distribox/labels/good%20first%20issue). Comment on an issue before starting so other contributors know it is being worked on.
 
-- If you've encountered a bug, open a [Bug Report](https://github.com/PoCInnovation/$REPOSITORY/issues/new?assignees=&labels=&template=bug_report.md&title=).
-- If you want [PROJECT'S NAME] to have a new functionality, open a [Feature Request](https://github.com/PoCInnovation/$REPOSITORY/issues/new?assignees=&labels=&template=feature_request.md&title=).
+To report a problem, use the [bug report](https://github.com/PoCInnovation/Distribox/issues/new?template=bug_report.yml) template and include reproduction steps, expected behavior, and relevant logs. For an idea, open a [feature request](https://github.com/PoCInnovation/Distribox/issues/new?template=feature_request.yml) describing the problem it would solve.
 
-## Resolve an issue
+## Find your way around
 
-Select an [issue](https://github.com/PoCInnovation/$REPOSITORY/issues) that you want to resolve.
+- [frontend/](frontend/): React Router dashboard, event invitations, and browser desktop client.
+- [backend/](backend/): FastAPI backend, VM lifecycle, authentication, and master/slave coordination.
+- [atlas/](atlas/): TypeScript CLI for the S3 image registry.
+- [images/](images/): VM image builders and guest utilities.
+- [setup.sh](setup.sh), [setup/](setup/), and [nix/](nix/): host installation and configuration.
+- [.github/workflows/ci.yml](.github/workflows/ci.yml): checks run for pushes and pull requests.
 
-The recommended workflow is to fork this repository and open pull requests from your fork.
+## Fork and create a branch
 
-### 1. Fork, clone & configure [PROJECT'S NAME] upstream
-
-- Click on the _Fork_ button on GitHub
-- Clone the original repository
-- Add your repository as a new remote
-
-```sh
-# Clone original repository
-git clone git@github.com:PoCInnovation/$REPOSITORY.git
-
-# Add your fork as a remote
-git remote add <fork_name> https://github.com/$YOUR_GITHUB_USER/$REPOSITORY.git
-```
-
-### 2. Create a pull request
+Fork [PoCInnovation/Distribox](https://github.com/PoCInnovation/Distribox/fork) on GitHub. Replace `YOUR_GITHUB_USERNAME` below with your account name:
 
 ```sh
-# Create a new branch
-git switch -c my_branch
-
-# Make changes to your branch
-# ...
-
-# Commit changes - remember to sign!
-git commit -s
-
-# Push your new branch
-git push <fork name>
-
-# Create a new pull request from https://github.com/PoCInnovation/$REPOSITORY/pulls
+git clone https://github.com/YOUR_GITHUB_USERNAME/Distribox.git
+cd Distribox
+git remote add upstream https://github.com/PoCInnovation/Distribox.git
+git switch -c fix/short-description
 ```
 
-### 3. Update your pull request with latest changes
+## Run checks without a VM host
+
+Documentation changes need no application setup. Frontend checks, Atlas builds, and the backend test suite can run without a KVM host, running guests, or AWS credentials.
+
+### Frontend
+
+Use Node.js 24, as in the frontend Docker image, and pnpm 12.4.2, as pinned in CI. From the repository root:
 
 ```sh
-# Switch to the main branch
-git switch main
-
-# Pull origin's change
-git pull
-
-# Switch to your branch
-git switch my_branch
-
-# Rebase your branch changes on top of the updated main branch
-git rebase main
-
-# Update your pull request with latest changes
-git push -f <fork name>
+corepack enable
+corepack prepare pnpm@12.4.2 --activate
+cd frontend
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm build
+pnpm dlx prettier --check app
 ```
 
-## Commits
+Run `pnpm dev --host` from `frontend/` for hot reloading. Screens that use live data need a running backend; see the [frontend environment guide](frontend/README.md).
 
-### DCO
+### Backend
 
-Contributions to this project must be accompanied by a Developer Certificate of
-Origin (DCO).
+Use Python 3.13. Installing `libvirt-python` also requires a C compiler, `pkg-config`, and libvirt development headers (`libvirt-dev` on Debian/Ubuntu). A running libvirt service is not required for the tests.
 
-All commit messages must contain the Signed-off-by line with an email address that matches the commit author. When committing, use the `--signoff` flag:
+From the repository root:
 
 ```sh
-git commit -s
+python3.13 -m venv backend/venv
+. backend/venv/bin/activate
+python -m pip install -r backend/requirements.txt pytest pytest-asyncio autopep8 mypy==2.3.1
+AWS_EC2_METADATA_DISABLED=true PYTHONPATH=backend python -m pytest backend/tests -q
+(cd backend && python -m mypy app/ --ignore-missing-imports)
+python -m autopep8 --diff --recursive --select=E,W backend/app/
 ```
 
-The Signed-off-by line must match the **author's real name**, otherwise the PR will be rejected.
+The tests use temporary databases, mocked virtualization calls, and in-process SSH servers. They do not start or modify deployed VMs. The final command prints formatting differences; apply any needed formatting to the files you changed.
 
-### Commit messages
+### Atlas
 
-Please read first this article : [How to Write a Git Commit Message](https://chris.beams.io/posts/git-commit/).
+Atlas pins its own pnpm version, 10.15.1. From the repository root:
 
-Then, follow these guidelines:
+```sh
+corepack enable
+corepack prepare pnpm@10.15.1 --activate
+cd atlas
+pnpm install --frozen-lockfile
+pnpm build
+```
 
-- **Group Commits:** Each commit should represent a meaningful change. Instead, these commits should be squashed together into a single "Add Feature" commit.
-> For instance, a PR should not look like :
-> 1) Add Feature X
-> 2) Fix Typo
-> 3) Changes to features X
-> 5) Bugfix for feature X
-> 6) Fix Linter 7)
-> 7) ...
+Building needs no AWS credentials. Registry operations do; see the [Atlas guide](atlas/README.md) before using them.
 
-- Each commit should **work on its own**: it must compile, pass the linter and so on.
-> This makes life much easier when using `git log`, `git blame`, `git bisect`, etc...\
-> For instance, when doing a `git blame` on a file to figure out why a change was introduced, it's pretty meaningless to see a _Fix linter_ commit message. "Add Feature X" is much more meaningful.
+## Run the full application
 
-- Use `git rebase -i main` to group commits together and rewrite their commit message
+Follow the [Quickstart](README.md#quickstart) for host prerequisites, environment configuration, and Docker Compose profiles. Full VM testing requires an x86_64 Linux host with libvirt and QEMU. Image-building instructions are in the [images guide](images/README.md).
 
-- To add changes to the previous commit, use `git commit --amend -s`. This will change the last commit (amend) instead of creating a new commit.
+To use the development Compose profile, configure the host and `.env` as described in the Quickstart, then run from the repository root:
 
-- Format: Use the imperative mood in the subject line: "If applied, this commit
-  will _your subject line here_"
+```sh
+docker compose --profile dev up --build
+```
 
-- Add the following prefixes to your commit message to help trigger [automated processes](https://www.conventionalcommits.org):
-  - `docs:` for documentation changes only (e.g., `docs: Fix typo in X`);
-  - `test:` for changes to tests only (e.g., `test: Check if X does Y`);
-  - `chore:` general things that should be excluded (e.g., `chore: Clean up X`);
-  - `ci:` for internal CI specific changes (e.g., `ci: Enable X for tests`);
+## Submit a pull request
 
-> Made with ❤️ by PoC
+Keep each contribution focused and run the checks for the component you changed. For a bug fix, include regression coverage when practical and verify the user-visible behavior.
+
+Use one short Conventional Commits subject for each commit, such as `fix(vm): handle an offline slave` or `docs(contributing): clarify local checks`.
+
+```sh
+git add path/to/changed-file
+git commit -m "fix(component): describe the change"
+git push -u origin fix/short-description
+```
+
+Open a pull request from your fork's branch to `PoCInnovation/Distribox`'s `main` branch, with a short Conventional Commits title.
+
+To update your branch with upstream changes:
+
+```sh
+git fetch upstream
+git rebase upstream/main
+git push --force-with-lease origin fix/short-description
+```
