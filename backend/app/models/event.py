@@ -38,8 +38,8 @@ class EventParticipantRead(BaseModel):
     created_at: datetime
 
 
-class EventRead(BaseModel):
-    id: UUID
+class EventPublicRead(BaseModel):
+    """What anyone holding the invitation link may see: no roster, no organiser."""
     slug: str
     name: str
     vm_os: str
@@ -47,13 +47,17 @@ class EventRead(BaseModel):
     vm_mem: int
     vm_vcpus: int
     vm_disk_size: int
-    keyboard_layout: Optional[str] = None
-    ssh_enabled: bool = False
     deadline: datetime
     max_vms: int
+    participants_count: int = 0
+
+
+class EventRead(EventPublicRead):
+    id: UUID
+    keyboard_layout: Optional[str] = None
+    ssh_enabled: bool = False
     created_at: datetime
     created_by: str
-    participants_count: int = 0
     participants: list[EventParticipantRead] = []
 
 

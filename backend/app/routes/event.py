@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 
 from app.models.event import (
-    EventCreate, EventUpdate, EventRead,
+    EventCreate, EventUpdate, EventRead, EventPublicRead,
     EventJoinRequest, EventJoinResponse,
 )
 from app.models.user_management import MissingPoliciesResponse
@@ -89,10 +89,10 @@ def delete_event_vm(event_id: str, vm_id: str):
 @router.get(
     "/public/{slug}",
     status_code=status.HTTP_200_OK,
-    response_model=EventRead,
+    response_model=EventPublicRead,
 )
 def get_public_event(slug: str):
-    return EventService.get_event_by_slug(slug)
+    return EventService.get_public_event(slug)
 
 
 @router.post(
