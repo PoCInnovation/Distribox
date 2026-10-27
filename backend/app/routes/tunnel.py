@@ -11,12 +11,17 @@ import logging
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from importlib.metadata import version
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException, Query, WebSocket
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 logger = logging.getLogger(__name__)
+
+# Browsers and proxies cache the gliss modules, so each gliss-server version
+# gets its own URLs and an upgrade never reuses an old client.
+GLISS_VERSION = version("gliss-server")
 
 
 router = APIRouter()
@@ -136,11 +141,30 @@ async def vm_tunnel(
         await relay_stream(websocket, upstream, resize=resize)
 
 
+@router.get("/gliss/version")
+async def gliss_version() -> JSONResponse:
+    """The installed gliss-server version, which names its module URLs."""
+    return JSONResponse({"version": GLISS_VERSION}, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/gliss/versions/{gliss_version}/{path:path}")
+async def gliss_versioned_module(gliss_version: str, path: str) -> FileResponse:
+    """Serve modules under a URL that changes with every gliss-server upgrade."""
+    if gliss_version != GLISS_VERSION:
+        raise HTTPException(status_code=404)
+    return await gliss_file(path, "public, max-age=31536000, immutable")
+
+
 @router.get("/gliss/{path:path}")
 async def gliss_module(path: str) -> FileResponse:
     """Serve the browser modules matching the installed gliss-server."""
+    return await gliss_file(path, "no-cache")
+
+
+async def gliss_file(path: str, cache_control: str) -> FileResponse:
     directory = await asyncio.to_thread(web_dir)
     file = (directory / path).resolve()
     if not file.is_relative_to(directory.resolve()) or not file.is_file():
         raise HTTPException(status_code=404)
-    return FileResponse(file, media_type="text/javascript" if file.suffix == ".js" else None)
+    return FileResponse(file, media_type="text/javascript" if file.suffix == ".js" else None,
+                        headers={"Cache-Control": cache_control})

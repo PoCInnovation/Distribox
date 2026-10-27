@@ -28,6 +28,30 @@ type GlissModule = {
   ) => GlissClient;
 };
 
+/** Last gliss-server version seen, reused while the backend is unreachable. */
+let glissVersion: string | undefined;
+
+/**
+ * Each gliss-server version serves its modules under its own URL. Ask for the
+ * installed one before every session: the page keeps an imported module until
+ * it reloads, so a fixed URL would pin the first client it loaded.
+ */
+async function importGlissClient(): Promise<GlissModule> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/gliss/version`, {
+      cache: "no-store",
+    });
+    if (response.ok) glissVersion = (await response.json()).version;
+  } catch {
+    // A reconnect keeps the last client and lets the tunnel report the outage.
+  }
+  if (!glissVersion) throw new Error("Failed to load the desktop client");
+  return (await import(
+    /* @vite-ignore */
+    `${API_BASE_URL}/gliss/versions/${encodeURIComponent(glissVersion)}/client.js`
+  )) as GlissModule;
+}
+
 /**
  * Identifies this browser to the backend, which lets only the first viewer of
  * a VM resize it. Reloads, new tabs and reconnects keep the same identity.
@@ -184,9 +208,7 @@ export function useGlissClient(
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
     async function initGliss() {
-      const { GlissClient } = (await import(
-        /* @vite-ignore */ `${API_BASE_URL}/gliss/client.js`
-      )) as GlissModule;
+      const { GlissClient } = await importGlissClient();
 
       if (cancelled) return;
 
