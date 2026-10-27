@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { DistroLogo } from "@/components/distro-logo";
 import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { resolveOsInfo } from "@/lib/vm-os";
-import type { Event } from "@/lib/types/event";
+import type { PublicEvent } from "@/lib/types/event";
 import {
   deadlineText,
   useNow,
@@ -16,7 +16,7 @@ export function EventInfoCard({
   event,
   className,
 }: {
-  event: Event;
+  event: PublicEvent;
   className?: string;
 }) {
   const timeZone = useTimezone();

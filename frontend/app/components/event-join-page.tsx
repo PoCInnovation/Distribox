@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { getPublicEvent, joinEvent } from "@/lib/api/events";
-import type { Event } from "@/lib/types/event";
+import type { PublicEvent } from "@/lib/types/event";
 import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { EventInfoCard } from "@/components/event-info-card";
 import { useNow } from "@/components/dashboard/events/event-model";
@@ -28,7 +28,7 @@ export function EventJoinPage() {
     data: event,
     isLoading,
     isError,
-  } = useQuery<Event>({
+  } = useQuery<PublicEvent>({
     queryKey: ["public-event", slug],
     queryFn: () => getPublicEvent(slug!),
     enabled: !!slug,

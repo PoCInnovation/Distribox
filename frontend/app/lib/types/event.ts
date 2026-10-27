@@ -11,8 +11,7 @@ export const EventParticipantSchema = z.object({
   created_at: z.string(),
 });
 
-export const EventSchema = z.object({
-  id: z.string().uuid(),
+export const PublicEventSchema = z.object({
   slug: z.string(),
   name: z.string(),
   vm_os: z.string(),
@@ -20,16 +19,21 @@ export const EventSchema = z.object({
   vm_mem: z.number(),
   vm_vcpus: z.number(),
   vm_disk_size: z.number(),
-  keyboard_layout: z.string().nullable().optional(),
   deadline: utcDateString,
   max_vms: z.number(),
+  participants_count: z.number(),
+});
+
+export const EventSchema = PublicEventSchema.extend({
+  id: z.string().uuid(),
+  keyboard_layout: z.string().nullable().optional(),
   created_at: z.string(),
   created_by: z.string(),
-  participants_count: z.number(),
   participants: z.array(EventParticipantSchema),
   ssh_enabled: z.boolean().default(false),
 });
 
+export type PublicEvent = z.infer<typeof PublicEventSchema>;
 export type Event = z.infer<typeof EventSchema>;
 export type EventParticipant = z.infer<typeof EventParticipantSchema>;
 

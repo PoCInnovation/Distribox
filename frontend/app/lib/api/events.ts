@@ -1,11 +1,13 @@
 import type {
   Event,
+  PublicEvent,
   CreateEventPayload,
   UpdateEventPayload,
   EventJoinResponse,
 } from "@/lib/types/event";
 import {
   EventSchema,
+  PublicEventSchema,
   CreateEventPayloadSchema,
   EventJoinResponseSchema,
 } from "@/lib/types/event";
@@ -54,8 +56,12 @@ export async function deleteEventVm(
   await apiRequest(`/events/${eventId}/vms/${vmId}`, { method: "DELETE" });
 }
 
-export async function getPublicEvent(slug: string): Promise<Event> {
-  return apiRequest(`/events/public/${slug}`, { public: true }, EventSchema);
+export async function getPublicEvent(slug: string): Promise<PublicEvent> {
+  return apiRequest(
+    `/events/public/${slug}`,
+    { public: true },
+    PublicEventSchema,
+  );
 }
 
 export async function joinEvent(

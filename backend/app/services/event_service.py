@@ -8,7 +8,7 @@ from sqlmodel import Session, select, func, delete, update, col
 
 from app.core.config import engine
 from app.models.event import (
-    EventCreate, EventUpdate, EventRead,
+    EventCreate, EventUpdate, EventRead, EventPublicRead,
     EventJoinRequest, EventJoinResponse, EventParticipantRead,
 )
 from app.models.vm import VmCreate, VmCredentialCreateRequest
@@ -38,27 +38,13 @@ def _revoke_vm_access(session: Session, vm_id: uuid.UUID) -> None:
         col(VmCredentialORM.vm_id) == vm_id))
 
 
-def _event_to_read(event: EventORM, participants: list[EventParticipantORM] | None = None) -> EventRead:
+def _event_to_public_read(event: EventORM) -> EventPublicRead:
     with Session(engine) as session:
-        count_stmt = select(func.count()).where(
+        count = session.exec(select(func.count()).where(
             EventParticipantORM.event_id == event.id
-        )
-        count = session.exec(count_stmt).one()
+        )).one()
 
-        participant_reads = []
-        if participants is not None:
-            participant_reads = [
-                EventParticipantRead(
-                    id=p.id,
-                    participant_name=p.participant_name,
-                    vm_id=p.vm_id,
-                    created_at=p.created_at,
-                )
-                for p in participants
-            ]
-
-    return EventRead(
-        id=event.id,
+    return EventPublicRead(
         slug=event.slug,
         name=event.name,
         vm_os=event.vm_os,
@@ -66,14 +52,29 @@ def _event_to_read(event: EventORM, participants: list[EventParticipantORM] | No
         vm_mem=event.vm_mem,
         vm_vcpus=event.vm_vcpus,
         vm_disk_size=event.vm_disk_size,
-        keyboard_layout=event.keyboard_layout,
-        ssh_enabled=event.ssh_enabled,
         deadline=event.deadline,
         max_vms=event.max_vms,
+        participants_count=count,
+    )
+
+
+def _event_to_read(event: EventORM, participants: list[EventParticipantORM] | None = None) -> EventRead:
+    return EventRead(
+        **_event_to_public_read(event).model_dump(),
+        id=event.id,
+        keyboard_layout=event.keyboard_layout,
+        ssh_enabled=event.ssh_enabled,
         created_at=event.created_at,
         created_by=event.created_by,
-        participants_count=count,
-        participants=participant_reads,
+        participants=[
+            EventParticipantRead(
+                id=p.id,
+                participant_name=p.participant_name,
+                vm_id=p.vm_id,
+                created_at=p.created_at,
+            )
+            for p in participants or []
+        ],
     )
 
 
@@ -102,7 +103,7 @@ class EventService:
             return _event_to_read(event, list(participants))
 
     @staticmethod
-    def get_event_by_slug(slug: str) -> EventRead:
+    def get_public_event(slug: str) -> EventPublicRead:
         with Session(engine) as session:
             event = session.exec(
                 select(EventORM).where(EventORM.slug == slug)
@@ -110,12 +111,7 @@ class EventService:
             if not event:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
                                     f"Event '{slug}' not found")
-            participants = session.exec(
-                select(EventParticipantORM)
-                .where(EventParticipantORM.event_id == event.id)
-                .order_by(col(EventParticipantORM.created_at))
-            ).all()
-            return _event_to_read(event, list(participants))
+            return _event_to_public_read(event)
 
     @staticmethod
     def _get_cluster_resources() -> dict:
@@ -395,29 +391,10 @@ class EventService:
                     "This event has reached its maximum number of participants",
                 )
 
-            sanitized = _sanitize_name(payload.participant_name)
-            vm_name = f"{event.slug}-{sanitized}"
-
-            existing = session.exec(
-                select(EventParticipantORM).where(
-                    EventParticipantORM.event_id == event.id,
-                    EventParticipantORM.participant_name == payload.participant_name,
-                )
-            ).first()
-            if existing:
-                raise HTTPException(
-                    status.HTTP_409_CONFLICT,
-                    "A participant with this name already exists in this event",
-                )
-
-            existing_vm = session.exec(
-                select(VmORM).where(VmORM.name == vm_name)
-            ).first()
-            if existing_vm:
-                raise HTTPException(
-                    status.HTTP_409_CONFLICT,
-                    f"A VM with name '{vm_name}' already exists",
-                )
+        # Names may repeat: refusing a taken one would tell anyone holding the
+        # link who already joined.
+        sanitized = _sanitize_name(payload.participant_name)
+        vm_name = f"{event.slug}-{sanitized}"
 
         slave_id = EventService._pick_node_for_vm(
             event.vm_mem, event.vm_vcpus, event.vm_disk_size)
