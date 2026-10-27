@@ -16,6 +16,7 @@ type GlissEvent = { type: string; [key: string]: any };
 interface GlissClient {
   connect(): Promise<void>;
   send(input: Record<string, unknown>): number;
+  setAudioEnabled(enabled: boolean): Promise<void>;
   dispose(): void;
 }
 type GlissModule = {
@@ -61,6 +62,10 @@ interface UseGlissClientResult {
   clipboardText: string;
   sendClipboard: (text: string) => void;
   sendKeyEvent: (pressed: boolean, keysym: number) => void;
+  audioAvailable: boolean;
+  audioEnabled: boolean;
+  audioMessage?: string;
+  setAudioEnabled: (enabled: boolean) => void;
   requestFullscreen: () => Promise<void>;
   exitFullscreen: () => Promise<void>;
   isFullscreen: boolean;
@@ -74,6 +79,10 @@ export function useGlissClient(
   const [error, setError] = useState<string | undefined>();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [clipboardText, setClipboardText] = useState("");
+  const [audioAvailable, setAudioAvailable] = useState(false);
+  const [audioEnabled, setAudioEnabledState] = useState(false);
+  const [audioMessage, setAudioMessage] = useState<string>();
+  const audioRef = useRef<GlissClient | null>(null);
   const sendClipboardRef = useRef<((text: string) => void) | null>(null);
   const syncClipboardRef = useRef<(() => void) | null>(null);
   // Toolbar keys bypass the physical keyboard handling below.
@@ -99,6 +108,16 @@ export function useGlissClient(
 
   const sendClipboard = useCallback((text: string) => {
     sendClipboardRef.current?.(text);
+  }, []);
+
+  const setAudioEnabled = useCallback((enabled: boolean) => {
+    // Call directly from the button's click so playback has user activation.
+    const client = audioRef.current;
+    void client?.setAudioEnabled(enabled).catch(() => {
+      if (audioRef.current !== client) return;
+      setAudioEnabledState(false);
+      setAudioMessage("Click Enable sound to allow audio playback.");
+    });
   }, []);
 
   useEffect(() => {
@@ -153,6 +172,9 @@ export function useGlissClient(
     setState(everConnectedRef.current ? "reconnecting" : "connecting");
     setError(undefined);
     setClipboardText("");
+    setAudioAvailable(false);
+    setAudioEnabledState(false);
+    setAudioMessage(undefined);
 
     let cancelled = false;
     let client: GlissClient | undefined;
@@ -317,6 +339,8 @@ export function useGlissClient(
         if (cancelled || dropped) return;
         dropped = true;
         connected = false;
+        setAudioEnabledState(false);
+        setAudioAvailable(false);
         setError(message);
         if (!everConnectedRef.current) {
           setState("error");
@@ -369,6 +393,10 @@ export function useGlissClient(
             receiveClipboard(event.text);
           } else if (event.type === "cursor") {
             showCursor(event);
+          } else if (event.type === "audio_state") {
+            setAudioAvailable(event.available === true);
+            setAudioEnabledState(event.enabled === true);
+            setAudioMessage(event.message);
           } else if (event.type === "error") {
             // Rejected input (input_error) does not end the session.
             lastError = event.message;
@@ -380,6 +408,7 @@ export function useGlissClient(
         },
         { url: `${TUNNEL_URL}?${connectParams}` },
       );
+      audioRef.current = client;
 
       // Keys wait for a pending clipboard read so that a paste uses the new
       // text. Meta is Cmd on macOS, where users expect Cmd+C/V to act as Ctrl+C/V.
@@ -418,6 +447,7 @@ export function useGlissClient(
       clearTimeout(resizeTimer);
       resizeObserver?.disconnect();
       sendRef.current = null;
+      audioRef.current = null;
       canvasRef.current = null;
       client?.dispose();
       const container = options.containerRef.current;
@@ -435,6 +465,10 @@ export function useGlissClient(
     clipboardText,
     sendClipboard,
     sendKeyEvent,
+    audioAvailable,
+    audioEnabled,
+    audioMessage,
+    setAudioEnabled,
     requestFullscreen,
     exitFullscreen,
     isFullscreen,

@@ -28,6 +28,8 @@ Create virtual machines with custom specs: CPU cores, RAM, disk size, and operat
 ## Graphical VM Streaming
 Distribox uses [gliss](https://github.com/lg-epitech/gliss) to stream VM desktops over WebSocket. For each connection, the backend on the VM's host starts a gliss server on its VNC display. Slave hosts send encoded video through their authenticated API to the master, which relays it to the browser. gliss is installed with the backend's Python dependencies. No client-side software required.
 
+Enable VM audio with **Enable sound** in the desktop toolbar. Audio shares the authenticated desktop connection and stays off until requested. Existing VMs need a full shutdown and start to add the sound device; see [VM sound](images/README.md#vm-sound).
+
 <div align="center">
   <img src=".github/assets/vm-streaming.png" alt="VM Streaming" width="700"/>
 </div>
