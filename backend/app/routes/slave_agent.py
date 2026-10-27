@@ -2,15 +2,37 @@
 
 All endpoints require X-Slave-Token authentication.
 """
-from fastapi import APIRouter, Depends, Response, status
+import asyncio
+import secrets
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Response, WebSocket, status
+from app.core.config import SLAVE_API_KEY, VNC_HOST
 from app.models.vm import VmCreate, VmRead
 from app.services.vm_service import VmService
 from app.services.host_service import HostService
 from app.services.vm_screenshot import capture_screenshot
+from app.services.desktop_stream import local_stream, relay_stream
 from app.utils.vnc import get_vnc_port
 from app.utils.slave_auth import require_slave_token
 
 router = APIRouter()
+
+
+@router.websocket("/vms/{vm_id}/desktop/tunnel")
+async def relay_vm_desktop(websocket: WebSocket, vm_id: UUID):
+    token = websocket.headers.get("x-slave-token", "")
+    if not SLAVE_API_KEY or not secrets.compare_digest(token.encode(), SLAVE_API_KEY.encode()):
+        await websocket.close(code=1008)
+        return
+    try:
+        vnc_port = await asyncio.to_thread(get_vnc_port, str(vm_id))
+    except Exception:
+        await websocket.close(code=1011)
+        return
+    # The master authenticates the viewer and filters resize requests; only
+    # encoded video crosses the node link. The VNC target stays node-local.
+    await relay_stream(websocket, local_stream(VNC_HOST, vnc_port))
 
 
 @router.post(

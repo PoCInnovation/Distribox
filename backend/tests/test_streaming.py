@@ -3,15 +3,16 @@ from fastapi import HTTPException
 
 from app.core.xml_builder import upgrade_display_devices
 from app.routes import tunnel
-from app.routes.tunnel import _is_resize, _resize_owner, gliss_module
+from app.routes.tunnel import _resize_owner, gliss_module
+from app.services.desktop_stream import is_resize
 from app.services.gliss import web_dir
 
 
 def test_is_resize_matches_only_resize_messages():
-    assert _is_resize('{"type":"resize","width":1280,"height":800,"id":3}')
-    assert not _is_resize('{"type":"key","keysym":97,"down":true,"id":4}')
-    assert not _is_resize("not json")
-    assert not _is_resize('["resize"]')
+    assert is_resize('{"type":"resize","width":1280,"height":800,"id":3}')
+    assert not is_resize('{"type":"key","keysym":97,"down":true,"id":4}')
+    assert not is_resize("not json")
+    assert not is_resize('["resize"]')
 
 
 def test_web_dir_exports_the_installed_gliss_client():

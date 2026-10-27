@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import functools
+import os
 import secrets
 import shutil
 import socket
@@ -36,6 +37,22 @@ async def gliss_session(vnc_host: str, vnc_port: int) -> AsyncIterator[tuple[str
 
     Yields the server's WebSocket URL and the headers that authenticate it.
     """
+    # Gliss validates these ranges too; reject invalid configuration before
+    # launching a worker so its error is visible in the backend log.
+    settings = {}
+    for name, default, lower, upper in (
+        ("GLISS_IN_FLIGHT_FRAMES", 8, 1, 8),
+        ("GLISS_FPS", 30, 1, 60),
+        ("GLISS_H264_BITRATE", 2_000_000, 1_000, 50_000_000),
+    ):
+        try:
+            value = int(os.environ.get(name) or default)
+        except ValueError:
+            raise ValueError(
+                f"{name} must be an integer between {lower} and {upper}") from None
+        if not lower <= value <= upper:
+            raise ValueError(f"{name} must be between {lower} and {upper}")
+        settings[name] = str(value)
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
@@ -44,11 +61,11 @@ async def gliss_session(vnc_host: str, vnc_port: int) -> AsyncIterator[tuple[str
     process = await asyncio.create_subprocess_exec(
         gliss_binary(), "--vnc", f"{vnc_host}:{vnc_port}",
         "--bind", f"127.0.0.1:{port}", "--max-clients", "1",
-        # H.264 keeps motion within a typical upload link, where lossless
-        # updates queue for seconds; several frames in flight keep it smooth
-        # on high-latency links.
-        "--codec", "h264", "--h264-bitrate", "2000000", "--fps", "30",
-        "--in-flight-frames", "4",
+        # Bitrate is a soft encoder target. Eight presentation ACK credits keep
+        # 30 fps possible through roughly 250 ms of network + decode/paint delay.
+        "--codec", "h264", "--h264-bitrate", settings["GLISS_H264_BITRATE"],
+        "--fps", settings["GLISS_FPS"],
+        "--in-flight-frames", settings["GLISS_IN_FLIGHT_FRAMES"],
         env={"GLISS_TOKEN": token}, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
     )
     try:

@@ -1,21 +1,20 @@
 from app.utils.vnc import get_vnc_port
 from app.utils.auth import decode_access_token, user_has_policy
-from app.services.gliss import gliss_session, web_dir
+from app.services.gliss import web_dir
+from app.services.desktop_stream import local_stream, slave_stream, relay_stream
 from app.services.vm_service import VmService
 from app.orm.user import UserORM
 from app.core.config import engine, VNC_HOST
 from sqlmodel import Session
 import asyncio
-import json
 import logging
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, WebSocket
 from fastapi.responses import FileResponse
-from websockets.asyncio.client import connect
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +49,6 @@ def _resize_owner(vm_id: str, viewer: str) -> Iterator[bool]:
     finally:
         owner, tunnels, _ = _resize_owners[vm_id]
         _resize_owners[vm_id] = (owner, tunnels - 1, time.monotonic())
-
-
-def _is_resize(message: str) -> bool:
-    try:
-        decoded = json.loads(message)
-    except ValueError:
-        return False
-    return isinstance(decoded, dict) and decoded.get("type") == "resize"
 
 
 def _find_vm_for_credential(token: str) -> str | None:
@@ -128,14 +119,7 @@ async def vm_tunnel(
     slave = await asyncio.to_thread(VmService._get_slave_for_vm, resolved_vm_id)
 
     if slave:
-        from app.services.slave_client import slave_get_vnc_port
-        try:
-            vnc_port = await asyncio.to_thread(slave_get_vnc_port, slave, resolved_vm_id)
-        except Exception as exc:
-            detail = getattr(exc, "detail", str(exc))
-            await websocket.close(code=4002, reason=detail)
-            return
-        vnc_host = slave.hostname
+        upstream = slave_stream(slave, resolved_vm_id)
     else:
         try:
             vnc_port = await asyncio.to_thread(get_vnc_port, resolved_vm_id)
@@ -143,55 +127,13 @@ async def vm_tunnel(
             detail = getattr(exc, "detail", str(exc))
             await websocket.close(code=4002, reason=detail)
             return
-        vnc_host = VNC_HOST
+        upstream = local_stream(VNC_HOST, vnc_port)
 
-    logger.info("Tunnel: vm_id=%s vnc=%s:%s",
-                resolved_vm_id, vnc_host, vnc_port)
+    logger.info("Tunnel: vm_id=%s host=%s",
+                resolved_vm_id, slave.hostname if slave else VNC_HOST)
 
     with _resize_owner(resolved_vm_id, viewer or uuid4().hex) as resize:
-        await _relay(websocket, vnc_host, vnc_port, resize)
-
-
-async def _relay(websocket: WebSocket, vnc_host: str, vnc_port: int,
-                 resize: bool) -> None:
-    await websocket.accept()
-    try:
-        async with gliss_session(vnc_host, vnc_port) as (url, headers), \
-                connect(url, additional_headers=headers, max_size=None) as gliss:
-
-            async def browser_to_gliss():
-                async for message in websocket.iter_text():
-                    if resize or not _is_resize(message):
-                        await gliss.send(message)
-
-            async def gliss_to_browser():
-                async for message in gliss:
-                    if isinstance(message, bytes):
-                        await websocket.send_bytes(message)
-                    else:
-                        await websocket.send_text(message)
-
-            relays = [asyncio.create_task(browser_to_gliss()),
-                      asyncio.create_task(gliss_to_browser())]
-            done, pending = await asyncio.wait(
-                relays, return_when=asyncio.FIRST_COMPLETED)
-            for task in pending:
-                task.cancel()
-            await asyncio.gather(*pending, return_exceptions=True)
-            for task in done:
-                task.result()
-    except WebSocketDisconnect:
-        return
-    except Exception as exc:
-        logger.warning("Tunnel to VNC %s:%s failed: %s",
-                       vnc_host, vnc_port, exc)
-        reason = "Cannot stream the VM desktop"
-    else:
-        reason = "The VM desktop stream ended"
-    try:
-        await websocket.close(code=1011, reason=reason)
-    except Exception:
-        pass
+        await relay_stream(websocket, upstream, resize=resize)
 
 
 @router.get("/gliss/{path:path}")

@@ -27,6 +27,9 @@ services:
       - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-registry}
       - AWS_REGION=${AWS_REGION:-eu-west-3}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}
+      - GLISS_IN_FLIGHT_FRAMES=${GLISS_IN_FLIGHT_FRAMES:-8}
+      - GLISS_FPS=${GLISS_FPS:-30}
+      - GLISS_H264_BITRATE=${GLISS_H264_BITRATE:-2000000}
       - VIRT_TYPE=${VIRT_TYPE:-kvm}
     network_mode: host
     extra_hosts:
@@ -66,6 +69,9 @@ services:
       - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-registry}
       - AWS_REGION=${AWS_REGION:-eu-west-3}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}
+      - GLISS_IN_FLIGHT_FRAMES=${GLISS_IN_FLIGHT_FRAMES:-8}
+      - GLISS_FPS=${GLISS_FPS:-30}
+      - GLISS_H264_BITRATE=${GLISS_H264_BITRATE:-2000000}
       - VIRT_TYPE=${VIRT_TYPE:-kvm}
     network_mode: host
     extra_hosts:
@@ -103,6 +109,9 @@ services:
       - DISTRIBOX_BUCKET_REGISTRY=${DISTRIBOX_BUCKET_REGISTRY:-distribox-registry}
       - AWS_REGION=${AWS_REGION:-eu-west-3}
       - VNC_HOST=${VNC_HOST:-127.0.0.1}
+      - GLISS_IN_FLIGHT_FRAMES=${GLISS_IN_FLIGHT_FRAMES:-8}
+      - GLISS_FPS=${GLISS_FPS:-30}
+      - GLISS_H264_BITRATE=${GLISS_H264_BITRATE:-2000000}
       - VNC_LISTEN=${VNC_LISTEN:-127.0.0.1}
       - VIRT_TYPE=${VIRT_TYPE:-kvm}
     network_mode: host
