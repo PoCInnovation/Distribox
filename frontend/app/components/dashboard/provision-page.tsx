@@ -3,7 +3,6 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { CheckIcon, Sparkles, TriangleAlertIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -21,17 +20,21 @@ import { Policy } from "@/lib/types";
 import { PolicyGate } from "@/components/policy/policy-gate";
 import { PolicyNotice } from "@/components/policy/policy-notice";
 import { KEYBOARD_LAYOUTS, getKeyboardLabel } from "@/lib/keyboard-layouts";
-import { SshAccessSwitch } from "@/components/ssh-access-switch";
 import { VMImageSelect } from "@/components/dashboard/vm-image-picker";
 import { cn } from "@/lib/utils";
 import { FormRow } from "./provision/form-row";
+import {
+  minDiskFromError,
+  minDiskMessage,
+  useImageMinDisk,
+} from "@/lib/min-disk";
 import { SizeStepper } from "./provision/size-stepper";
 import { NodeCard } from "./provision/capacity";
 import { SummaryRail, type SummaryStatus } from "./provision/summary-rail";
 import {
   buildPresets,
   clampSize,
-  describeProblems,
+  describeShortfall,
   fitOnNode,
   formatCapacity,
   matchPreset,
@@ -157,17 +160,25 @@ export default function ProvisionPage() {
   let sizeError: string | null = null;
   if (fits.length > 0) {
     if (placement === "auto") {
-      if (!fits.some((f) => f.fits)) sizeError = "Too big for every node";
+      if (!fits.some((f) => f.fits)) sizeError = "Too big for every host";
     } else if (targetFit && !targetFit.fits) {
       sizeError = `Too big for ${targetFit.node.name}`;
     }
   }
+  const minDisk = useImageMinDisk(createVM.error, os);
+  const diskError =
+    minDisk !== null && size.disk < minDisk ? minDiskMessage(minDisk) : null;
   const showNameError = nameTouched || submitted ? nameError : null;
   const showImageError = submitted ? imageError : null;
-  const errorCount = [nameError, imageError, sizeError].filter(Boolean).length;
-  const visibleErrorCount = [showNameError, showImageError, sizeError].filter(
+  const errorCount = [nameError, imageError, sizeError, diskError].filter(
     Boolean,
   ).length;
+  const visibleErrorCount = [
+    showNameError,
+    showImageError,
+    sizeError,
+    diskError,
+  ].filter(Boolean).length;
 
   const selectedImage = images?.find((i) => i.image === os) ?? null;
   const placementText =
@@ -185,10 +196,11 @@ export default function ProvisionPage() {
           : fits.filter((f) => f.node.id === placement);
       const detail = offending
         .filter((f) => !f.fits)
-        .map((f) => `${f.node.name} lacks ${describeProblems(f.problems)}`)
+        .map((f) => describeShortfall(f))
         .join("; ");
       return { tone: "error", text: `${sizeError}. ${detail}.` };
     }
+    if (diskError) return { tone: "error", text: diskError };
     if (fits.length === 0) {
       return canReadHost
         ? null
@@ -363,7 +375,7 @@ export default function ProvisionPage() {
             id="row-size"
             label="Size"
             help="Presets come from your defaults in Settings."
-            error={sizeError}
+            error={sizeError ?? diskError}
           >
             <div className="space-y-4">
               <div
@@ -488,8 +500,8 @@ export default function ProvisionPage() {
             label="Placement"
             help={
               hasSlaves
-                ? "Which node runs the VM. Bars show what this size takes from each node."
-                : "Only the master node is online."
+                ? "Which host runs the VM. Bars show what this size takes from each host."
+                : "Only the master is online."
             }
           >
             <div
@@ -515,7 +527,7 @@ export default function ProvisionPage() {
                     Auto
                   </span>
                   <span className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                    Master first. If it is short on room, the first node with
+                    Master first. If it is short on room, the first slave with
                     enough capacity takes the VM.
                   </span>
                   {placement === "auto" && fits.length > 0 && (
@@ -533,7 +545,7 @@ export default function ProvisionPage() {
                       ) : (
                         <>
                           <TriangleAlertIcon className="h-3.5 w-3.5" />
-                          no node has room
+                          no host has room
                         </>
                       )}
                     </span>
@@ -588,17 +600,10 @@ export default function ProvisionPage() {
             </div>
           </FormRow>
 
-          <FormRow
-            id="row-options"
-            label="Options"
-            help="Console keyboard, SSH, and what happens right after creation."
-          >
+          <FormRow id="row-options" label="Keyboard">
             <div className="space-y-4">
               <div className="min-w-0 md:max-w-sm">
-                <label
-                  htmlFor="vm-keyboard"
-                  className="mb-1.5 block text-xs font-medium text-muted-foreground"
-                >
+                <label htmlFor="vm-keyboard" className="sr-only">
                   Keyboard layout
                 </label>
                 <Select
@@ -630,29 +635,6 @@ export default function ProvisionPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                {canManageSsh && (
-                  <SshAccessSwitch enabled={ssh} onChange={setSsh} />
-                )}
-                <label
-                  htmlFor="vm-autostart"
-                  className="flex cursor-pointer items-center gap-3 border border-border p-4"
-                >
-                  <Checkbox
-                    id="vm-autostart"
-                    checked={autoStart}
-                    onCheckedChange={(c) => setAutoStart(c === true)}
-                  />
-                  <span className="text-sm">
-                    <span className="block font-medium">
-                      Start after creation
-                    </span>
-                    <span className="block text-xs text-muted-foreground">
-                      Otherwise it stays stopped until you start it.
-                    </span>
-                  </span>
-                </label>
-              </div>
             </div>
           </FormRow>
         </fieldset>
@@ -666,12 +648,14 @@ export default function ProvisionPage() {
           placement={placementText}
           keyboard={keyboard ? getKeyboardLabel(keyboard) : "VM default"}
           ssh={canManageSsh ? ssh : null}
+          onSshChange={setSsh}
           autoStart={autoStart}
+          onAutoStartChange={setAutoStart}
           status={status}
           errorCount={visibleErrorCount}
           pending={pending}
           submitError={
-            createVM.isError
+            createVM.isError && minDiskFromError(createVM.error) === null
               ? `Provisioning failed. ${createVM.error.message || "Unknown error."}`
               : null
           }

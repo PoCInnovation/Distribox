@@ -255,7 +255,7 @@ export function FleetCapacity({
         (problems.length === 0 ? (
           <p className="mt-0.5 flex items-center gap-1 text-success">
             <CheckIcon className="size-3.5" />
-            Fits in what the cluster has free
+            The cluster has room for every seat
           </p>
         ) : (
           <p className="mt-0.5 flex items-start gap-1 text-warning">

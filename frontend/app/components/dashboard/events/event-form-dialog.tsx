@@ -39,6 +39,12 @@ import {
 } from "../provision/model";
 import { DeadlineField, FleetCapacity } from "../event-form-fields";
 import {
+  minDiskFromError,
+  minDiskMessage,
+  useImageMinDisk,
+} from "@/lib/min-disk";
+import { formatCapacity } from "../provision/model";
+import {
   SLUG_PATTERN,
   displayUrl,
   eventShareUrl,
@@ -161,6 +167,7 @@ export function EventFormDialog({
 
   const slugValid = form.slug.length >= 2 && SLUG_PATTERN.test(form.slug);
   const deadlineValid = !!form.deadline && form.deadline.getTime() > Date.now();
+  const minDisk = useImageMinDisk(mutation.error, form.os);
   const errors = {
     name: form.name.trim() === "" ? "Give the event a name." : null,
     slug: !slugValid
@@ -169,6 +176,10 @@ export function EventFormDialog({
         : "Use at least 2 lowercase letters, digits or dashes, not starting or ending with a dash."
       : null,
     os: form.os === "" ? "Pick the image every participant gets." : null,
+    disk:
+      minDisk !== null && form.size.disk < minDisk
+        ? minDiskMessage(minDisk)
+        : null,
     deadline: !form.deadline
       ? "Pick when joining closes."
       : !deadlineValid
@@ -385,6 +396,7 @@ export function EventFormDialog({
             <FormRow
               label="Size"
               help="Per participant. Presets come from your defaults in Settings."
+              error={show("disk")}
             >
               <div className="space-y-4">
                 <div
@@ -478,7 +490,7 @@ export function EventFormDialog({
                     }
                     hint={
                       clusterInfo
-                        ? `${(clusterInfo.totals.disk_available / 1024).toFixed(1)} TB free`
+                        ? `${formatCapacity(clusterInfo.totals.disk_available)} free`
                         : undefined
                     }
                   />
@@ -597,7 +609,7 @@ export function EventFormDialog({
             disk={form.size.disk}
             totals={clusterInfo?.totals}
           />
-          {mutation.isError && (
+          {mutation.isError && minDiskFromError(mutation.error) === null && (
             <p
               role="alert"
               className="flex basis-full items-start gap-2 text-sm text-destructive md:order-first"

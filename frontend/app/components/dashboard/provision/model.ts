@@ -140,6 +140,18 @@ export const PROBLEM_LABEL: Record<FitProblem, string> = {
   disk: "disk",
 };
 
+/** "9.4 GB disk free" style detail for each shortfall. */
+export function describeShortfall(fit: NodeFit): string {
+  const parts = fit.problems.map((p) =>
+    p === "vcpus"
+      ? `${fit.node.cpuCount} cores`
+      : p === "mem"
+        ? `${formatCapacity(fit.node.memFree)} memory free`
+        : `${formatCapacity(fit.node.diskFree)} disk free`,
+  );
+  return `${fit.node.name} has ${parts.join(", ")}`;
+}
+
 export function describeProblems(problems: FitProblem[]): string {
   const labels = problems.map((p) => PROBLEM_LABEL[p]);
   if (labels.length <= 1) return labels[0] ?? "";

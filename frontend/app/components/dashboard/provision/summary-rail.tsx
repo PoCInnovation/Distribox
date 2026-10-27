@@ -1,4 +1,10 @@
-import { CheckIcon, LoaderCircleIcon, TriangleAlertIcon } from "lucide-react";
+import { useId } from "react";
+import {
+  CheckIcon,
+  LoaderCircleIcon,
+  Terminal,
+  TriangleAlertIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DistroLogo } from "@/components/distro-logo";
 import type { ImageMetadata } from "@/lib/types";
@@ -18,7 +24,9 @@ export function SummaryRail({
   placement,
   keyboard,
   ssh,
+  onSshChange,
   autoStart,
+  onAutoStartChange,
   status,
   errorCount,
   pending,
@@ -32,7 +40,9 @@ export function SummaryRail({
   placement: string;
   keyboard: string;
   ssh: boolean | null;
+  onSshChange: (on: boolean) => void;
   autoStart: boolean;
+  onAutoStartChange: (on: boolean) => void;
   status: SummaryStatus | null;
   errorCount: number;
   pending: boolean;
@@ -110,12 +120,27 @@ export function SummaryRail({
       <dl className="grid gap-y-1.5 border-b border-border px-5 py-4 text-sm">
         <Row label="Placement" value={placement} mono />
         <Row label="Keyboard" value={keyboard} />
-        {ssh !== null && <Row label="SSH" value={ssh ? "allowed" : "off"} />}
-        <Row
-          label="After creation"
-          value={autoStart ? "start" : "stay stopped"}
-        />
       </dl>
+
+      <div className="space-y-3 border-b border-border px-5 py-4">
+        {ssh !== null && (
+          <Toggle
+            label={
+              <>
+                <Terminal className="h-3.5 w-3.5" />
+                Allow SSH
+              </>
+            }
+            on={ssh}
+            onChange={onSshChange}
+          />
+        )}
+        <Toggle
+          label="Start after creation"
+          on={autoStart}
+          onChange={onAutoStartChange}
+        />
+      </div>
 
       <div className="space-y-3 px-5 py-4">
         {status && (
@@ -200,6 +225,46 @@ function Row({
       >
         {value}
       </dd>
+    </div>
+  );
+}
+
+function Toggle({
+  label,
+  on,
+  onChange,
+}: {
+  label: React.ReactNode;
+  on: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <label
+        htmlFor={id}
+        className="flex cursor-pointer items-center gap-2 text-sm"
+      >
+        {label}
+      </label>
+      <button
+        id={id}
+        type="button"
+        role="switch"
+        aria-checked={on}
+        onClick={() => onChange(!on)}
+        className={cn(
+          "inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+          on ? "bg-primary" : "bg-muted",
+        )}
+      >
+        <span
+          className={cn(
+            "h-3.5 w-3.5 rounded-full bg-foreground shadow transition-transform",
+            on ? "translate-x-[18px]" : "translate-x-[2px]",
+          )}
+        />
+      </button>
     </div>
   );
 }
