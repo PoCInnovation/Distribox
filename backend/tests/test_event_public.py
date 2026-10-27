@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timezone
+from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
@@ -10,6 +11,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from app.orm.event import EventORM, EventParticipantORM
 from app.orm.user import UserORM
+from app.orm.vm import VmORM
 from app.routes import event
 from app.services import event_service
 from app.utils.auth import get_current_user
@@ -34,6 +36,8 @@ def workshop(monkeypatch):
     event_id, vm_id = workshop.id, uuid4()
     with Session(engine) as session:
         session.add(workshop)
+        session.add(VmORM(id=vm_id, name="workshop-ada-lovelace",
+                          os="ubuntu-24.04.qcow2", mem=2, vcpus=1, disk_size=10))
         session.add(EventParticipantORM(
             event_id=event_id, vm_id=vm_id, participant_name="Ada Lovelace",
         ))
@@ -76,3 +80,23 @@ def test_event_details_keep_roster_for_authorised_users(workshop):
     assert body["participants_count"] == 1
     assert [(p["participant_name"], p["vm_id"]) for p in body["participants"]] \
         == [("Ada Lovelace", str(vm_id))]
+
+
+def test_join_does_not_reveal_who_already_joined(workshop, monkeypatch):
+    monkeypatch.setattr(event_service.EventService, "_pick_node_for_vm",
+                        Mock(return_value=None))
+    monkeypatch.setattr(event_service.VmService, "create_vm",
+                        Mock(side_effect=lambda vm: {"id": uuid4()}))
+    monkeypatch.setattr(event_service.VmService, "create_vm_credential",
+                        Mock(return_value={"name": "ada-lovelace",
+                                           "password": "secret"}))
+    client = api_client()
+
+    for name in ("Ada Lovelace", "ada lovelace"):
+        response = client.post("/events/public/workshop/join",
+                               json={"participant_name": name})
+        assert response.status_code == 201
+        assert response.json()["vm_name"] == "workshop-ada-lovelace"
+
+    assert client.get("/events/public/workshop").json()[
+        "participants_count"] == 3

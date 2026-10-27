@@ -391,29 +391,10 @@ class EventService:
                     "This event has reached its maximum number of participants",
                 )
 
-            sanitized = _sanitize_name(payload.participant_name)
-            vm_name = f"{event.slug}-{sanitized}"
-
-            existing = session.exec(
-                select(EventParticipantORM).where(
-                    EventParticipantORM.event_id == event.id,
-                    EventParticipantORM.participant_name == payload.participant_name,
-                )
-            ).first()
-            if existing:
-                raise HTTPException(
-                    status.HTTP_409_CONFLICT,
-                    "A participant with this name already exists in this event",
-                )
-
-            existing_vm = session.exec(
-                select(VmORM).where(VmORM.name == vm_name)
-            ).first()
-            if existing_vm:
-                raise HTTPException(
-                    status.HTTP_409_CONFLICT,
-                    f"A VM with name '{vm_name}' already exists",
-                )
+        # Names may repeat: refusing a taken one would tell anyone holding the
+        # link who already joined.
+        sanitized = _sanitize_name(payload.participant_name)
+        vm_name = f"{event.slug}-{sanitized}"
 
         slave_id = EventService._pick_node_for_vm(
             event.vm_mem, event.vm_vcpus, event.vm_disk_size)
