@@ -82,6 +82,10 @@ export function DesktopDisplay(props: DesktopDisplayProps) {
     clipboardText,
     sendClipboard,
     sendKeyEvent,
+    audioAvailable,
+    audioEnabled,
+    audioMessage,
+    setAudioEnabled,
     requestFullscreen,
     exitFullscreen,
     isFullscreen,
@@ -268,6 +272,25 @@ export function DesktopDisplay(props: DesktopDisplayProps) {
             </div>
             <div className="flex items-center gap-3">
               <button
+                className="rounded bg-white/15 px-2 py-0.5 text-xs text-white hover:bg-white/25 transition-colors disabled:opacity-50"
+                disabled={!audioAvailable}
+                aria-pressed={audioEnabled}
+                title={
+                  audioMessage ||
+                  (!audioAvailable
+                    ? "Sound is unavailable. Existing VMs need a full shutdown and start to add audio."
+                    : undefined)
+                }
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setAudioEnabled(!audioEnabled)}
+              >
+                {audioEnabled
+                  ? "Mute sound"
+                  : audioAvailable
+                    ? "Enable sound"
+                    : "Sound unavailable"}
+              </button>
+              <button
                 className="rounded bg-white/15 px-2 py-0.5 text-xs text-white hover:bg-white/25 transition-colors"
                 onClick={() => {
                   setClipboardOpen(true);
@@ -364,6 +387,12 @@ export function DesktopDisplay(props: DesktopDisplayProps) {
               </button>
             ))}
           </div>
+
+          {audioMessage && (
+            <p role="status" className="mt-2 text-xs text-white/70">
+              {audioMessage}
+            </p>
+          )}
 
           {initialOverlay && (
             <p className="mt-2 text-xs text-white/50 text-center">

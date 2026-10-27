@@ -18,12 +18,15 @@ CLIPBOARD_CHANNEL = """<channel type='qemu-vdagent'>
 <target type='virtio' name='com.redhat.spice.0'/>
 </channel>"""
 
+AUDIO_DEVICES = """<sound model='ich6'><codec type='output'/><audio id='1'/></sound>
+<audio id='1' type='none'/>"""
+
 DOMAIN_XML = """<domain type='kvm'><name>course-vm</name><devices>
 <disk type='file' device='disk'><source file='/course/glo-2000.qcow2'/></disk>
-<graphics type='vnc' port='-1' autoport='yes' listen='127.0.0.1'/>
+<graphics type='vnc' port='-1' autoport='yes' listen='127.0.0.1'><audio id='1'/></graphics>
 <input type='keyboard' bus='ps2'/><input type='tablet' bus='virtio'/>
 <video><model type='virtio'/></video>
-""" + CLIPBOARD_CHANNEL + "</devices></domain>"
+""" + CLIPBOARD_CHANNEL + AUDIO_DEVICES + "</devices></domain>"
 
 
 def vnc_keymap(xml):
@@ -267,3 +270,25 @@ def test_cold_start_preserves_existing_guest_agent_channel(vm_start):
 
     channels = clipboard_channels(state["starts"][0][0])
     assert [c.get("type") for c in channels] == ["unix"]
+
+
+@pytest.mark.parametrize("saved", [False, True])
+def test_audio_upgrade_only_changes_devices_on_cold_start(vm_start, saved):
+    vm_id, engine, domain, connection, state = vm_start
+    old_xml = DOMAIN_XML.replace(AUDIO_DEVICES, "").replace("<audio id='1'/>", "")
+    state["xml"] = state["saved_xml"] = old_xml
+    domain.hasManagedSaveImage.return_value = saved
+
+    vm_service.VmService.start_vm(vm_id)
+
+    persistent, saved_xml = state["starts"][0]
+    root = etree.fromstring(persistent.encode())
+    assert (root.find("./devices/sound") is not None) == (not saved)
+    assert (root.find("./devices/audio") is not None) == (not saved)
+    assert etree.fromstring(saved_xml.encode()).find("./devices/sound") is None
+    domain.managedSaveRemove.assert_not_called()
+
+    connection.defineXML.reset_mock()
+    domain.isActive.return_value = 0
+    vm_service.VmService.start_vm(vm_id)
+    connection.defineXML.assert_not_called()

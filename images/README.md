@@ -167,6 +167,14 @@ QEMU/KVM VM
 - The backend serves the browser client from the installed `gliss-server`, so both always match.
 - VNC ports stay private. For VMs on a slave, set `VNC_LISTEN` on the slave to an address the master can reach.
 
+### VM sound
+
+Choose **Enable sound** in the desktop toolbar to hear the VM; **Mute sound** stops the audio stream. Each viewer controls their own sound. Audio uses the same authenticated tunnel as the desktop, including for VMs on slaves. Browsers with an Opus decoder receive compressed stereo audio; other browsers use PCM. Serve Distribox over HTTPS for browser media support (localhost also works).
+
+New VMs have an Intel HDA output device and a headless QEMU audio backend. Existing VMs get these devices on their next full shutdown and start. Restarting the guest or restoring saved memory does not add hardware. The guest needs its normal HDA driver and an enabled, unmuted audio output; no additional guest agent or host audio service is required.
+
+Imported VMs keep their existing sound cards and audio backends. Distribox links an unconfigured VNC capture to the sound card's backend; if several backends exist without an explicit sound-card binding, configure the matching `<audio id='…'/>` under the VNC graphics device yourself.
+
 ### Display resizing in X11 guests
 
 X11 desktops, such as KDE Plasma on X11, ignore the size the web client requests unless `images/guest/distribox-display-resize` runs at login. Install it into an image before creating VMs from it, or into a stopped VM's disk under `/var/lib/distribox/vms/<id>/`:

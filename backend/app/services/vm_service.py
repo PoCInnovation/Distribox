@@ -11,7 +11,7 @@ from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML, VmRename
 from app.models.image import ImageRead
-from app.core.xml_builder import build_xml, configure_vnc_clipboard, configure_vnc_keyboard, upgrade_display_devices
+from app.core.xml_builder import build_xml, configure_vnc_audio, configure_vnc_clipboard, configure_vnc_keyboard, upgrade_display_devices
 from app.core.config import QEMUConfig, engine
 from sqlalchemy import func
 from sqlmodel import Session, select, delete, col
@@ -271,6 +271,7 @@ class Vm:
                 if not has_saved_state:
                     domain_xml = upgrade_display_devices(
                         domain_xml) or domain_xml
+                    domain_xml = configure_vnc_audio(domain_xml) or domain_xml
                     domain_xml = with_vnc_clipboard(conn, domain_xml)
                 domain_xml = configure_vnc_keyboard(
                     domain_xml, self.keyboard_layout) or domain_xml

@@ -122,9 +122,48 @@ def build_xml(vm_read: VmCreateXML):
     etree.SubElement(devices, "input", type="keyboard", bus="ps2")
     etree.SubElement(devices, "input", type="tablet", bus="virtio")
 
+    configure_vnc_audio_devices(devices)
+
     xml_string = etree.tostring(
         domain, pretty_print=True, encoding="utf-8").decode()
     return xml_string
+
+
+def configure_vnc_audio_devices(devices: etree._Element) -> bool:
+    """Connect guest playback and VNC capture to the same headless backend."""
+    graphics = devices.find('graphics[@type="vnc"]')
+    if graphics is None or graphics.find("audio") is not None:
+        return False
+    sound = devices.find("sound")
+    binding = sound.find("audio") if sound is not None else None
+    backends = devices.findall("audio")
+    if binding is not None:
+        backend = next((audio for audio in backends
+                        if audio.get("id") == binding.get("id")), None)
+        if backend is None:
+            return False
+    elif len(backends) > 1:
+        # An imported VM with several unbound backends needs an explicit choice.
+        return False
+    else:
+        backend = backends[0] if backends else etree.SubElement(
+            devices, "audio", id="1", type="none")
+    audio_id = backend.get("id")
+    if sound is None:
+        sound = etree.SubElement(devices, "sound", model="ich6")
+        etree.SubElement(sound, "codec", type="output")
+    if binding is None:
+        etree.SubElement(sound, "audio", id=audio_id)
+    etree.SubElement(graphics, "audio", id=audio_id)
+    return True
+
+
+def configure_vnc_audio(domain_xml: str) -> str | None:
+    root = etree.fromstring(domain_xml.encode())
+    devices = root.find("devices")
+    if devices is None or not configure_vnc_audio_devices(devices):
+        return None
+    return etree.tostring(root, encoding="utf-8").decode()
 
 
 def configure_vnc_clipboard(domain_xml: str) -> str | None:
