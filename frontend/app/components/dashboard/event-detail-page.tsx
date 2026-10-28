@@ -6,6 +6,7 @@ import {
   Keyboard,
   Pencil,
   Presentation,
+  Square,
   Terminal,
   Trash2,
   UserMinus,
@@ -143,6 +144,7 @@ function EventDetail({ event }: { event: Event }) {
   const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(
     null,
   );
+  const [vmToStop, setVmToStop] = useState<VirtualMachineMetadata | null>(null);
 
   const view: ParticipantView =
     searchParams.get(VIEW_PARAM) === "table" ? "table" : "screens";
@@ -193,7 +195,8 @@ function EventDetail({ event }: { event: Event }) {
       connect: (vm) =>
         window.open(`/client?vm_id=${encodeURIComponent(vm.id)}`, "_blank"),
       start: (vm) => void startVM(vm.id),
-      stop: (vm) => void stopVM(vm.id),
+      stop: (vm) =>
+        vm.state === VMState.PAUSED ? setVmToStop(vm) : void stopVM(vm.id),
       restart: (vm) => void restartVM(vm.id),
       duplicate: (vm) => void duplicateVM(vm.id),
       rename: (vm) => setVmToRename(vm),
@@ -398,6 +401,34 @@ function EventDetail({ event }: { event: Event }) {
         }}
         vm={vmToRename}
         onRename={renameVM}
+      />
+
+      <ConfirmDialog
+        open={!!vmToStop}
+        onOpenChange={(open) => {
+          if (!open) setVmToStop(null);
+        }}
+        title="Force stop this VM?"
+        description={
+          <>
+            <p>
+              A paused VM cannot shut down normally. Force stopping powers it
+              off and loses unsaved work. Try Resume VM first.
+            </p>
+            <p className="font-medium text-foreground">{vmToStop?.name}</p>
+          </>
+        }
+        confirmLabel={
+          <>
+            <Square />
+            Force stop VM
+          </>
+        }
+        destructive
+        onConfirm={() => {
+          if (vmToStop) void stopVM(vmToStop.id, true);
+          setVmToStop(null);
+        }}
       />
 
       {canUpdate && (

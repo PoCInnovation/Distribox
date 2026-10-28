@@ -119,6 +119,8 @@ export function stateAllows(
         return { ok: false, reason: "Wait for the current operation" };
       return { ok: true };
     case "restart":
+      if (state === VMState.PAUSED)
+        return { ok: false, reason: "Resume VM or force stop it first" };
       if (state === VMState.STOPPED)
         return { ok: false, reason: "Start the VM instead" };
       if (transitional)
@@ -192,8 +194,17 @@ export function useVmActions(vm: VirtualMachineMetadata): {
 
     const byId: Record<VmActionId, VmAction> = {
       connect: build("connect", "Connect", Terminal),
-      start: build("start", "Start", Play),
-      stop: build("stop", "Stop", Square),
+      start: build(
+        "start",
+        vm.state === VMState.PAUSED ? "Resume VM" : "Start",
+        Play,
+      ),
+      stop: build(
+        "stop",
+        vm.state === VMState.PAUSED ? "Force stop…" : "Stop",
+        Square,
+        vm.state === VMState.PAUSED,
+      ),
       restart: build("restart", "Restart", RotateCw),
       duplicate: build("duplicate", "Duplicate", Copy),
       rename: build("rename", "Rename", Pencil),

@@ -19,7 +19,7 @@ export function getStateUi(state: VMState): StateUi {
     case VMState.SHUTDOWN:
       return { label: "Stopping", tone: "warning", transitional: true };
     case VMState.PAUSED:
-      return { label: "Paused", tone: "accent", transitional: false };
+      return { label: "Paused", tone: "warning", transitional: false };
     case VMState.PMSUSPENDED:
       return { label: "Suspended", tone: "accent", transitional: false };
     case VMState.BLOCKED:

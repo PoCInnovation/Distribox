@@ -71,8 +71,8 @@ def start_vm(vm_id: str):
     response_model=VmRead,
     dependencies=[Depends(require_slave_token)],
 )
-def stop_vm(vm_id: str):
-    return VmService.stop_vm(vm_id)
+def stop_vm(vm_id: str, force: bool = False):
+    return VmService.stop_vm(vm_id, force=force)
 
 
 @router.delete(

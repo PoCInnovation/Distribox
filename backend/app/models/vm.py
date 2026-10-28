@@ -18,6 +18,8 @@ class VmBase(BaseModel):
 class VmRead(VmBase):
     id: UUID
     state: str
+    pause_reason: Optional[str] = None
+    recovery_warning: Optional[str] = None
     ipv4: Optional[str]
     credentials_count: int = 0
     slave_id: Optional[UUID] = None

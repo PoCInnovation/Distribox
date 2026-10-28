@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Trash2 } from "lucide-react";
+import { Square, Trash2 } from "lucide-react";
 import { DashboardVMsTable } from "@/components/dashboard/vms-table";
 import { VmDrawer } from "@/components/dashboard/vm-drawer";
 import { RenameVMDialog } from "@/components/dashboard/RenameVMDialog";
@@ -17,7 +17,7 @@ import {
   type PaletteSection,
 } from "@/components/command-palette";
 import { isForbiddenError } from "@/lib/api";
-import type { VirtualMachineMetadata } from "@/lib/types";
+import { VMState, type VirtualMachineMetadata } from "@/lib/types";
 
 const VM_PARAM = "vm";
 
@@ -43,6 +43,7 @@ export function DashboardVMsTableContainer() {
     null,
   );
   const [vmsToDelete, setVmsToDelete] = useState<VirtualMachineMetadata[]>([]);
+  const [vmsToStop, setVmsToStop] = useState<VirtualMachineMetadata[]>([]);
 
   const openVm = useMemo(
     () => (openVmId ? (vms?.find((v) => v.id === openVmId) ?? null) : null),
@@ -76,7 +77,8 @@ export function DashboardVMsTableContainer() {
       connect: (vm) =>
         window.open(`/client?vm_id=${encodeURIComponent(vm.id)}`, "_blank"),
       start: (vm) => void startVM(vm.id),
-      stop: (vm) => void stopVM(vm.id),
+      stop: (vm) =>
+        vm.state === VMState.PAUSED ? setVmsToStop([vm]) : void stopVM(vm.id),
       restart: (vm) => void restartVM(vm.id),
       duplicate: (vm) => void duplicateVM(vm.id),
       rename: (vm) => setVmToRename(vm),
@@ -98,6 +100,10 @@ export function DashboardVMsTableContainer() {
   ) => {
     if (action === "delete") {
       setVmsToDelete(list);
+      return;
+    }
+    if (action === "stop" && list.some((vm) => vm.state === VMState.PAUSED)) {
+      setVmsToStop(list);
       return;
     }
     for (const vm of list) {
@@ -155,6 +161,39 @@ export function DashboardVMsTableContainer() {
         }}
         vm={vmToRename}
         onRename={renameVM}
+      />
+
+      <ConfirmDialog
+        open={vmsToStop.length > 0}
+        onOpenChange={(open) => {
+          if (!open) setVmsToStop([]);
+        }}
+        title={
+          vmsToStop.length === 1 ? "Force stop this VM?" : "Stop these VMs?"
+        }
+        description={
+          <>
+            <p>
+              A paused VM cannot shut down normally. Force stopping powers it
+              off and loses unsaved work. Try Resume VM first.
+            </p>
+            <p className="font-medium text-foreground">
+              {vmsToStop.map((vm) => vm.name).join(", ")}
+            </p>
+          </>
+        }
+        confirmLabel={
+          <>
+            <Square />
+            {vmsToStop.length === 1 ? "Force stop VM" : "Stop VMs"}
+          </>
+        }
+        destructive
+        onConfirm={() => {
+          for (const vm of vmsToStop)
+            void stopVM(vm.id, vm.state === VMState.PAUSED);
+          setVmsToStop([]);
+        }}
       />
 
       <ConfirmDialog

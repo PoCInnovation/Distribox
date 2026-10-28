@@ -6,7 +6,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { VirtualMachineMetadata } from "@/lib/types";
+import { VMState, type VirtualMachineMetadata } from "@/lib/types";
 import { useVmActions, type VmAction } from "@/hooks/useVmActions";
 
 function ActionButton({
@@ -67,30 +67,36 @@ export function VmActionToolbar({
   className?: string;
 }) {
   const { byId } = useVmActions(vm);
+  const paused = vm.state === VMState.PAUSED;
+  const primary = paused ? byId.start : byId.connect;
 
   return (
-    <div className={cn("flex items-center gap-1.5", className)}>
+    <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       <Tooltip delayDuration={200}>
         <TooltipTrigger asChild>
           <Button
             type="button"
             size="sm"
-            aria-disabled={!byId.connect.enabled}
-            onClick={() => byId.connect.enabled && byId.connect.run()}
+            aria-disabled={!primary.enabled}
+            onClick={() => primary.enabled && primary.run()}
             className={cn(
               "mr-1.5 font-medium",
-              !byId.connect.enabled && "cursor-not-allowed opacity-45",
+              !primary.enabled && "cursor-not-allowed opacity-45",
             )}
           >
-            <byId.connect.icon className="size-4" />
-            Connect
+            {primary.pending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <primary.icon className="size-4" />
+            )}
+            {primary.pending && paused ? "Resuming…" : primary.label}
           </Button>
         </TooltipTrigger>
-        {!byId.connect.enabled && byId.connect.reason && (
-          <TooltipContent side="bottom">{byId.connect.reason}</TooltipContent>
+        {!primary.enabled && primary.reason && (
+          <TooltipContent side="bottom">{primary.reason}</TooltipContent>
         )}
       </Tooltip>
-      <ActionButton action={byId.start} />
+      {!paused && <ActionButton action={byId.start} />}
       <ActionButton action={byId.stop} />
       <ActionButton action={byId.restart} />
       <span className="mx-1 h-5 w-px bg-border" aria-hidden />

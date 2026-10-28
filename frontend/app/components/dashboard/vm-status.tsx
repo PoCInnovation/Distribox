@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { VirtualMachineMetadata } from "@/lib/types";
+import { VMState, type VirtualMachineMetadata } from "@/lib/types";
 import { getStateUi, type StateTone } from "@/lib/vm-state-ui";
 import { PENDING_LABELS } from "@/hooks/useVmActions";
 import type { VmOperation } from "@/hooks/useVMs";
@@ -34,7 +34,12 @@ export function VmStatus({
 }) {
   const ui = getStateUi(vm.state);
   const busy = !!pendingOp || ui.transitional;
-  const label = pendingOp ? PENDING_LABELS[pendingOp] : ui.label;
+  const label =
+    pendingOp === "start" && vm.state === VMState.PAUSED
+      ? "Resuming…"
+      : pendingOp
+        ? PENDING_LABELS[pendingOp]
+        : ui.label;
   const tone: StateTone = pendingOp ? "warning" : ui.tone;
 
   return (
@@ -68,6 +73,11 @@ export function VmStatus({
       )}
       <span className={cn(busy ? TEXT_TONE[tone] : "text-foreground/90")}>
         {label}
+        {!pendingOp && vm.state === VMState.PAUSED && vm.pause_reason && (
+          <span className="block whitespace-normal text-xs text-warning">
+            {vm.pause_reason}
+          </span>
+        )}
       </span>
     </span>
   );

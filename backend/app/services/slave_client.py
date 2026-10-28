@@ -60,9 +60,9 @@ def slave_start_vm(slave: SlaveORM, vm_id: str) -> dict:
     return slave_request(slave, "POST", f"/vms/{vm_id}/start")
 
 
-def slave_stop_vm(slave: SlaveORM, vm_id: str) -> dict:
+def slave_stop_vm(slave: SlaveORM, vm_id: str, force: bool = False) -> dict:
     """Stop a VM on a slave node."""
-    return slave_request(slave, "POST", f"/vms/{vm_id}/stop")
+    return slave_request(slave, "POST", f"/vms/{vm_id}/stop{'?force=true' if force else ''}")
 
 
 def slave_delete_vm(slave: SlaveORM, vm_id: str) -> dict:
