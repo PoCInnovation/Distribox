@@ -61,7 +61,13 @@ export function hostLabel(vm: VirtualMachineMetadata): string {
 }
 
 type SortKey =
-  "name" | "state" | "os" | "resources" | "ipv4" | "host" | "credentials";
+  | "name"
+  | "state"
+  | "os"
+  | "resources"
+  | "ipv4"
+  | "host"
+  | "credentials";
 
 type SortDir = "asc" | "desc";
 

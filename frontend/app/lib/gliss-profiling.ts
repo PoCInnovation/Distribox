@@ -30,7 +30,13 @@ export type StartProfiling = (
 ) => Promise<GlissProfilingHandle | null>;
 
 export type ProfilingView = {
-  status: "idle" | "starting" | "recording" | "stopped" | "unavailable" | "error";
+  status:
+    | "idle"
+    | "starting"
+    | "recording"
+    | "stopped"
+    | "unavailable"
+    | "error";
   report: GlissProfileReport | null;
 };
 
@@ -49,14 +55,45 @@ const STOP_REASONS = new Set([
   "stopped",
 ]);
 const finite = (value: unknown): number | null =>
-  typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1e15 ? value : null;
+  typeof value === "number" &&
+  Number.isFinite(value) &&
+  value >= 0 &&
+  value <= 1e15
+    ? value
+    : null;
 
-const FRAME_FIELDS = ["t_ms", "bytes", "queue_ms", "decode_ms", "raf_wait_ms", "canvas_submit_ms", "receive_to_canvas_ms"];
-const TIMING_FIELDS = ["encode_ms", "encode_cpu_ms", "encode_worker_wait_ms", "source_age_ms", "write_ms", "enqueue_to_ack_ms", "byte_capacity_wait_ms"];
-const COUNTER_FIELDS = ["encoded_frames", "written_frames", "acknowledged_frames", "observed_capture_replacements", "resyncs"];
-function measurements(value: unknown, fields: string[]): Record<string, number> {
+const FRAME_FIELDS = [
+  "t_ms",
+  "bytes",
+  "queue_ms",
+  "decode_ms",
+  "raf_wait_ms",
+  "canvas_submit_ms",
+  "receive_to_canvas_ms",
+];
+const TIMING_FIELDS = [
+  "encode_ms",
+  "encode_cpu_ms",
+  "encode_worker_wait_ms",
+  "source_age_ms",
+  "write_ms",
+  "enqueue_to_ack_ms",
+  "byte_capacity_wait_ms",
+];
+const COUNTER_FIELDS = [
+  "encoded_frames",
+  "written_frames",
+  "acknowledged_frames",
+  "observed_capture_replacements",
+  "resyncs",
+];
+function measurements(
+  value: unknown,
+  fields: string[],
+): Record<string, number> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const input = value as Record<string, unknown>, output: Record<string, number> = {};
+  const input = value as Record<string, unknown>,
+    output: Record<string, number> = {};
   for (const field of fields) {
     const number = finite(input[field]);
     if (number !== null) output[field] = number;
@@ -66,16 +103,33 @@ function measurements(value: unknown, fields: string[]): Record<string, number> 
 function serverMeasurements(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const input = value as Record<string, unknown>;
-  const output: Record<string, unknown> = measurements(value, ["t_ms", "generation", "reserved_frames", "reserved_bytes", "waiting_encoded_bytes", "writer_jobs"]);
-  const counters: Record<string, unknown> = measurements(input.counters, COUNTER_FIELDS);
+  const output: Record<string, unknown> = measurements(value, [
+    "t_ms",
+    "generation",
+    "reserved_frames",
+    "reserved_bytes",
+    "waiting_encoded_bytes",
+    "writer_jobs",
+  ]);
+  const counters: Record<string, unknown> = measurements(
+    input.counters,
+    COUNTER_FIELDS,
+  );
   if (input.counters && typeof input.counters === "object") {
     for (const field of TIMING_FIELDS) {
-      const timing = measurements((input.counters as Record<string, unknown>)[field], ["count", "total_ms", "max_ms"]);
+      const timing = measurements(
+        (input.counters as Record<string, unknown>)[field],
+        ["count", "total_ms", "max_ms"],
+      );
       if (Object.keys(timing).length === 3) counters[field] = timing;
     }
   }
   if (Object.keys(counters).length) output.counters = counters;
-  const cpu = measurements(input.process_cpu, ["elapsed_ms", "user_ms", "system_ms"]);
+  const cpu = measurements(input.process_cpu, [
+    "elapsed_ms",
+    "user_ms",
+    "system_ms",
+  ]);
   if (Object.keys(cpu).length === 3) output.process_cpu = cpu;
   return output;
 }
@@ -112,10 +166,18 @@ export function profileForDownload(
         report.summary.process_cpu_percent_one_core,
       ),
     },
-    frames: report.frames.slice(0, 4096).map((entry) => measurements(entry, FRAME_FIELDS)),
+    frames: report.frames
+      .slice(0, 4096)
+      .map((entry) => measurements(entry, FRAME_FIELDS)),
     server: report.server.slice(0, 120).map(serverMeasurements),
     omitted: {
-      ...measurements(report.omitted, ["frames", "server", "invalid", "download_frames", "download_server"]),
+      ...measurements(report.omitted, [
+        "frames",
+        "server",
+        "invalid",
+        "download_frames",
+        "download_server",
+      ]),
       download_frames:
         (finite(report.omitted.download_frames) ?? 0) +
         Math.max(0, report.frames.length - 4096),
@@ -124,7 +186,8 @@ export function profileForDownload(
         Math.max(0, report.server.length - 120),
     },
   };
-  if (JSON.stringify(exported).length > 262144) throw new Error("Profiling report exceeds the export limit");
+  if (JSON.stringify(exported).length > 262144)
+    throw new Error("Profiling report exceeds the export limit");
   return exported;
 }
 
@@ -213,7 +276,9 @@ export function createProfilingRecorder(
 export function downloadProfile(report: GlissProfileReport) {
   const data = JSON.stringify(profileForDownload(report));
   const link = document.createElement("a");
-  const url = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+  const url = URL.createObjectURL(
+    new Blob([data], { type: "application/json" }),
+  );
   try {
     link.href = url;
     link.download = "gliss-profile.json";

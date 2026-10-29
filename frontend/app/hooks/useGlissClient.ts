@@ -8,7 +8,11 @@ import type {
 } from "~/lib/gliss-profiling";
 
 export type DesktopConnectionState =
-  "connecting" | "connected" | "reconnecting" | "error" | "disconnected";
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "error"
+  | "disconnected";
 
 /** Delays before each automatic reconnect attempt after a dropped session. */
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 10000, 10000, 10000];
@@ -22,7 +26,9 @@ interface GlissClient {
   connect(): Promise<void>;
   send(input: Record<string, unknown>): number;
   setAudioEnabled(enabled: boolean): Promise<void>;
-  startProfiling?(options: GlissProfilingOptions): Promise<GlissProfilingHandle>;
+  startProfiling?(
+    options: GlissProfilingOptions,
+  ): Promise<GlissProfilingHandle>;
   dispose(): void;
 }
 type GlissModule = {

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { createProfilingRecorder, downloadProfile } from "@/lib/gliss-profiling";
+import {
+  createProfilingRecorder,
+  downloadProfile,
+} from "@/lib/gliss-profiling";
 import type { ProfilingView, StartProfiling } from "@/lib/gliss-profiling";
 
 export default function ProfilingPanel({
@@ -9,7 +12,10 @@ export default function ProfilingPanel({
   connected: boolean;
   startProfiling: StartProfiling;
 }) {
-  const [view, setView] = useState<ProfilingView>({ status: "idle", report: null });
+  const [view, setView] = useState<ProfilingView>({
+    status: "idle",
+    report: null,
+  });
   const [downloadFailed, setDownloadFailed] = useState(false);
   const recorderRef = useRef<ReturnType<typeof createProfilingRecorder> | null>(
     null,
@@ -94,11 +100,14 @@ export default function ProfilingPanel({
       )}
       {view.status === "unavailable" && (
         <p className="mt-2">
-          Profiling is unavailable. This Gliss version may not support recording.
+          Profiling is unavailable. This Gliss version may not support
+          recording.
         </p>
       )}
       {view.status === "error" && (
-        <p className="mt-2">Recording could not complete. Reconnect and try again.</p>
+        <p className="mt-2">
+          Recording could not complete. Reconnect and try again.
+        </p>
       )}
       {downloadFailed && (
         <p className="mt-2">The report could not be downloaded.</p>
