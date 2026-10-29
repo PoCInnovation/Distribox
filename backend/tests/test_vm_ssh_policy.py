@@ -114,7 +114,7 @@ def test_slave_responses_use_authoritative_host_setting(monkeypatch, operation, 
         session.add(record)
         session.commit()
     for function in ("slave_get_vm", "slave_start_vm", "slave_stop_vm"):
-        monkeypatch.setattr(slave_client, function, lambda *args: {
+        monkeypatch.setattr(slave_client, function, lambda *args, **kwargs: {
             "id": vm_id, "state": "Running", "ssh_enabled": not enabled,
         })
     try:

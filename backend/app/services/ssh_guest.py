@@ -87,6 +87,11 @@ def _vm_lock(vm_id: str) -> Lock:
         return _locks.setdefault(vm_id, Lock())
 
 
+def invalidate_guest(vm_id: str) -> None:
+    with _vm_lock(vm_id):
+        _prepared.pop(vm_id, None)
+
+
 def _get_connection():
     from app.core.config import QEMUConfig
     return QEMUConfig.get_connection()

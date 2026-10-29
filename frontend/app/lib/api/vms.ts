@@ -35,14 +35,18 @@ export async function createVM(payload: CreateVMPayload): Promise<void> {
   });
 }
 
-export async function startVM(id: string): Promise<void> {
-  return apiRequest<void>(`/vms/${id}/start`, {
-    method: "POST",
-  });
+export async function startVM(id: string): Promise<VirtualMachineMetadata> {
+  return apiRequest(
+    `/vms/${id}/start`,
+    {
+      method: "POST",
+    },
+    VirtualMachineMetadataSchema,
+  );
 }
 
-export async function stopVM(id: string): Promise<void> {
-  return apiRequest<void>(`/vms/${id}/stop`, {
+export async function stopVM(id: string, force = false): Promise<void> {
+  return apiRequest<void>(`/vms/${id}/stop${force ? "?force=true" : ""}`, {
     method: "POST",
   });
 }

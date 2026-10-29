@@ -5,6 +5,8 @@ export const VirtualMachineMetadataSchema = z.object({
   id: z.string(),
   name: z.string(),
   state: VMStateSchema,
+  pause_reason: z.string().nullable().optional(),
+  recovery_warning: z.string().nullable().optional(),
   vcpus: z.number().int().nonnegative(),
   mem: z.number().nonnegative(),
   disk_size: z.number().nonnegative(),

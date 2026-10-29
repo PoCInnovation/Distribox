@@ -16,6 +16,7 @@ import {
   renameVM,
 } from "@/lib/api";
 import type { VirtualMachineMetadata } from "@/lib/types/virtual-machine";
+import { VMState } from "@/lib/types";
 import { isTransitional } from "@/lib/vm-state-ui";
 
 export type VmOperation =
@@ -27,6 +28,7 @@ interface VmOperationVariables {
   vmId: string;
   op: VmOperation;
   name?: string;
+  force?: boolean;
 }
 
 /** Poll faster while any VM is in a transitional state (e.g. Stopping). */
@@ -77,12 +79,22 @@ export function useVMs() {
 
   const operation = useMutation<void, Error, VmOperationVariables>({
     mutationKey: VM_MUTATION_KEY,
-    mutationFn: async ({ vmId, op, name }) => {
+    mutationFn: async ({ vmId, op, name, force }) => {
       switch (op) {
-        case "start":
-          return startVM(vmId);
+        case "start": {
+          const resuming = vms?.some(
+            (vm) => vm.id === vmId && vm.state === VMState.PAUSED,
+          );
+          const result = await startVM(vmId);
+          if (result.recovery_warning) {
+            toast.warning(result.recovery_warning, { duration: 15_000 });
+          } else if (resuming) {
+            toast.success("VM resumed");
+          }
+          return;
+        }
         case "stop":
-          return stopVM(vmId);
+          return stopVM(vmId, force);
         case "restart":
           return restartVM(vmId);
         case "delete":
@@ -111,7 +123,8 @@ export function useVMs() {
     error,
     pendingById,
     startVM: (vmId: string) => run({ vmId, op: "start" }).catch(() => {}),
-    stopVM: (vmId: string) => run({ vmId, op: "stop" }).catch(() => {}),
+    stopVM: (vmId: string, force = false) =>
+      run({ vmId, op: "stop", force }).catch(() => {}),
     restartVM: (vmId: string) => run({ vmId, op: "restart" }).catch(() => {}),
     deleteVM: (vmId: string) =>
       run({ vmId, op: "delete" })

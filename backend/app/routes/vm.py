@@ -162,8 +162,8 @@ def start_vm(vm_id: str):
              response_model=VmRead,
              dependencies=[Depends(require_policy("vms:stop"))],
              responses={403: {"model": MissingPoliciesResponse}})
-def stop_vm(vm_id: str):
-    vm = VmService.stop_vm(vm_id)
+def stop_vm(vm_id: str, force: bool = False):
+    vm = VmService.stop_vm(vm_id, force=force)
     return vm
 
 

@@ -6,7 +6,7 @@ import subprocess
 import logging
 from shutil import copy, rmtree
 import libvirt
-from app.utils.vm import wait_for_state
+from app.utils.vm import wait_for_state, get_pause_reason, recover_after_pause
 from typing import Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML, VmRename
@@ -198,7 +198,7 @@ class Vm:
         try:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(vm_id)
-            vm_state, _ = vm.state()
+            vm_state, reason = vm.state()
             with Session(engine) as session:
                 vm_record = session.get(VmORM, uuid.UUID(vm_id))
                 if not vm_record:
@@ -216,6 +216,9 @@ class Vm:
                 vm_instance.keyboard_layout = vm_record.keyboard_layout
                 vm_instance.ssh_enabled = vm_record.ssh_enabled
                 vm_instance.state = VM_STATE_NAMES.get(vm_state, 'None')
+                vm_instance.pause_reason = get_pause_reason(
+                    vm, vm_state, reason)
+                vm_instance.recovery_warning = None
                 vm_instance.ipv4 = get_vm_ip(str(vm_instance.id))
                 vm_instance.slave_id = vm_record.slave_id
                 vm_instance.slave_name = None
@@ -252,17 +255,22 @@ class Vm:
 
     def start(self):
         vm_dir = VMS_DIR / str(self.id)
-        per_vm_seed = vm_dir / "seed.iso"
-        if not per_vm_seed.exists():
-            ensure_seed_iso(
-                keyboard_layout=self.keyboard_layout,
-                vm_dir=vm_dir,
-            )
-        ensure_default_network()
+        resuming = False
         try:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
-            if vm.isActive() == 0:
+            state_code, _ = vm.state()
+            resuming = state_code == libvirt.VIR_DOMAIN_PAUSED
+            if resuming:
+                vm.resume()
+            elif vm.isActive() == 0:
+                per_vm_seed = vm_dir / "seed.iso"
+                if not per_vm_seed.exists():
+                    ensure_seed_iso(
+                        keyboard_layout=self.keyboard_layout,
+                        vm_dir=vm_dir,
+                    )
+                ensure_default_network()
                 has_saved_state = vm.hasManagedSaveImage(0)
                 original_xml = vm.XMLDesc(
                     libvirt.VIR_DOMAIN_XML_INACTIVE | libvirt.VIR_DOMAIN_XML_SECURE)
@@ -291,7 +299,8 @@ class Vm:
                                     f'Vm {self.id} not found')
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Failed to start VM {self.id}: {str(e)}",
+                detail=(self._resume_error(vm) if resuming else
+                        f"Failed to start VM {self.id}: {str(e)}"),
             ) from e
         except Exception:
             raise
@@ -300,27 +309,55 @@ class Vm:
         if state_code != libvirt.VIR_DOMAIN_RUNNING:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Failed to start VM {
-                    self.id}. Current state: {
-                    self.state}",
+                detail=(self._resume_error(vm) if resuming else
+                        f"Failed to start VM {self.id}. Current state: {self.state}"),
             )
+        self.pause_reason = None
+        self.recovery_warning = None
+        if resuming:
+            from app.services.ssh_guest import invalidate_guest
+            invalidate_guest(str(self.id))
+            self.recovery_warning = recover_after_pause(vm)
+            if vm.state()[0] != libvirt.VIR_DOMAIN_RUNNING:
+                raise HTTPException(status.HTTP_409_CONFLICT,
+                                    self._resume_error(vm))
         self.ipv4 = get_vm_ip(str(self.id))
         return self
 
-    def stop(self):
+    @staticmethod
+    def _resume_error(vm):
+        state_code, reason = vm.state()
+        cause = get_pause_reason(vm, state_code, reason)
+        if cause == "Host disk full":
+            return "Host disk full. Free space on this VM's host, then try Resume VM again."
+        return "Could not resume the VM. Check its host for disk or I/O errors, then try Resume VM again."
+
+    def stop(self, force: bool = False):
         try:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
             if vm.isActive() == 1:
-                vm.shutdown()
+                if vm.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
+                    if not force:
+                        raise HTTPException(
+                            status.HTTP_409_CONFLICT,
+                            "VM is paused. Resume it first, or use Force stop; unsaved work will be lost.",
+                        )
+                    vm.destroy()
+                else:
+                    vm.shutdown()
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
                                     f'Vm {self.id} not found')
+            raise HTTPException(status.HTTP_409_CONFLICT,
+                                "Could not stop the VM. Check its host and try again.") from e
         except Exception:
             raise
         state_code = wait_for_state(vm, libvirt.VIR_DOMAIN_SHUTOFF, 5, 10)
         self.state = VM_STATE_NAMES.get(state_code, 'None')
+        if state_code != libvirt.VIR_DOMAIN_PAUSED:
+            self.pause_reason = None
         return self
 
     def get_state(self):
@@ -623,7 +660,7 @@ class VmService:
         return vm.start()
 
     @staticmethod
-    def stop_vm(vm_id: str):
+    def stop_vm(vm_id: str, force: bool = False):
         slave = VmService._get_slave_for_vm(vm_id)
         if slave:
             if slave.status != "online":
@@ -633,9 +670,9 @@ class VmService:
                 )
             from app.services.slave_client import slave_stop_vm
             return VmService._with_slave_fields(
-                slave_stop_vm(slave, vm_id), slave, vm_id)
+                slave_stop_vm(slave, vm_id, force=force), slave, vm_id)
         vm = Vm.get(vm_id)
-        return vm.stop()
+        return vm.stop(force=force)
 
     @staticmethod
     def remove_vm(vm_id: str):

@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, Keyboard, Monitor, MonitorOff } from "lucide-react";
+import {
+  ExternalLink,
+  Keyboard,
+  Monitor,
+  MonitorOff,
+  TriangleAlert,
+} from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -110,6 +116,30 @@ function DrawerBody({
         </div>
         <VmActionToolbar vm={vm} className="mt-5" />
       </header>
+
+      {vm.state === VMState.PAUSED && (
+        <section
+          role="status"
+          className="flex gap-3 border-b border-warning/30 bg-warning/5 px-6 py-4 text-sm"
+        >
+          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
+          <div className="min-w-0 space-y-1">
+            <h2 className="font-medium text-warning">
+              {vm.pause_reason ?? "VM paused"}
+            </h2>
+            <p className="text-foreground/90">
+              {vm.pause_reason === "Host disk full"
+                ? `Free disk space on ${hostLabel(vm)}, then choose Resume VM.`
+                : vm.pause_reason === "Disk I/O error"
+                  ? `Fix the storage problem on ${hostLabel(vm)}, then choose Resume VM.`
+                  : "Choose Resume VM to continue. If the pause was unexpected, check the host first."}
+            </p>
+            <p className="text-muted-foreground">
+              Resuming continues your current session.
+            </p>
+          </div>
+        </section>
+      )}
 
       <Tabs
         value={tab}
@@ -274,7 +304,9 @@ function SpecGrid({
           <span className="text-muted-foreground">
             {vm.state === VMState.RUNNING
               ? "Waiting for a lease"
-              : "None while powered off"}
+              : vm.state === VMState.PAUSED
+                ? "Unavailable while paused"
+                : "None while powered off"}
           </span>
         )}
       </Spec>
