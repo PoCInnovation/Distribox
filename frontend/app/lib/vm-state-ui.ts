@@ -1,11 +1,7 @@
 import { VMState } from "@/lib/types";
 
 export type StateTone =
-  | "success"
-  | "muted"
-  | "warning"
-  | "destructive"
-  | "accent";
+  "success" | "muted" | "warning" | "destructive" | "accent";
 
 export interface StateUi {
   label: string;

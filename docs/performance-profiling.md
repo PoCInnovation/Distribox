@@ -71,6 +71,7 @@ Run the focused tests and frontend checks from the repository root:
 AWS_EC2_METADATA_DISABLED=true PYTHONPATH=backend backend/venv/bin/python -m pytest backend/tests/test_gliss_profiling.py -q
 cd frontend
 node --experimental-strip-types --test tests/gliss-profiling.test.mjs
+pnpm format:check
 pnpm typecheck
 VITE_GLISS_PROFILING=false pnpm build
 VITE_GLISS_PROFILING=true pnpm build

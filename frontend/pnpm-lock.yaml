@@ -111,6 +111,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.1.9
         version: 19.2.2(@types/react@19.2.2)
+      prettier:
+        specifier: 3.9.10
+        version: 3.9.10
       tailwindcss:
         specifier: ^4.1.13
         version: 4.1.14
@@ -2130,8 +2133,8 @@ packages:
     resolution: {integrity: sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A==}
     engines: {node: ^10 || ^12 || >=14}
 
-  prettier@3.6.2:
-    resolution: {integrity: sha512-I7AIg5boAr5R0FFtJ6rCfD+LFsWHp81dolrFD8S79U9tb8Az2nGrJncnMSnys+bpQJfRUzqs9hnA81OAA3hCuQ==}
+  prettier@3.9.10:
+    resolution: {integrity: sha512-skGHTH1Yb9QvaTC4hWnRTzEYtCpApF0UMBPz+t/0ZPzP8ihefo/btKd+QA7pUE0fEwA1SbS/NmhyEcstdXOIdA==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -3699,7 +3702,7 @@ snapshots:
       pathe: 1.1.2
       picocolors: 1.1.1
       pkg-types: 2.3.3
-      prettier: 3.6.2
+      prettier: 3.9.10
       react-refresh: 0.14.2
       react-router: 7.18.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       semver: 7.7.3
@@ -4419,7 +4422,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.2
 
-  prettier@3.6.2: {}
+  prettier@3.9.10: {}
 
   proxy-addr@2.0.8:
     dependencies:

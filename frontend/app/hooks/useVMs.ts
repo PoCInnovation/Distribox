@@ -20,12 +20,7 @@ import { VMState } from "@/lib/types";
 import { isTransitional } from "@/lib/vm-state-ui";
 
 export type VmOperation =
-  | "start"
-  | "stop"
-  | "restart"
-  | "delete"
-  | "duplicate"
-  | "rename";
+  "start" | "stop" | "restart" | "delete" | "duplicate" | "rename";
 
 const VM_MUTATION_KEY = ["vm-operation"] as const;
 

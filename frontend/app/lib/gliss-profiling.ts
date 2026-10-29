@@ -31,12 +31,7 @@ export type StartProfiling = (
 
 export type ProfilingView = {
   status:
-    | "idle"
-    | "starting"
-    | "recording"
-    | "stopped"
-    | "unavailable"
-    | "error";
+    "idle" | "starting" | "recording" | "stopped" | "unavailable" | "error";
   report: GlissProfileReport | null;
 };
 
