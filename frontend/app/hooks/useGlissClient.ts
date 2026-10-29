@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { API_BASE_URL, TUNNEL_URL } from "~/lib/api";
+import type {
+  GlissProfilingHandle,
+  GlissProfilingOptions,
+  StartProfiling,
+} from "~/lib/gliss-profiling";
 
 export type DesktopConnectionState =
   "connecting" | "connected" | "reconnecting" | "error" | "disconnected";
@@ -17,6 +22,7 @@ interface GlissClient {
   connect(): Promise<void>;
   send(input: Record<string, unknown>): number;
   setAudioEnabled(enabled: boolean): Promise<void>;
+  startProfiling?(options: GlissProfilingOptions): Promise<GlissProfilingHandle>;
   dispose(): void;
 }
 type GlissModule = {
@@ -94,6 +100,7 @@ interface UseGlissClientResult {
   exitFullscreen: () => Promise<void>;
   isFullscreen: boolean;
   reconnect: () => void;
+  startProfiling: StartProfiling;
 }
 
 export function useGlissClient(
@@ -134,14 +141,28 @@ export function useGlissClient(
     sendClipboardRef.current?.(text);
   }, []);
 
-  const setAudioEnabled = useCallback((enabled: boolean) => {
-    // Call directly from the button's click so playback has user activation.
-    const client = audioRef.current;
-    void client?.setAudioEnabled(enabled).catch(() => {
-      if (audioRef.current !== client) return;
-      setAudioEnabledState(false);
-      setAudioMessage("Click Enable sound to allow audio playback.");
-    });
+  // Share the existing client-control hook; profiling adds no effect or timer.
+  const { setAudioEnabled, startProfiling } = useMemo(() => {
+    const setAudioEnabled = (enabled: boolean) => {
+      // Call directly from the button's click so playback has user activation.
+      const client = audioRef.current;
+      void client?.setAudioEnabled(enabled).catch(() => {
+        if (audioRef.current !== client) return;
+        setAudioEnabledState(false);
+        setAudioMessage("Click Enable sound to allow audio playback.");
+      });
+    };
+    const startProfiling: StartProfiling = async (options) => {
+      const client = audioRef.current;
+      if (!client?.startProfiling) return null;
+      const handle = await client.startProfiling(options);
+      if (audioRef.current !== client) {
+        handle.stop();
+        return null;
+      }
+      return handle;
+    };
+    return { setAudioEnabled, startProfiling };
   }, []);
 
   useEffect(() => {
@@ -495,5 +516,6 @@ export function useGlissClient(
     exitFullscreen,
     isFullscreen,
     reconnect,
+    startProfiling,
   };
 }

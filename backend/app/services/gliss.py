@@ -53,6 +53,9 @@ async def gliss_session(vnc_host: str, vnc_port: int) -> AsyncIterator[tuple[str
         if not lower <= value <= upper:
             raise ValueError(f"{name} must be between {lower} and {upper}")
         settings[name] = str(value)
+    profiling = os.environ.get("GLISS_PROFILING", "false")
+    if profiling not in ("false", "true"):
+        raise ValueError("GLISS_PROFILING must be true or false")
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
@@ -66,6 +69,7 @@ async def gliss_session(vnc_host: str, vnc_port: int) -> AsyncIterator[tuple[str
         "--codec", "h264", "--h264-bitrate", settings["GLISS_H264_BITRATE"],
         "--fps", settings["GLISS_FPS"],
         "--in-flight-frames", settings["GLISS_IN_FLIGHT_FRAMES"],
+        *(["--stream-stats"] if profiling == "true" else []),
         env={"GLISS_TOKEN": token}, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
     )
     try:

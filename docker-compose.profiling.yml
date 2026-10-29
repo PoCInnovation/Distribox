@@ -1,0 +1,18 @@
+# Explicit opt-in: add after docker-compose.yml, keeping one existing profile.
+services:
+  backend:
+    environment:
+      GLISS_PROFILING: "true"
+  backend-dev:
+    environment:
+      GLISS_PROFILING: "true"
+  slave:
+    environment:
+      GLISS_PROFILING: "true"
+  frontend:
+    build:
+      args:
+        VITE_GLISS_PROFILING: "true"
+  frontend-dev:
+    environment:
+      VITE_GLISS_PROFILING: "true"
