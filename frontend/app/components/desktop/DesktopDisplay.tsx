@@ -1,8 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useGlissClient } from "@/hooks/useGlissClient";
 import { Image } from "@unpic/react";
 import { SshConnectionButton } from "@/components/ssh-connection-button";
 import { ClipboardDialog } from "./ClipboardDialog";
+
+const ProfilingPanel =
+  import.meta.env.VITE_GLISS_PROFILING === "true"
+    ? lazy(() => import("./ProfilingPanel"))
+    : null;
 
 const KEYSYM = {
   CTRL_L: 0xffe3,
@@ -51,9 +63,10 @@ const F_KEYS: { label: string; keysym: number }[] = Array.from(
 const HOVER_DELAY_MS = 400;
 const INITIAL_OVERLAY_MS = 8000;
 
-type DesktopDisplayProps =
+type DesktopDisplayProps = (
   | { mode?: "credential"; credential: string }
-  | { mode: "vm"; vmId: string; token: string };
+  | { mode: "vm"; vmId: string; token: string }
+) & { profiling?: boolean };
 
 export function DesktopDisplay(props: DesktopDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,6 +103,7 @@ export function DesktopDisplay(props: DesktopDisplayProps) {
     exitFullscreen,
     isFullscreen,
     reconnect,
+    startProfiling,
   } = useGlissClient(options);
 
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -411,6 +425,14 @@ export function DesktopDisplay(props: DesktopDisplayProps) {
         sendClipboard={sendClipboard}
         connected={state === "connected"}
       />
+      {ProfilingPanel && props.profiling && (
+        <Suspense fallback={null}>
+          <ProfilingPanel
+            connected={state === "connected"}
+            startProfiling={startProfiling}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

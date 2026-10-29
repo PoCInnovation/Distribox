@@ -37,6 +37,9 @@ export default function ClientRoute() {
   const [searchParams] = useSearchParams();
   const credential = searchParams.get("credential") ?? "";
   const vmId = searchParams.get("vm_id") ?? "";
+  const profiling =
+    import.meta.env.VITE_GLISS_PROFILING === "true" &&
+    searchParams.get("profiling") === "1";
 
   if (vmId.trim()) {
     const token = getAuthToken();
@@ -48,7 +51,15 @@ export default function ClientRoute() {
         />
       );
     }
-    return <DesktopDisplay key={vmId} mode="vm" vmId={vmId} token={token} />;
+    return (
+      <DesktopDisplay
+        key={vmId}
+        mode="vm"
+        vmId={vmId}
+        token={token}
+        profiling={profiling}
+      />
+    );
   }
 
   if (!credential.trim()) {
@@ -59,5 +70,11 @@ export default function ClientRoute() {
       />
     );
   }
-  return <DesktopDisplay key={credential} credential={credential} />;
+  return (
+    <DesktopDisplay
+      key={credential}
+      credential={credential}
+      profiling={profiling}
+    />
+  );
 }

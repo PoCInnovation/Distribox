@@ -31,13 +31,9 @@ jobs:
         working-directory: ./frontend
         run: pnpm install --frozen-lockfile
 
-      - name: Install prettier
-        working-directory: ./frontend
-        run: pnpm add -Dw prettier
-
       - name: Check formatting with prettier
         working-directory: ./frontend
-        run: pnpm exec prettier --check app
+        run: pnpm format:check
 
   frontend-build:
     name: Build Frontend
