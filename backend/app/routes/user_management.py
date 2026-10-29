@@ -2,7 +2,7 @@ from os import getenv
 import uuid
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
+from sqlmodel import Session, col, delete, select
 
 from app.core.config import engine
 from app.core.policies import (
@@ -23,6 +23,7 @@ from app.models.user_management import (
     UserResponse,
 )
 from app.orm.user import UserORM
+from app.orm.user_settings import UserSettingsORM
 from app.utils.auth import get_current_user, hash_password, require_policy
 from app.utils.crypto import decrypt_secret, encrypt_secret
 
@@ -221,6 +222,11 @@ def delete_user(id: uuid.UUID):
             )
 
         deleted_username = target_user.username
+        session.exec(
+            delete(UserSettingsORM).where(
+                col(UserSettingsORM.user_id) == target_user.id
+            )
+        )
         session.delete(target_user)
         session.commit()
 
