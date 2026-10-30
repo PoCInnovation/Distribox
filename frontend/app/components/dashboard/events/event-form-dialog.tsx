@@ -19,7 +19,7 @@ import {
 import { PolicyGate } from "@/components/policy/policy-gate";
 import { SshAccessSwitch } from "@/components/ssh-access-switch";
 import { useAuthz } from "@/contexts/authz-context";
-import { useCreateEvent, useUpdateEvent } from "@/hooks/useEvents";
+import { useCreateEvent, useEvents, useUpdateEvent } from "@/hooks/useEvents";
 import { useClusterHostInfo } from "@/hooks/useHostInfo";
 import { useSettings } from "@/hooks/useSettings";
 import { KEYBOARD_LAYOUTS, getKeyboardLabel } from "@/lib/keyboard-layouts";
@@ -37,6 +37,11 @@ import {
   sizeFromSettings,
   type VmSize,
 } from "../provision/model";
+import {
+  LabSuggestions,
+  labConfigKey,
+  labSuggestions,
+} from "../provision/lab-suggestions";
 import { DeadlineField, FleetCapacity } from "../event-form-fields";
 import {
   minDiskFromError,
@@ -128,6 +133,11 @@ export function EventFormDialog({
 
   const { data: clusterInfo } = useClusterHostInfo(canReadHost && open, 10_000);
   const { data: settings } = useSettings();
+  const { data: events } = useEvents(open && !editing);
+  const suggestions = useMemo(
+    () => (editing ? [] : labSuggestions(events)),
+    [editing, events],
+  );
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const mutation = editing ? updateEvent : createEvent;
@@ -274,6 +284,24 @@ export function EventFormDialog({
             disabled={mutation.isPending}
             className="m-0 min-w-0 border-0 p-0"
           >
+            {suggestions.length > 0 && (
+              <FormRow label="Start from">
+                <LabSuggestions
+                  suggestions={suggestions}
+                  activeKey={labConfigKey(form)}
+                  onPick={(c) =>
+                    setForm((f) => ({
+                      ...f,
+                      os: c.os,
+                      distribution: c.distribution,
+                      size: c.size,
+                      keyboard: c.keyboard,
+                      ssh: c.ssh,
+                    }))
+                  }
+                />
+              </FormRow>
+            )}
             <FormRow
               label="Name"
               help="Shown to participants on the join page."

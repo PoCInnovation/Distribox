@@ -13,10 +13,11 @@ import type {
   UpdateEventPayload,
 } from "@/lib/types/event";
 
-export function useEvents() {
+export function useEvents(enabled = true) {
   return useQuery<Event[]>({
     queryKey: ["events"],
     queryFn: getEvents,
+    enabled,
     retry: false,
     // Seat counts move while an event is open.
     refetchInterval: 15_000,
