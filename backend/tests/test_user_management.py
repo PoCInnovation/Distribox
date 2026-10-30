@@ -75,6 +75,23 @@ def test_delete_user_with_saved_settings_removes_settings(db_engine):
         assert settings == []
 
 
+def test_deleting_user_record_cascades_to_saved_settings(db_engine):
+    user_id = add_user(db_engine, with_settings=True)
+
+    with Session(db_engine) as session:
+        session.delete(session.get(UserORM, user_id))
+        session.commit()
+
+    with Session(db_engine) as session:
+        assert session.get(UserORM, user_id) is None
+        settings = session.exec(
+            select(UserSettingsORM).where(
+                UserSettingsORM.user_id == user_id
+            )
+        ).all()
+        assert settings == []
+
+
 def test_delete_user_without_saved_settings_succeeds(db_engine):
     user_id = add_user(db_engine, with_settings=False)
 
