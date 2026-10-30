@@ -46,6 +46,16 @@ def create_vm(vm: VmCreate):
 
 
 @router.get(
+    "/vms",
+    status_code=status.HTTP_200_OK,
+    response_model=list[VmRead],
+    dependencies=[Depends(require_slave_token)],
+)
+def list_vms():
+    return VmService.get_vm_list()
+
+
+@router.get(
     "/vms/{vm_id}",
     status_code=status.HTTP_200_OK,
     response_model=VmRead,

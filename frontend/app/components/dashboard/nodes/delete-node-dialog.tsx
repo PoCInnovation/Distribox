@@ -61,8 +61,9 @@ export function DeleteNodeDialog({
               Unregister {node?.name}
             </DialogTitle>
             <DialogDescription>
-              The master forgets this slave. Nothing is changed on the machine
-              itself, but the master loses track of what runs there.
+              The master stops this slave&apos;s VMs and forgets them. Their
+              disks stay on the machine, so you can adopt them after registering
+              it again.
             </DialogDescription>
           </DialogHeader>
 
@@ -77,9 +78,8 @@ export function DeleteNodeDialog({
                     running
                   </>
                 )}
-                . {vmCount > 1 ? "They become" : "It becomes"} unreachable from
-                the dashboard. Delete or move {vmCount > 1 ? "them" : "it"}{" "}
-                first if you still need {vmCount > 1 ? "them" : "it"}.
+                . {vmCount > 1 ? "They lose" : "It loses"} all access through
+                this master; event participants keep their seats.
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">

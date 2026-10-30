@@ -44,6 +44,9 @@ export function SlavesPage() {
   const authz = useAuthz();
   const canCreate = authz.hasPolicy(Policy.SLAVES_CREATE);
   const canDelete = authz.hasPolicy(Policy.SLAVES_DELETE);
+  const canAdopt =
+    authz.hasPolicy(Policy.SLAVES_GET_BY_ID) &&
+    authz.hasPolicy(Policy.SLAVES_CREATE);
   const canReadHost = authz.hasPolicy(Policy.HOST_GET);
   const canReadVms = authz.hasPolicy(Policy.VMS_GET);
 
@@ -151,6 +154,7 @@ export function SlavesPage() {
                   expanded={expanded === key}
                   onToggle={() => setExpanded((e) => (e === key ? null : key))}
                   canDelete={canDelete}
+                  canAdopt={canAdopt}
                   onDelete={() => setDeleteTarget(node)}
                   timezone={timezone}
                   now={now}

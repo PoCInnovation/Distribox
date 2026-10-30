@@ -2,16 +2,21 @@
 import uuid
 import logging
 import secrets
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Optional
 
+import httpx
 from fastapi import HTTPException, status
-from sqlmodel import Session, select, col
+from sqlmodel import Session, select, col, delete
 
 from app.core.config import engine
 from app.orm.slave import SlaveORM
+from app.orm.vm import VmORM
+from app.orm.vm_credential import VmCredentialORM
 from app.models.slave import SlaveCreate, SlaveHeartbeat
-from app.services.slave_client import slave_get_host_info
+from app.services.slave_client import slave_get_vm, slave_list_vms, slave_stop_vm
+from app.services.vm_service import VmService
 
 logger = logging.getLogger(__name__)
 
@@ -62,22 +67,68 @@ class SlaveService:
 
     @staticmethod
     def delete_slave(slave_id: str) -> None:
-        try:
-            parsed_id = uuid.UUID(slave_id)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid slave id",
-            ) from exc
+        """Stop the slave's VMs, then forget them. Disks and definitions stay
+        on the slave, so its VMs can be adopted again after re-registering."""
+        slave = SlaveService.get_slave(slave_id)
         with Session(engine) as session:
-            slave = session.get(SlaveORM, parsed_id)
-            if not slave:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Slave {slave_id} not found",
-                )
-            session.delete(slave)
+            vms = session.exec(
+                select(VmORM).where(VmORM.slave_id == slave.id)).all()
+        with ThreadPoolExecutor() as pool:
+            failures = [failure for failure in pool.map(
+                lambda vm: _stop_slave_vm(slave, vm), vms) if failure]
+        if failures:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Could not stop {len(failures)} of {len(vms)} VMs on "
+                    f"{slave.name}, so nothing was unregistered. Fix them and "
+                    f"retry: {'; '.join(failures)}"
+                ),
+            )
+        with Session(engine) as session:
+            slave_vm_ids = select(VmORM.id).where(VmORM.slave_id == slave.id)
+            session.exec(delete(VmCredentialORM).where(
+                col(VmCredentialORM.vm_id).in_(slave_vm_ids)))
+            session.exec(delete(VmORM).where(
+                col(VmORM.slave_id) == slave.id))
+            session.exec(delete(SlaveORM).where(col(SlaveORM.id) == slave.id))
             session.commit()
+
+    @staticmethod
+    def list_unmanaged_vms(slave_id: str) -> list[dict]:
+        """Distribox VMs on the slave that this master does not manage."""
+        slave = SlaveService.get_slave(slave_id)
+        vms = slave_list_vms(slave)
+        with Session(engine) as session:
+            managed = set(session.exec(select(VmORM.id).where(
+                col(VmORM.id).in_([uuid.UUID(vm["id"]) for vm in vms]))).all())
+        return [vm for vm in vms if uuid.UUID(vm["id"]) not in managed]
+
+    @staticmethod
+    def adopt_vm(slave_id: str, vm_id: str) -> dict:
+        """Manage an existing slave VM again, without any access to it."""
+        slave = SlaveService.get_slave(slave_id)
+        parsed_vm_id = VmService._parse_vm_id(vm_id)
+        with Session(engine) as session:
+            if session.get(VmORM, parsed_vm_id):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This VM is already managed by this master",
+                )
+        data = slave_get_vm(slave, vm_id)
+        with Session(engine) as session:
+            session.add(VmORM(
+                id=parsed_vm_id,
+                name=data["name"],
+                os=data["os"],
+                mem=data["mem"],
+                vcpus=data["vcpus"],
+                disk_size=data["disk_size"],
+                keyboard_layout=data.get("keyboard_layout"),
+                slave_id=slave.id,
+            ))
+            session.commit()
+        return VmService._with_slave_fields(data, slave, vm_id)
 
     @staticmethod
     def handle_heartbeat(slave_id: str, heartbeat: SlaveHeartbeat) -> SlaveORM:
@@ -191,3 +242,16 @@ class SlaveService:
                         slave.name, slave.id, delta,
                     )
             session.commit()
+
+
+def _stop_slave_vm(slave: SlaveORM, vm: VmORM) -> Optional[str]:
+    """Stop a VM on its slave. Returns why it is not stopped, if it is not."""
+    try:
+        state = slave_stop_vm(slave, str(vm.id)).get("state")
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_404_NOT_FOUND:
+            return None
+        return f"{vm.name}: {exc.detail}"
+    except httpx.HTTPError:
+        return f"{vm.name}: slave unreachable"
+    return None if state == "Stopped" else f"{vm.name}: still {state}"

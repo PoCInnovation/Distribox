@@ -345,7 +345,7 @@ function ParticipantsTable({
                 </span>
               </td>
               <td colSpan={4} className="px-3 text-muted-foreground">
-                VM not available
+                VM disconnected
               </td>
               <td className="pr-3 text-right">
                 {onRemove && (

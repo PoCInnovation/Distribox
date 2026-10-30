@@ -1,6 +1,6 @@
 """HTTP client for Master -> Slave communication."""
 import logging
-from typing import Optional
+from typing import Any, Optional
 import httpx
 from fastapi import HTTPException
 from app.orm.slave import SlaveORM
@@ -25,7 +25,7 @@ def slave_request(
     path: str,
     json: Optional[dict] = None,
     timeout: Optional[httpx.Timeout] = None,
-) -> dict:
+) -> Any:
     """Make an HTTP request to a slave node."""
     url = f"{_slave_base_url(slave)}{path}"
     headers = _slave_headers(slave)
@@ -48,6 +48,11 @@ def slave_request(
 def slave_create_vm(slave: SlaveORM, vm_payload: dict) -> dict:
     """Create a VM on a slave node."""
     return slave_request(slave, "POST", "/vms", json=vm_payload, timeout=VM_CREATE_TIMEOUT)
+
+
+def slave_list_vms(slave: SlaveORM) -> list[dict]:
+    """List the Distribox VMs a slave node hosts."""
+    return slave_request(slave, "GET", "/vms")
 
 
 def slave_get_vm(slave: SlaveORM, vm_id: str) -> dict:

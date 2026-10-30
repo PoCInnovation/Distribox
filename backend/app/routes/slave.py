@@ -1,6 +1,7 @@
 """Master-side routes for managing slave nodes."""
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from app.models.slave import SlaveCreate, SlaveRead, SlaveHeartbeat
+from app.models.vm import VmRead
 from app.models.user_management import MissingPoliciesResponse
 from app.services.slave_service import SlaveService
 from app.utils.auth import require_policy
@@ -68,6 +69,28 @@ def create_slave(payload: SlaveCreate):
 )
 def delete_slave(slave_id: str):
     SlaveService.delete_slave(slave_id)
+
+
+@router.get(
+    "/{slave_id}/unmanaged-vms",
+    status_code=status.HTTP_200_OK,
+    response_model=list[VmRead],
+    dependencies=[Depends(require_policy("slaves:getById"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def list_unmanaged_vms(slave_id: str):
+    return SlaveService.list_unmanaged_vms(slave_id)
+
+
+@router.post(
+    "/{slave_id}/unmanaged-vms/{vm_id}/adopt",
+    status_code=status.HTTP_201_CREATED,
+    response_model=VmRead,
+    dependencies=[Depends(require_policy("slaves:create"))],
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def adopt_vm(slave_id: str, vm_id: str):
+    return SlaveService.adopt_vm(slave_id, vm_id)
 
 
 @router.post(

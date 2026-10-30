@@ -103,6 +103,13 @@ def init_db():
                     )
                 )
 
+        if "event_participants" in inspector.get_table_names():
+            for fk in inspector.get_foreign_keys("event_participants"):
+                if fk["referred_table"] == "vms":
+                    conn.execute(text(
+                        f'ALTER TABLE event_participants DROP CONSTRAINT "{fk["name"]}"'
+                    ))
+
         if "vm_credentials" in inspector.get_table_names():
             cred_columns = {
                 col["name"] for col in inspector.get_columns("vm_credentials")
