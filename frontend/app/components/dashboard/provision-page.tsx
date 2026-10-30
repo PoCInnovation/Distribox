@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { useClusterHostInfo } from "@/hooks/useHostInfo";
 import { useCreateVM } from "@/hooks/useCreateVM";
+import { useEvents } from "@/hooks/useEvents";
 import { useImages } from "@/hooks/useImages";
 import { useSlaves } from "@/hooks/useSlaves";
 import { useSettings } from "@/hooks/useSettings";
@@ -31,6 +32,11 @@ import {
 import { SizeStepper } from "./provision/size-stepper";
 import { NodeCard } from "./provision/capacity";
 import { SummaryRail, type SummaryStatus } from "./provision/summary-rail";
+import {
+  LabSuggestions,
+  labConfigKey,
+  labSuggestions,
+} from "./provision/lab-suggestions";
 import {
   buildPresets,
   clampSize,
@@ -80,6 +86,10 @@ export default function ProvisionPage() {
   const { data: cluster } = useClusterHostInfo(canReadHost && hasCreatePolicy);
   const { data: settings } = useSettings(hasCreatePolicy);
   const { data: images } = useImages(canReadImages && hasCreatePolicy);
+  const { data: events } = useEvents(
+    hasCreatePolicy && authz.hasPolicy(Policy.EVENTS_GET),
+  );
+  const suggestions = useMemo(() => labSuggestions(events), [events]);
   const createVM = useCreateVM();
 
   // Form state
@@ -323,6 +333,20 @@ export default function ProvisionPage() {
           disabled={pending}
           className="m-0 min-w-0 flex-1 border-0 p-0"
         >
+          {suggestions.length > 0 && (
+            <FormRow id="row-start" label="Start from">
+              <LabSuggestions
+                suggestions={suggestions}
+                activeKey={labConfigKey({ os, size, keyboard, ssh })}
+                onPick={(c) => {
+                  setOs(c.os);
+                  setSize(c.size);
+                  setKeyboard(c.keyboard);
+                  setSsh(c.ssh);
+                }}
+              />
+            </FormRow>
+          )}
           <FormRow
             id="row-name"
             label="Name"
