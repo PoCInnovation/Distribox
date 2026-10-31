@@ -32,11 +32,7 @@ import {
 import { SizeStepper } from "./provision/size-stepper";
 import { NodeCard } from "./provision/capacity";
 import { SummaryRail, type SummaryStatus } from "./provision/summary-rail";
-import {
-  LabSuggestions,
-  labConfigKey,
-  labSuggestions,
-} from "./provision/lab-suggestions";
+import { CopyFromMenu, labConfigOf } from "./provision/copy-from-menu";
 import {
   buildPresets,
   clampSize,
@@ -55,12 +51,16 @@ import {
 
 const NO_KEYBOARD = "__none__";
 
-function PageHeader() {
+function PageHeader({ action }: { action?: React.ReactNode }) {
   return (
     <header className="mb-8">
-      <h1 className="font-mono text-2xl font-bold tracking-tight md:text-3xl">
-        Provision a VM
-      </h1>
+      {/* Ends where the form column does: the rail is 19rem plus a 2rem gap. */}
+      <div className="flex items-center justify-between gap-4 lg:max-w-[calc(100%-21rem)]">
+        <h1 className="font-mono text-2xl font-bold tracking-tight md:text-3xl">
+          Provision a VM
+        </h1>
+        {action}
+      </div>
       <p className="mt-2 text-sm text-muted-foreground md:text-base">
         Name it, pick an image, size it, and choose where it runs.
       </p>
@@ -89,7 +89,6 @@ export default function ProvisionPage() {
   const { data: events } = useEvents(
     hasCreatePolicy && authz.hasPolicy(Policy.EVENTS_GET),
   );
-  const suggestions = useMemo(() => labSuggestions(events), [events]);
   const createVM = useCreateVM();
 
   // Form state
@@ -313,7 +312,20 @@ export default function ProvisionPage() {
 
   return (
     <div className="min-w-0 p-4 md:p-8">
-      <PageHeader />
+      <PageHeader
+        action={
+          <CopyFromMenu
+            events={events}
+            onPick={(source) => {
+              const config = labConfigOf(source);
+              setOs(config.os);
+              setSize(config.size);
+              setKeyboard(config.keyboard);
+              setSsh(config.ssh);
+            }}
+          />
+        }
+      />
       <form
         ref={formRef}
         noValidate
@@ -333,20 +345,6 @@ export default function ProvisionPage() {
           disabled={pending}
           className="m-0 min-w-0 flex-1 border-0 p-0"
         >
-          {suggestions.length > 0 && (
-            <FormRow id="row-start" label="Start from">
-              <LabSuggestions
-                suggestions={suggestions}
-                activeKey={labConfigKey({ os, size, keyboard, ssh })}
-                onPick={(c) => {
-                  setOs(c.os);
-                  setSize(c.size);
-                  setKeyboard(c.keyboard);
-                  setSsh(c.ssh);
-                }}
-              />
-            </FormRow>
-          )}
           <FormRow
             id="row-name"
             label="Name"

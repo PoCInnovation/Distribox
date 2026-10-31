@@ -6,6 +6,7 @@ import {
   Keyboard,
   Pencil,
   Presentation,
+  RotateCw,
   Square,
   Terminal,
   Trash2,
@@ -50,6 +51,7 @@ import {
   displayUrl,
   eventShareUrl,
   getEventPhase,
+  runAgainHref,
   useNow,
 } from "./events/event-model";
 import { EmptyState } from "./events/empty-state";
@@ -117,6 +119,7 @@ function EventDetail({ event }: { event: Event }) {
   const now = useNow(15_000);
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const canCreate = authz.hasPolicy(Policy.EVENTS_CREATE);
   const canUpdate = authz.hasPolicy(Policy.EVENTS_UPDATE);
   const canDelete = authz.hasPolicy(Policy.EVENTS_DELETE);
   const canScreenshot = authz.hasPolicy(Policy.VMS_SCREENSHOT);
@@ -261,6 +264,16 @@ function EventDetail({ event }: { event: Event }) {
               <Presentation className="size-4" />
               Present link
             </Button>
+            {canCreate && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(runAgainHref(event.id))}
+              >
+                <RotateCw className="size-4" />
+                Run again
+              </Button>
+            )}
             {canUpdate && (
               <Button
                 variant="outline"
