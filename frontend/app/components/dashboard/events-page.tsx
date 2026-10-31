@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   CalendarClock,
   ChevronRight,
@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   Presentation,
+  RotateCw,
   Search,
   SearchX,
   Trash2,
@@ -41,6 +42,7 @@ import {
   deadlineText,
   eventShareUrl,
   getEventPhase,
+  runAgainHref,
   useNow,
 } from "./events/event-model";
 import { EmptyState } from "./events/empty-state";
@@ -51,6 +53,10 @@ export function EventsPage() {
   const authz = useAuthz();
   const canCreate = authz.hasPolicy(Policy.EVENTS_CREATE);
   const [createOpen, setCreateOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const againId = searchParams.get("again");
+  const { data: events } = useEvents(canCreate && !!againId);
+  const again = events?.find((e) => e.id === againId);
 
   return (
     <div className="h-full p-8">
@@ -78,7 +84,22 @@ export function EventsPage() {
         />
       </PolicyGate>
 
-      <CreateEventDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateEventDialog
+        open={createOpen || !!again}
+        source={again}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open && againId) {
+            setSearchParams(
+              (params) => {
+                params.delete("again");
+                return params;
+              },
+              { replace: true },
+            );
+          }
+        }}
+      />
     </div>
   );
 }
@@ -322,7 +343,7 @@ function EventsTable({
             <col className="w-[8rem]" />
             <col className="w-[11rem]" />
             <col className="hidden w-[14rem] 2xl:table-column" />
-            <col className="w-[5rem]" />
+            <col className="w-[7rem] xl:w-[11rem]" />
           </colgroup>
           <thead className="bg-card shadow-[inset_0_-1px_0_0_var(--border)]">
             <tr className="h-10 text-left text-xs font-medium text-muted-foreground">
@@ -378,6 +399,8 @@ function EventRow({
   onDelete: () => void;
 }) {
   const navigate = useNavigate();
+  const authz = useAuthz();
+  const canCreate = authz.hasPolicy(Policy.EVENTS_CREATE);
   const timeZone = useTimezone();
   const ui = getEventPhase(event, now);
   const ended = ui.phase === "ended";
@@ -473,6 +496,18 @@ function EventRow({
       </td>
       <td className="pr-3">
         <div className="flex items-center justify-end gap-1">
+          {ended && canCreate && (
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label="Run again"
+              title="Run again"
+              onClick={() => navigate(runAgainHref(event.id))}
+            >
+              <RotateCw className="size-3.5" />
+              <span className="hidden xl:inline">Run again</span>
+            </Button>
+          )}
           <EventRowMenu
             event={event}
             url={url}
@@ -499,6 +534,7 @@ function EventRowMenu({
 }) {
   const navigate = useNavigate();
   const authz = useAuthz();
+  const canCreate = authz.hasPolicy(Policy.EVENTS_CREATE);
   const canUpdate = authz.hasPolicy(Policy.EVENTS_UPDATE);
   const canDelete = authz.hasPolicy(Policy.EVENTS_DELETE);
   const href = `/dashboard/events/${event.id}`;
@@ -540,6 +576,12 @@ function EventRowMenu({
           <Presentation className="size-4" />
           Present link
         </DropdownMenuItem>
+        {canCreate && (
+          <DropdownMenuItem onSelect={() => navigate(runAgainHref(event.id))}>
+            <RotateCw className="size-4" />
+            Run again
+          </DropdownMenuItem>
+        )}
         {canUpdate && (
           <DropdownMenuItem onSelect={() => navigate(`${href}?edit=1`)}>
             <Pencil className="size-4" />
