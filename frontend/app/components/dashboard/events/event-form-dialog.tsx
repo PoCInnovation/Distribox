@@ -37,11 +37,7 @@ import {
   sizeFromSettings,
   type VmSize,
 } from "../provision/model";
-import {
-  LabSuggestions,
-  labConfigKey,
-  labSuggestions,
-} from "../provision/lab-suggestions";
+import { CopyFromMenu, labConfigOf } from "../provision/copy-from-menu";
 import { DeadlineField, FleetCapacity } from "../event-form-fields";
 import {
   minDiskFromError,
@@ -119,11 +115,14 @@ export function EventFormDialog({
   open,
   onOpenChange,
   event,
+  source,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Present when editing. */
   event?: Event;
+  /** A past event whose setup a new event starts from. */
+  source?: Event;
 }) {
   const editing = !!event;
   const authz = useAuthz();
@@ -134,10 +133,6 @@ export function EventFormDialog({
   const { data: clusterInfo } = useClusterHostInfo(canReadHost && open, 10_000);
   const { data: settings } = useSettings();
   const { data: events } = useEvents(open && !editing);
-  const suggestions = useMemo(
-    () => (editing ? [] : labSuggestions(events)),
-    [editing, events],
-  );
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const mutation = editing ? updateEvent : createEvent;
@@ -154,23 +149,24 @@ export function EventFormDialog({
     ),
   );
   const [submitted, setSubmitted] = useState(false);
+  const [copiedFrom, setCopiedFrom] = useState<string | null>(null);
 
   // Fresh form each time the dialog opens (and once settings arrive for a new event).
   useEffect(() => {
     if (!open) return;
-    setForm(
-      initialState(
-        event,
-        base,
-        settings?.default_os ?? "",
-        settings?.default_keyboard_layout ?? "",
-      ),
+    const fresh = initialState(
+      event,
+      base,
+      settings?.default_os ?? "",
+      settings?.default_keyboard_layout ?? "",
     );
+    setForm(source ? { ...fresh, ...labConfigOf(source) } : fresh);
+    setCopiedFrom(source?.name ?? null);
     setSubmitted(false);
     createEvent.reset();
     updateEvent.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, event?.id, !!settings]);
+  }, [open, event?.id, !!settings, source?.id]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -261,14 +257,31 @@ export function EventFormDialog({
         }}
       >
         <DialogHeader className="border-b border-border px-6 pt-5 pb-4 text-left">
-          <DialogTitle className="font-mono text-xl font-semibold tracking-tight">
-            {editing ? "Edit event" : "New event"}
-          </DialogTitle>
+          <div className="flex items-center justify-between gap-4 pr-8">
+            <DialogTitle className="font-mono text-xl font-semibold tracking-tight">
+              {editing ? "Edit event" : "New event"}
+            </DialogTitle>
+            {!editing && (
+              <CopyFromMenu
+                events={events}
+                onPick={(source) => {
+                  setForm((f) => ({ ...f, ...labConfigOf(source) }));
+                  setCopiedFrom(source.name);
+                }}
+              />
+            )}
+          </div>
           <DialogDescription>
             {editing
               ? "Changes apply to machines handed out after you save. Existing participant VMs are not rebuilt."
               : "Everyone who opens the link and enters a name gets their own VM with this spec."}
           </DialogDescription>
+          {copiedFrom && (
+            <p className="text-xs text-muted-foreground">
+              Setup copied from{" "}
+              <span className="text-foreground">{copiedFrom}</span>
+            </p>
+          )}
         </DialogHeader>
 
         <form
@@ -284,24 +297,6 @@ export function EventFormDialog({
             disabled={mutation.isPending}
             className="m-0 min-w-0 border-0 p-0"
           >
-            {suggestions.length > 0 && (
-              <FormRow label="Start from">
-                <LabSuggestions
-                  suggestions={suggestions}
-                  activeKey={labConfigKey(form)}
-                  onPick={(c) =>
-                    setForm((f) => ({
-                      ...f,
-                      os: c.os,
-                      distribution: c.distribution,
-                      size: c.size,
-                      keyboard: c.keyboard,
-                      ssh: c.ssh,
-                    }))
-                  }
-                />
-              </FormRow>
-            )}
             <FormRow
               label="Name"
               help="Shown to participants on the join page."

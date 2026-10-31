@@ -86,6 +86,11 @@ export function eventShareUrl(slug: string): string {
   return `${FRONTEND_URL}/events/${slug}`;
 }
 
+/** Opens New event with this event's setup. */
+export function runAgainHref(eventId: string): string {
+  return `/dashboard/events?again=${eventId}`;
+}
+
 /** The URL without its scheme, for display. */
 export function displayUrl(url: string): string {
   return url.replace(/^https?:\/\//, "");
