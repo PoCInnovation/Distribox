@@ -18,3 +18,11 @@ AWS_EC2_METADATA_DISABLED=true PYTHONPATH=backend pytest backend/tests -q
 ```
 
 These tests use temporary databases and in-process SSH servers. They do not start or modify deployed VMs.
+
+# Database migrations
+
+The backend applies pending Alembic migrations from `app/migrations/versions` when it starts. After changing a model, generate a migration from `backend/` against a database at the latest revision, then review it:
+
+```bash
+alembic revision --autogenerate --rev-id 0003 -m "describe the change"
+```
