@@ -189,7 +189,7 @@ export function MissingParticipantTile({
         <span className="text-xs">
           {hidden
             ? "VM details are hidden by your policies"
-            : "This participant's VM no longer exists"}
+            : "This participant's VM is disconnected"}
         </span>
       </div>
       <div className="flex items-center gap-3 border-t border-dashed border-border px-3 py-2.5">

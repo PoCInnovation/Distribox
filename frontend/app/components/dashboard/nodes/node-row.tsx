@@ -1,10 +1,13 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Copy, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SecretField, copyToClipboard } from "@/components/ui/secret-field";
 import { VMState } from "@/lib/types/vm-state";
 import { cn } from "@/lib/utils";
 import { formatDateTime, formatRelative } from "@/hooks/useTimezone";
 import { API_BASE_URL } from "@/lib/api/core";
+import { adoptVM, getUnmanagedVMs } from "@/lib/api/slaves";
 import { CapacityBar } from "./capacity-bar";
 import { CodeBlock } from "./code-block";
 import { formatGb, type ClusterNode, type NodeStatus } from "./node-model";
@@ -59,6 +62,7 @@ export function NodeRow({
   expanded,
   onToggle,
   canDelete,
+  canAdopt,
   onDelete,
   timezone,
   now,
@@ -67,6 +71,7 @@ export function NodeRow({
   expanded: boolean;
   onToggle: () => void;
   canDelete: boolean;
+  canAdopt: boolean;
   onDelete: () => void;
   timezone: string;
   now: number;
@@ -208,13 +213,13 @@ export function NodeRow({
         >
           <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
             <NodeDetails node={node} timezone={timezone} now={now} />
-            <NodeSidePanel node={node} />
+            <NodeSidePanel node={node} canAdopt={canAdopt} />
           </div>
           {node.role === "slave" && canDelete && (
             <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
               <p className="text-xs text-muted-foreground">
-                Unregistering removes the slave from this master. The machine
-                itself is not touched.
+                Unregistering stops this slave&apos;s VMs and removes them from
+                this master. Their disks stay on the machine.
               </p>
               <Button
                 variant="outline"
@@ -341,7 +346,13 @@ function NodeDetails({
   );
 }
 
-function NodeSidePanel({ node }: { node: ClusterNode }) {
+function NodeSidePanel({
+  node,
+  canAdopt,
+}: {
+  node: ClusterNode;
+  canAdopt: boolean;
+}) {
   if (node.status === "offline" && node.role === "slave") {
     return <OfflineChecklist node={node} />;
   }
@@ -356,7 +367,67 @@ function NodeSidePanel({ node }: { node: ClusterNode }) {
       </div>
     );
   }
-  return <NodeVmList node={node} />;
+  return (
+    <div className="space-y-5">
+      <NodeVmList node={node} />
+      {canAdopt && node.role === "slave" && node.id && (
+        <UnmanagedVmList slaveId={node.id} />
+      )}
+    </div>
+  );
+}
+
+function UnmanagedVmList({ slaveId }: { slaveId: string }) {
+  const queryClient = useQueryClient();
+  const queryKey = ["slaves", slaveId, "unmanaged-vms"];
+  const vmsQuery = useQuery({
+    queryKey,
+    queryFn: () => getUnmanagedVMs(slaveId),
+    retry: false,
+  });
+  const adopt = useMutation({
+    mutationFn: (vmId: string) => adoptVM(slaveId, vmId),
+    onSuccess: (vm) => {
+      toast.success(`${vm.name} adopted`);
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["vms"] });
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  if (vmsQuery.error) {
+    return (
+      <p className="text-xs text-destructive">
+        Could not list this slave&apos;s other VMs: {vmsQuery.error.message}
+      </p>
+    );
+  }
+  if (!vmsQuery.data?.length) return null;
+  return (
+    <div>
+      <p className="mb-2 text-xs text-muted-foreground">
+        Not managed by this master
+      </p>
+      <ul className="divide-y divide-border/70 border border-border">
+        {vmsQuery.data.map((vm) => (
+          <li
+            key={vm.id}
+            className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+          >
+            <span className="truncate font-mono text-xs">{vm.name}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={adopt.isPending}
+              onClick={() => adopt.mutate(vm.id)}
+            >
+              Adopt
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function NodeVmList({ node }: { node: ClusterNode }) {

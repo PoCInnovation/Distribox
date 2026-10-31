@@ -38,12 +38,10 @@ class EventParticipantORM(SQLModel, table=True):
         )
     )
     participant_name: str
+    # No foreign key: the VM outlives its master record when its slave is
+    # unregistered, and adopting it back reconnects the participant.
     vm_id: uuid.UUID = Field(
-        sa_column=Column(
-            UUID(as_uuid=True),
-            ForeignKey("vms.id", ondelete="CASCADE"),
-            nullable=False,
-        )
+        sa_column=Column(UUID(as_uuid=True), nullable=False)
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc))
