@@ -19,8 +19,9 @@ import {
 import { PolicyGate } from "@/components/policy/policy-gate";
 import { SshAccessSwitch } from "@/components/ssh-access-switch";
 import { useAuthz } from "@/contexts/authz-context";
-import { useCreateEvent, useUpdateEvent } from "@/hooks/useEvents";
+import { useCreateEvent, useEvents, useUpdateEvent } from "@/hooks/useEvents";
 import { useClusterHostInfo } from "@/hooks/useHostInfo";
+import { useImages } from "@/hooks/useImages";
 import { useSettings } from "@/hooks/useSettings";
 import { KEYBOARD_LAYOUTS, getKeyboardLabel } from "@/lib/keyboard-layouts";
 import { Policy } from "@/lib/types";
@@ -37,6 +38,7 @@ import {
   sizeFromSettings,
   type VmSize,
 } from "../provision/model";
+import { CopyFromMenu, labConfigOf } from "../provision/copy-from-menu";
 import { DeadlineField, FleetCapacity } from "../event-form-fields";
 import {
   minDiskFromError,
@@ -114,20 +116,26 @@ export function EventFormDialog({
   open,
   onOpenChange,
   event,
+  source,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Present when editing. */
   event?: Event;
+  /** A past event whose setup a new event starts from. */
+  source?: Event;
 }) {
   const editing = !!event;
   const authz = useAuthz();
   const canReadHost = authz.hasPolicy(Policy.HOST_GET);
   const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
   const canManageSsh = authz.hasPolicy(Policy.VMS_SSH_MANAGE);
+  const canListEvents = authz.hasPolicy(Policy.EVENTS_GET);
 
   const { data: clusterInfo } = useClusterHostInfo(canReadHost && open, 10_000);
   const { data: settings } = useSettings();
+  const { data: images } = useImages(canReadImages && open);
+  const { data: events } = useEvents(canListEvents && open && !editing, false);
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const mutation = editing ? updateEvent : createEvent;
@@ -148,19 +156,18 @@ export function EventFormDialog({
   // Fresh form each time the dialog opens (and once settings arrive for a new event).
   useEffect(() => {
     if (!open) return;
-    setForm(
-      initialState(
-        event,
-        base,
-        settings?.default_os ?? "",
-        settings?.default_keyboard_layout ?? "",
-      ),
+    const fresh = initialState(
+      event,
+      base,
+      settings?.default_os ?? "",
+      settings?.default_keyboard_layout ?? "",
     );
+    setForm(source ? { ...fresh, ...labConfigOf(source) } : fresh);
     setSubmitted(false);
     createEvent.reset();
     updateEvent.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, event?.id, !!settings]);
+  }, [open, event?.id, !!settings, source?.id]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -175,7 +182,12 @@ export function EventFormDialog({
         ? "The link needs a slug."
         : "Use at least 2 lowercase letters, digits or dashes, not starting or ending with a dash."
       : null,
-    os: form.os === "" ? "Pick the image every participant gets." : null,
+    // A copied or default image may have been deleted since.
+    os:
+      form.os === "" ||
+      (!editing && images && !images.some((i) => i.image === form.os))
+        ? "Pick the image every participant gets."
+        : null,
     disk:
       minDisk !== null && form.size.disk < minDisk
         ? minDiskMessage(minDisk)
@@ -251,9 +263,19 @@ export function EventFormDialog({
         }}
       >
         <DialogHeader className="border-b border-border px-6 pt-5 pb-4 text-left">
-          <DialogTitle className="font-mono text-xl font-semibold tracking-tight">
-            {editing ? "Edit event" : "New event"}
-          </DialogTitle>
+          <div className="flex items-center justify-between gap-4 pr-8">
+            <DialogTitle className="font-mono text-xl font-semibold tracking-tight">
+              {editing ? "Edit event" : "New event"}
+            </DialogTitle>
+            {!editing && (
+              <CopyFromMenu
+                events={events}
+                onPick={(source) =>
+                  setForm((f) => ({ ...f, ...labConfigOf(source) }))
+                }
+              />
+            )}
+          </div>
           <DialogDescription>
             {editing
               ? "Changes apply to machines handed out after you save. Existing participant VMs are not rebuilt."
