@@ -55,7 +55,9 @@ export function EventsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const againId = searchParams.get("again");
-  const { data: events } = useEvents(canCreate && !!againId);
+  const { data: events } = useEvents(
+    canCreate && authz.hasPolicy(Policy.EVENTS_GET) && !!againId,
+  );
   const again = events?.find((e) => e.id === againId);
 
   return (

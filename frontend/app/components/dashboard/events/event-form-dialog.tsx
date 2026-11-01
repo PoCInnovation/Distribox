@@ -21,6 +21,7 @@ import { SshAccessSwitch } from "@/components/ssh-access-switch";
 import { useAuthz } from "@/contexts/authz-context";
 import { useCreateEvent, useEvents, useUpdateEvent } from "@/hooks/useEvents";
 import { useClusterHostInfo } from "@/hooks/useHostInfo";
+import { useImages } from "@/hooks/useImages";
 import { useSettings } from "@/hooks/useSettings";
 import { KEYBOARD_LAYOUTS, getKeyboardLabel } from "@/lib/keyboard-layouts";
 import { Policy } from "@/lib/types";
@@ -129,10 +130,12 @@ export function EventFormDialog({
   const canReadHost = authz.hasPolicy(Policy.HOST_GET);
   const canReadImages = authz.hasPolicy(Policy.IMAGES_GET);
   const canManageSsh = authz.hasPolicy(Policy.VMS_SSH_MANAGE);
+  const canListEvents = authz.hasPolicy(Policy.EVENTS_GET);
 
   const { data: clusterInfo } = useClusterHostInfo(canReadHost && open, 10_000);
   const { data: settings } = useSettings();
-  const { data: events } = useEvents(open && !editing);
+  const { data: images } = useImages(canReadImages && open);
+  const { data: events } = useEvents(canListEvents && open && !editing);
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const mutation = editing ? updateEvent : createEvent;
@@ -149,7 +152,6 @@ export function EventFormDialog({
     ),
   );
   const [submitted, setSubmitted] = useState(false);
-  const [copiedFrom, setCopiedFrom] = useState<string | null>(null);
 
   // Fresh form each time the dialog opens (and once settings arrive for a new event).
   useEffect(() => {
@@ -161,7 +163,6 @@ export function EventFormDialog({
       settings?.default_keyboard_layout ?? "",
     );
     setForm(source ? { ...fresh, ...labConfigOf(source) } : fresh);
-    setCopiedFrom(source?.name ?? null);
     setSubmitted(false);
     createEvent.reset();
     updateEvent.reset();
@@ -181,7 +182,12 @@ export function EventFormDialog({
         ? "The link needs a slug."
         : "Use at least 2 lowercase letters, digits or dashes, not starting or ending with a dash."
       : null,
-    os: form.os === "" ? "Pick the image every participant gets." : null,
+    // A copied or default image may have been deleted since.
+    os:
+      form.os === "" ||
+      (!editing && images && !images.some((i) => i.image === form.os))
+        ? "Pick the image every participant gets."
+        : null,
     disk:
       minDisk !== null && form.size.disk < minDisk
         ? minDiskMessage(minDisk)
@@ -264,10 +270,9 @@ export function EventFormDialog({
             {!editing && (
               <CopyFromMenu
                 events={events}
-                onPick={(source) => {
-                  setForm((f) => ({ ...f, ...labConfigOf(source) }));
-                  setCopiedFrom(source.name);
-                }}
+                onPick={(source) =>
+                  setForm((f) => ({ ...f, ...labConfigOf(source) }))
+                }
               />
             )}
           </div>
@@ -276,12 +281,6 @@ export function EventFormDialog({
               ? "Changes apply to machines handed out after you save. Existing participant VMs are not rebuilt."
               : "Everyone who opens the link and enters a name gets their own VM with this spec."}
           </DialogDescription>
-          {copiedFrom && (
-            <p className="text-xs text-muted-foreground">
-              Setup copied from{" "}
-              <span className="text-foreground">{copiedFrom}</span>
-            </p>
-          )}
         </DialogHeader>
 
         <form

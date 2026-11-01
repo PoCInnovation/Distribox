@@ -165,7 +165,11 @@ export default function ProvisionPage() {
 
   // Validation
   const nameError = name.trim() === "" ? "Give it a name" : null;
-  const imageError = os === "" ? "Choose an image" : null;
+  // A copied or default image may have been deleted since.
+  const imageError =
+    os === "" || (images && !images.some((i) => i.image === os))
+      ? "Choose an image"
+      : null;
   let sizeError: string | null = null;
   if (fits.length > 0) {
     if (placement === "auto") {

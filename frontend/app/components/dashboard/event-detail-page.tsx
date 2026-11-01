@@ -119,7 +119,9 @@ function EventDetail({ event }: { event: Event }) {
   const now = useNow(15_000);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const canCreate = authz.hasPolicy(Policy.EVENTS_CREATE);
+  // Run again finds the event in the events list.
+  const canRunAgain =
+    authz.hasPolicy(Policy.EVENTS_CREATE) && authz.hasPolicy(Policy.EVENTS_GET);
   const canUpdate = authz.hasPolicy(Policy.EVENTS_UPDATE);
   const canDelete = authz.hasPolicy(Policy.EVENTS_DELETE);
   const canScreenshot = authz.hasPolicy(Policy.VMS_SCREENSHOT);
@@ -264,7 +266,7 @@ function EventDetail({ event }: { event: Event }) {
               <Presentation className="size-4" />
               Present link
             </Button>
-            {canCreate && (
+            {canRunAgain && (
               <Button
                 variant="outline"
                 size="sm"

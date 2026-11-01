@@ -4,7 +4,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getKeyboardLabel } from "@/lib/keyboard-layouts";
@@ -51,9 +50,6 @@ export function CopyFromMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72 p-1">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">
-          Past events
-        </DropdownMenuLabel>
         {recent.map((event) => (
           <DropdownMenuItem
             key={event.id}
