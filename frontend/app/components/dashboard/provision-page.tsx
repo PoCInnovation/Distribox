@@ -88,6 +88,7 @@ export default function ProvisionPage() {
   const { data: images } = useImages(canReadImages && hasCreatePolicy);
   const { data: events } = useEvents(
     hasCreatePolicy && authz.hasPolicy(Policy.EVENTS_GET),
+    false,
   );
   const createVM = useCreateVM();
 

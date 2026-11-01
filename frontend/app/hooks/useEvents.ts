@@ -13,14 +13,18 @@ import type {
   UpdateEventPayload,
 } from "@/lib/types/event";
 
-export function useEvents(enabled = true) {
+// Seat counts move while an event is open. Callers that only read past
+// setups pass false and still see the list's updates through the cache.
+export function useEvents(
+  enabled = true,
+  refetchInterval: number | false = 15_000,
+) {
   return useQuery<Event[]>({
     queryKey: ["events"],
     queryFn: getEvents,
     enabled,
     retry: false,
-    // Seat counts move while an event is open.
-    refetchInterval: 15_000,
+    refetchInterval,
   });
 }
 

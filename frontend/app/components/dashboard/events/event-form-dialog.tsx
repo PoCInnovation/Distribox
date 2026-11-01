@@ -135,7 +135,7 @@ export function EventFormDialog({
   const { data: clusterInfo } = useClusterHostInfo(canReadHost && open, 10_000);
   const { data: settings } = useSettings();
   const { data: images } = useImages(canReadImages && open);
-  const { data: events } = useEvents(canListEvents && open && !editing);
+  const { data: events } = useEvents(canListEvents && open && !editing, false);
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const mutation = editing ? updateEvent : createEvent;
