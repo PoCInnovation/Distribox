@@ -1,11 +1,12 @@
 import libvirt
 import boto3
+from alembic import command
+from alembic.config import Config as AlembicConfig
 from botocore import UNSIGNED
 from botocore.config import Config
 from dotenv import load_dotenv
 from os import getenv
-from sqlalchemy import inspect, text
-from sqlmodel import create_engine, SQLModel
+from sqlmodel import create_engine
 from app.telemetry.monitor import SystemMonitor
 load_dotenv()
 
@@ -37,102 +38,10 @@ s3 = boto3.client(
 
 
 def init_db():
-    """Initialize database tables."""
-    SQLModel.metadata.create_all(engine)
-
-    with engine.begin() as conn:
-        inspector = inspect(conn)
-        if "users" not in inspector.get_table_names():
-            return
-
-        columns = {column["name"] for column in inspector.get_columns("users")}
-        if "created_by" not in columns:
-            conn.execute(
-                text("ALTER TABLE users ADD COLUMN created_by VARCHAR"))
-        if "last_activity" not in columns:
-            conn.execute(
-                text("ALTER TABLE users ADD COLUMN last_activity TIMESTAMPTZ"))
-        if "password" not in columns:
-            conn.execute(text("ALTER TABLE users ADD COLUMN password VARCHAR"))
-        if "policies" not in columns:
-            conn.execute(
-                text(
-                    "ALTER TABLE users "
-                    "ADD COLUMN policies JSON NOT NULL DEFAULT '[]'::json"
-                )
-            )
-
-        if "vms" in inspector.get_table_names():
-            vm_columns = {
-                col["name"] for col in inspector.get_columns("vms")
-            }
-            if "ssh_enabled" not in vm_columns:
-                conn.execute(text(
-                    "ALTER TABLE vms ADD COLUMN ssh_enabled BOOLEAN NOT NULL DEFAULT FALSE"
-                ))
-            if "ssh_settings_revision" not in vm_columns:
-                conn.execute(text(
-                    "ALTER TABLE vms ADD COLUMN ssh_settings_revision INTEGER NOT NULL DEFAULT 0"
-                ))
-            if "keyboard_layout" not in vm_columns:
-                conn.execute(
-                    text(
-                        "ALTER TABLE vms ADD COLUMN keyboard_layout VARCHAR"
-                    )
-                )
-            if "slave_id" not in vm_columns:
-                conn.execute(
-                    text(
-                        "ALTER TABLE vms ADD COLUMN slave_id UUID "
-                        "REFERENCES slaves(id)"
-                    )
-                )
-
-        if "events" in inspector.get_table_names():
-            event_columns = {
-                col["name"] for col in inspector.get_columns("events")
-            }
-            if "ssh_enabled" not in event_columns:
-                conn.execute(text(
-                    "ALTER TABLE events ADD COLUMN ssh_enabled BOOLEAN NOT NULL DEFAULT FALSE"
-                ))
-            if "keyboard_layout" not in event_columns:
-                conn.execute(
-                    text(
-                        "ALTER TABLE events ADD COLUMN keyboard_layout VARCHAR"
-                    )
-                )
-
-        if "event_participants" in inspector.get_table_names():
-            for fk in inspector.get_foreign_keys("event_participants"):
-                if fk["referred_table"] == "vms":
-                    conn.execute(text(
-                        f'ALTER TABLE event_participants DROP CONSTRAINT "{fk["name"]}"'
-                    ))
-
-        if "vm_credentials" in inspector.get_table_names():
-            cred_columns = {
-                col["name"] for col in inspector.get_columns("vm_credentials")
-            }
-            if "expires_at" not in cred_columns:
-                conn.execute(
-                    text(
-                        "ALTER TABLE vm_credentials "
-                        "ADD COLUMN expires_at TIMESTAMPTZ"
-                    )
-                )
-
-        naive_columns = conn.execute(text(
-            "SELECT table_name, column_name FROM information_schema.columns "
-            "WHERE table_schema = current_schema() "
-            "AND data_type = 'timestamp without time zone'"
-        )).all()
-        for table, column in naive_columns:
-            if table in SQLModel.metadata.tables:
-                conn.execute(text(
-                    f"ALTER TABLE {table} ALTER COLUMN {column} "
-                    f"TYPE TIMESTAMPTZ USING {column} AT TIME ZONE 'UTC'"
-                ))
+    """Apply pending database migrations."""
+    config = AlembicConfig()
+    config.set_main_option("script_location", "app:migrations")
+    command.upgrade(config, "head")
 
 
 class QEMUConfig:
