@@ -5,11 +5,12 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 from app.core.policies import DISTRIBOX_ADMIN_POLICY
 from app.routes import vm, image, host, auth, user_management, tunnel, event, slave
 from app.routes import slave_agent, ssh, ssh_slave
 from app.orm.user import UserORM
+from app.orm.vm import VmORM
 from app.orm.vm_credential import VmCredentialORM  # noqa: F401
 from app.orm.event import EventORM, EventParticipantORM  # noqa: F401
 from app.orm.user_settings import UserSettingsORM  # noqa: F401
@@ -62,10 +63,15 @@ async def shutdown_event():
 
 def _stop_all_local_vms():
     try:
+        with Session(engine) as session:
+            local_vm_ids = session.exec(
+                select(VmORM.id).where(col(VmORM.slave_id).is_(None))
+            ).all()
+        local_names = {str(vm_id) for vm_id in local_vm_ids}
         conn = QEMUConfig.get_connection()
         domains = conn.listAllDomains(0)
         for domain in domains:
-            if domain.isActive():
+            if domain.name() in local_names and domain.isActive():
                 try:
                     domain.destroy()
                     logger.info("Destroyed VM %s", domain.name())
