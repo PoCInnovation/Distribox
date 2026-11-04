@@ -9,7 +9,6 @@ import {
 import { useGlissClient } from "@/hooks/useGlissClient";
 import { Image } from "@unpic/react";
 import { SshConnectionButton } from "@/components/ssh-connection-button";
-import { ClipboardDialog } from "./ClipboardDialog";
 
 const ProfilingPanel =
   import.meta.env.VITE_GLISS_PROFILING === "true"
@@ -71,7 +70,6 @@ type DesktopDisplayProps = (
 export function DesktopDisplay(props: DesktopDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sshOpen, setSshOpen] = useState(false);
-  const [clipboardOpen, setClipboardOpen] = useState(false);
 
   const options =
     "vmId" in props
@@ -80,20 +78,18 @@ export function DesktopDisplay(props: DesktopDisplayProps) {
           vmId: props.vmId,
           token: props.token,
           containerRef,
-          keyboardEnabled: !sshOpen && !clipboardOpen,
+          keyboardEnabled: !sshOpen,
         }
       : {
           mode: "credential" as const,
           credential: props.credential,
           containerRef,
-          keyboardEnabled: !sshOpen && !clipboardOpen,
+          keyboardEnabled: !sshOpen,
         };
 
   const {
     state,
     error,
-    clipboardText,
-    sendClipboard,
     sendKeyEvent,
     audioAvailable,
     audioEnabled,
@@ -304,15 +300,6 @@ export function DesktopDisplay(props: DesktopDisplayProps) {
                     ? "Enable sound"
                     : "Sound unavailable"}
               </button>
-              <button
-                className="rounded bg-white/15 px-2 py-0.5 text-xs text-white hover:bg-white/25 transition-colors"
-                onClick={() => {
-                  setClipboardOpen(true);
-                  if (isFullscreen) void exitFullscreen();
-                }}
-              >
-                Clipboard
-              </button>
               {"credential" in props && (
                 <SshConnectionButton
                   credential={props.credential}
@@ -417,14 +404,6 @@ export function DesktopDisplay(props: DesktopDisplayProps) {
           )}
         </div>
       </div>
-      <ClipboardDialog
-        key={"credential" in props ? props.credential : props.vmId}
-        open={clipboardOpen}
-        onOpenChange={setClipboardOpen}
-        clipboardText={clipboardText}
-        sendClipboard={sendClipboard}
-        connected={state === "connected"}
-      />
       {ProfilingPanel && props.profiling && (
         <Suspense fallback={null}>
           <ProfilingPanel

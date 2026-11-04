@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
+import { toast } from "sonner";
 import { API_BASE_URL, TUNNEL_URL } from "~/lib/api";
 import type {
   GlissProfilingHandle,
@@ -15,6 +16,10 @@ const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 10000, 10000, 10000];
 
 /** Time to let the window settle before asking the guest to resize. */
 const RESIZE_DEBOUNCE_MS = 250;
+
+/** Shift through Hyper in X11 keysyms; browsers report these keys' releases. */
+const isModifierKeysym = (keysym: number) =>
+  keysym >= 0xffe1 && keysym <= 0xffee;
 
 /** The gliss browser client, served by the backend to match its gliss-server. */
 type GlissEvent = { type: string; [key: string]: any };
@@ -91,8 +96,6 @@ type UseGlissClientOptions =
 interface UseGlissClientResult {
   state: DesktopConnectionState;
   error?: string;
-  clipboardText: string;
-  sendClipboard: (text: string) => void;
   sendKeyEvent: (pressed: boolean, keysym: number) => void;
   audioAvailable: boolean;
   audioEnabled: boolean;
@@ -111,12 +114,10 @@ export function useGlissClient(
   const [state, setState] = useState<DesktopConnectionState>("connecting");
   const [error, setError] = useState<string | undefined>();
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [clipboardText, setClipboardText] = useState("");
   const [audioAvailable, setAudioAvailable] = useState(false);
   const [audioEnabled, setAudioEnabledState] = useState(false);
   const [audioMessage, setAudioMessage] = useState<string>();
   const audioRef = useRef<GlissClient | null>(null);
-  const sendClipboardRef = useRef<((text: string) => void) | null>(null);
   const syncClipboardRef = useRef<(() => void) | null>(null);
   // Toolbar keys bypass the physical keyboard handling below.
   const sendRef = useRef<GlissClient["send"] | null>(null);
@@ -137,10 +138,6 @@ export function useGlissClient(
 
   const sendKeyEvent = useCallback((pressed: boolean, keysym: number) => {
     sendRef.current?.({ type: "key", keysym, down: pressed });
-  }, []);
-
-  const sendClipboard = useCallback((text: string) => {
-    sendClipboardRef.current?.(text);
   }, []);
 
   // Share the existing client-control hook; profiling adds no effect or timer.
@@ -218,7 +215,6 @@ export function useGlissClient(
     if (!connectKey) return;
     setState(everConnectedRef.current ? "reconnecting" : "connecting");
     setError(undefined);
-    setClipboardText("");
     setAudioAvailable(false);
     setAudioEnabledState(false);
     setAudioMessage(undefined);
@@ -272,16 +268,13 @@ export function useGlissClient(
       let prompted = false;
       const queuedKeys: Record<string, unknown>[] = [];
 
-      const sendClipboard = (text: string) => {
-        lastClipboard = text;
-        client!.send({ type: "clipboard", text });
-      };
-      sendClipboardRef.current = (text) => {
-        sendClipboard(text);
-        void clipboard?.writeText?.(text).catch(() => {});
-      };
+      const warnClipboard = (
+        message = "Clipboard sharing is blocked. Allow clipboard access in your browser to copy and paste with this VM.",
+      ) => toast.warning(message, { id: "vm-clipboard", duration: 10000 });
 
-      const readSystemClipboard = async (requestPermission = false) => {
+      // Browsers without a clipboard-read permission (Firefox, Safari) confirm
+      // every read and require a gesture, so they only read on a paste.
+      const readSystemClipboard = async (pasting = false) => {
         if (
           cancelled ||
           !connected ||
@@ -289,29 +282,39 @@ export function useGlissClient(
           !clipboard?.readText ||
           !keyboardEnabledRef.current ||
           !document.hasFocus() ||
-          (permission?.state !== "granted" &&
-            !(requestPermission && permission?.state === "prompt" && !prompted))
+          !(
+            permission?.state === "granted" ||
+            (permission?.state === "prompt" && (pasting || !prompted)) ||
+            (!permission && pasting)
+          )
         )
           return;
         prompted ||= permission?.state === "prompt";
         reading = true;
         const before = lastClipboard;
         try {
-          // Bound the wait so an unanswered permission prompt cannot hang.
+          // Bound the wait so an unanswered browser prompt cannot hang the keys.
           const text = await Promise.race([
-            clipboard.readText().catch(() => undefined),
-            new Promise<undefined>((resolve) => setTimeout(resolve, 300)),
+            clipboard.readText().catch(() => {
+              if (pasting) warnClipboard();
+              return undefined;
+            }),
+            new Promise<undefined>((resolve) =>
+              setTimeout(resolve, pasting ? 5000 : 300),
+            ),
           ]);
+          // Text is empty when the system clipboard holds an image or nothing.
           if (
             !cancelled &&
             connected &&
-            document.hasFocus() &&
+            (pasting || document.hasFocus()) &&
             keyboardEnabledRef.current &&
             lastClipboard === before &&
-            text !== undefined &&
+            text &&
             text !== lastClipboard
           ) {
-            sendClipboard(text);
+            lastClipboard = text;
+            client!.send({ type: "clipboard", text });
           }
         } finally {
           reading = false;
@@ -325,7 +328,13 @@ export function useGlissClient(
       syncClipboardRef.current = syncClipboard;
       const enterDisplay = () => {
         hasVmInteraction = true;
-        void readSystemClipboard(true);
+        syncClipboard();
+      };
+      const checkClipboard = () => {
+        if (!connected) return;
+        if (!clipboard) warnClipboard("Clipboard sharing requires HTTPS.");
+        else if (permission?.state === "denied") warnClipboard();
+        syncClipboard();
       };
       void Promise.resolve()
         .then(() =>
@@ -336,27 +345,33 @@ export function useGlissClient(
         .then((status) => {
           if (cancelled || !status) return;
           permission = status;
-          permission.onchange = syncClipboard;
-          syncClipboard();
+          permission.onchange = checkClipboard;
+          checkClipboard();
         })
         .catch(() => {});
 
       const receiveClipboard = (text: string) => {
-        const fromInteraction = hasVmInteraction;
-        setClipboardText(text);
-        if (text === lastClipboard) return;
         // Refresh from the system on entry after a guest replay or background copy.
-        if (!connected || !fromInteraction || !document.hasFocus()) {
-          lastClipboard = undefined;
+        if (!connected || !hasVmInteraction || !document.hasFocus()) {
+          if (text !== lastClipboard) lastClipboard = undefined;
           return;
         }
         lastClipboard = text;
-        void clipboard?.writeText?.(text).catch(() => {});
+        void clipboard?.writeText?.(text).catch(() => warnClipboard());
       };
 
       window.addEventListener("focus", syncClipboard);
       canvas.addEventListener("pointerdown", enterDisplay, true);
-      canvas.addEventListener("keydown", () => (hasVmInteraction = true));
+      // Runs before the client's own listener, so the paste keys wait for the read.
+      canvas.addEventListener("keydown", (event) => {
+        hasVmInteraction = true;
+        if (
+          !event.repeat &&
+          (event.ctrlKey || event.metaKey) &&
+          event.key.toLowerCase() === "v"
+        )
+          void readSystemClipboard(true);
+      });
       clipboard?.addEventListener("clipboardchange", syncClipboard);
       stopClipboardSync = () => {
         reading = false;
@@ -433,7 +448,7 @@ export function useGlissClient(
             connected = true;
             setState("connected");
             requestResize();
-            syncClipboard();
+            checkClipboard();
           } else if (event.type === "clipboard") {
             receiveClipboard(event.text);
           } else if (event.type === "cursor") {
@@ -460,17 +475,25 @@ export function useGlissClient(
       const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
       const send = client.send.bind(client);
       sendRef.current = send;
+      let cmdDown = false;
       client.send = (input) => {
         if (input.type !== "key") return send(input);
         if (reading) {
           queuedKeys.push(input);
           return 0;
         }
-        return send(
-          isMac && (input.keysym === 0xffeb || input.keysym === 0xffec)
-            ? { ...input, keysym: 0xffe3 }
-            : input,
-        );
+        const keysym = input.keysym as number;
+        if (isMac && (keysym === 0xffeb || keysym === 0xffec)) {
+          cmdDown = input.down as boolean;
+          return send({ ...input, keysym: 0xffe3 });
+        }
+        const id = send(input);
+        // macOS browsers report no keyup for a key released while Cmd is held,
+        // so release it now or the guest would keep repeating it.
+        if (cmdDown && input.down && !isModifierKeysym(keysym)) {
+          send({ ...input, down: false });
+        }
+        return id;
       };
 
       await client.connect();
@@ -486,7 +509,6 @@ export function useGlissClient(
     return () => {
       cancelled = true;
       stopClipboardSync?.();
-      sendClipboardRef.current = null;
       syncClipboardRef.current = null;
       clearTimeout(retryTimer);
       clearTimeout(resizeTimer);
@@ -507,8 +529,6 @@ export function useGlissClient(
   return {
     state,
     error,
-    clipboardText,
-    sendClipboard,
     sendKeyEvent,
     audioAvailable,
     audioEnabled,
