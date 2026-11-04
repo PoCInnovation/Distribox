@@ -36,13 +36,11 @@ Enable VM audio with **Enable sound** in the desktop toolbar. Audio shares the a
 
 ### Shared text clipboard
 
-Your system text clipboard is shared with the VM through the browser Clipboard API. In browsers supporting clipboard-read permission, allow access when clicking into the VM. System text is sent on connection, focus and VM clicks; copies in the guest write back to the system clipboard. Paste using the guest's usual shortcut. Browsers supporting `clipboardchange` also synchronize while the VM stays focused. Only text is shared.
+Your system text clipboard is shared with the VM. Copy and paste with your usual shortcuts in either direction; on macOS, Cmd acts as Ctrl in the VM. Your system clipboard is sent to the VM when it opens and whenever you return to it. Only text is shared.
 
-Use **Clipboard** in the VM toolbar when browser access is blocked or clipboard-read permission is unsupported (including Firefox and Safari). Paste or type into **Send to VM**, send it, close the dialog, then paste in the guest. **Copied in VM** shows guest text; **Copy** selects it for manual copying if the browser refuses clipboard writes.
+Chromium-based browsers ask for clipboard access when the VM opens. If access is blocked, Distribox tells you and you can allow it in the browser's site settings. Firefox and Safari have no lasting permission: they read the clipboard when you press the paste shortcut and may ask you to confirm. Safari can refuse to copy VM text to your system clipboard.
 
-The system clipboard takes priority when returning to the VM. Guest copies that the browser could not write remain available in the Clipboard dialog.
-
-Guests need `spice-vdagent` running in their desktop session. New Ubuntu desktop images and cloud-init seeds install it; for existing/imported Ubuntu or Debian desktops, run `sudo apt install spice-vdagent`, then log out and back in. A full shutdown and start adds the guest channel to existing VMs; saved sessions keep their devices. Unsupported hosts keep working without sharing.
+Guests need `spice-vdagent` running in their desktop session. Without it, the VM cannot share its clipboard. New Ubuntu desktop images and cloud-init seeds install it; for existing/imported desktops, install the `spice-vdagent` package (`sudo apt install spice-vdagent` on Ubuntu or Debian, `sudo pacman -S spice-vdagent` on Arch), then log out and back in. A full shutdown and start adds the guest channel to existing VMs; saved sessions keep their devices. Unsupported hosts keep working without sharing.
 
 Host support requires libvirt 8.4+ and QEMU 6.1+ with SPICE protocol support.
 
@@ -393,7 +391,7 @@ New event and VM access secrets use 32 random bytes. Credential IDs alone no lon
 
 Distribox should be served over HTTPS. Without SSL:
 
-- Automatic clipboard reads and writes require the [Clipboard API in a secure context](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API#security_considerations). Browsers can also require permission or a user gesture. Use the **Clipboard** dialog for manual text transfer when this API is unavailable.
+- Automatic clipboard reads and writes require the [Clipboard API in a secure context](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API#security_considerations). Browsers can also require permission or a user gesture.
 
 The easiest way to set up SSL is with [Certbot](https://certbot.eff.org/) (Let's Encrypt):
 
