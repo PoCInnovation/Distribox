@@ -1,12 +1,13 @@
 import asyncio
 import json
+import socket
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
 import pytest
 import pytest_asyncio
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from websockets.asyncio.client import connect
 from websockets.asyncio.server import serve
 from websockets.exceptions import ConnectionClosed, InvalidStatus
@@ -21,7 +22,6 @@ VIDEO = b"GLV1\x00\xff\x80" * 2048
 @asynccontextmanager
 async def serve_app(app):
     # Bind before starting Uvicorn so the kernel chooses the port without races.
-    import socket
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
@@ -249,39 +249,15 @@ async def test_relay_cancellation_releases_both_directions_and_upstream():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("remote", [False, True], ids=["local", "slave"])
-async def test_slow_viewer_pauses_upstream_reads_and_preserves_frames(monkeypatch, remote):
-    blocked = asyncio.Event()
-    paused = asyncio.Event()
-    release = asyncio.Event()
-    delivered = asyncio.Event()
-    received = []
-    frames = [bytes([index]) * (1024 * 1024) for index in range(8)]
-
-    class Browser:
-        async def accept(self):
-            pass
-
-        async def iter_text(self):
-            await asyncio.Future()
-            yield ""
-
-        async def send_bytes(self, message):
-            blocked.set()
-            await release.wait()
-            received.append(message)
-            if len(received) == len(frames):
-                delivered.set()
+async def test_stalled_disconnect_releases_upstream_promptly(monkeypatch, remote):
+    start = asyncio.Event()
+    released = asyncio.Event()
+    connections = []
 
     class Connection(desktop_stream.ClientConnection):
         def connection_made(self, transport):
             super().connection_made(transport)
-            pause = self.recv_messages.pause
-
-            def pause_reading():
-                pause()
-                paused.set()
-
-            self.recv_messages.pause = pause_reading
+            connections.append(self)
 
     original_connect = desktop_stream.connect
 
@@ -291,11 +267,17 @@ async def test_slow_viewer_pauses_upstream_reads_and_preserves_frames(monkeypatc
     monkeypatch.setattr(desktop_stream, "connect", observed_connect)
 
     async def native(stream):
-        # Gliss permits eight unacknowledged frames. No ACK is sent while the
-        # viewer is blocked, so this reproduces a full native media window.
-        for frame in frames:
-            await stream.send(frame)
-        await stream.wait_closed()
+        await start.wait()
+        try:
+            # Eight large video packets fill the downstream socket. Small
+            # audio packets then fill even the default receive queue.
+            for index in range(8):
+                await stream.send(bytes([index]) * (1024 * 1024))
+            while True:
+                await stream.send(bytes(1024))
+                await asyncio.sleep(.02)
+        except ConnectionClosed:
+            pass
 
     async with serve(native, "127.0.0.1", 0, compression=None) as server:
         port = server.sockets[0].getsockname()[1]
@@ -305,24 +287,49 @@ async def test_slow_viewer_pauses_upstream_reads_and_preserves_frames(monkeypatc
             yield f"ws://127.0.0.1:{port}", {}
 
         monkeypatch.setattr(desktop_stream, "gliss_session", session)
-        if remote:
-            slave = SimpleNamespace(
-                hostname="127.0.0.1", port=port, api_key="fixture")
-            upstream = desktop_stream.slave_stream(slave, VM_ID)
-        else:
+        app = FastAPI()
+
+        @app.websocket("/stream")
+        async def relay(websocket: WebSocket):
             upstream = desktop_stream.local_stream("fixture", 1)
-        task = asyncio.create_task(
-            desktop_stream.relay_stream(Browser(), upstream))
-        try:
-            await asyncio.wait_for(blocked.wait(), 2)
-            await asyncio.wait_for(paused.wait(), 2)
-            assert received == []
-            release.set()
-            await asyncio.wait_for(delivered.wait(), 2)
-            assert received == frames
-        finally:
-            task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
+            if remote:
+                slave = SimpleNamespace(
+                    hostname="127.0.0.1", port=port, api_key="fixture")
+                upstream = desktop_stream.slave_stream(slave, VM_ID)
+            try:
+                await desktop_stream.relay_stream(websocket, upstream)
+            finally:
+                released.set()
+
+        async with serve_app(app) as url:
+            with socket.socket() as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
+                sock.setblocking(False)
+                await asyncio.get_running_loop().sock_connect(
+                    sock, ("127.0.0.1", int(url.rsplit(":", 1)[1])))
+                try:
+                    async with connect(url + "/stream", sock=sock, compression=None,
+                                       max_size=None) as browser:
+                        browser.transport.pause_reading()
+                        start.set()
+                        async with asyncio.timeout(3):
+                            while True:
+                                if connections and connections[0].recv_messages.paused:
+                                    await asyncio.sleep(.05)
+                                    if connections[0].recv_messages.paused:
+                                        break
+                                await asyncio.sleep(.01)
+                        # Disconnect while still backpressured, without first
+                        # draining frames or overriding the production timeout.
+                        browser.transport.abort()
+                        await asyncio.wait_for(released.wait(), 3)
+                finally:
+                    # Also release a broken implementation after the assertion
+                    # times out, so the failing test leaves no live sessions.
+                    start.set()
+                    for connection in connections:
+                        connection.transport.abort()
+                    await asyncio.wait_for(released.wait(), 2)
 
 
 @pytest.mark.asyncio

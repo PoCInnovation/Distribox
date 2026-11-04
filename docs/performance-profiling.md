@@ -54,29 +54,67 @@ overhead. Media/audio p95 measures source send to receiver delivery, and
 `input_echo_p95_ms` measures a small JSON control round trip. These are transport
 timings, not guest input response or browser painting.
 
-## Stalled viewers
+## Stalled viewers and cleanup
 
-Compare receive high-water marks without editing application code:
+Both upstream WebSocket connections use a two-second close-handshake deadline.
+When reads are paused by a stalled viewer, the client can miss the peer's close
+frame or FIN. The library's default ten-second wait then delays Gliss/VNC
+cleanup after the viewer has disconnected. Regression tests exercise this
+through real Uvicorn connections for both local and slave upstreams, without
+draining first. They fail when the ten-second default is restored.
+
+The two seconds bound the upstream WebSocket handshake, not total process
+shutdown. Gliss termination has its own timeout. Healthy connections complete
+the handshake immediately; this change does not make active frame delivery
+faster.
+
+The stalled-viewer probe now uses a real Uvicorn relay and a viewer that stops
+reading from its socket, then disconnects. It reports queued frames/bytes,
+whether reads paused, and elapsed time until the upstream session exits:
 
 ```sh
-AWS_EC2_METADATA_DISABLED=true PYTHONPATH=backend python backend/tools/benchmark_desktop_relay.py --stalled --queue 16
-AWS_EC2_METADATA_DISABLED=true PYTHONPATH=backend python backend/tools/benchmark_desktop_relay.py --stalled --queue 2
+AWS_EC2_METADATA_DISABLED=true PYTHONPATH=backend python backend/tools/benchmark_desktop_relay.py --stalled --size 8192
+AWS_EC2_METADATA_DISABLED=true PYTHONPATH=backend python backend/tools/benchmark_desktop_relay.py --stalled --size 1048576 --audio-rate 50
+AWS_EC2_METADATA_DISABLED=true PYTHONPATH=backend python backend/tools/benchmark_desktop_relay.py --stalled --size 1048576 --audio-rate 50 --close-timeout 10
 ```
 
-This probe offers eight 1 MiB frames and blocks the first downstream write. The
-source may itself block before finishing all eight sends; this is backpressure,
-not a probe failure. Queue inspection uses the pinned websockets 15 internals.
+The last two commands force backpressure quickly with eight large video
+packets and small audio packets. In three interleaved comparisons, the median
+teardown wait fell from 10.002 s to 2.002 s. The probe uses production connection
+settings unless an override is explicitly supplied; it no longer hides cleanup
+behind a 0.1 s timeout. Increase `--stall-seconds` for longer stalls; a session
+that ends during the stall is reported separately.
 
-Both upstream connections now use a receive high-water mark of two frames.
-On Python 3.13, the probe retained seven queued frames before the change and two
-afterward, with upstream reads paused. The threshold is not a strict frame or
-memory cap: a network read can exceed it. Regression tests verify that both
-connection types preserve all eight frames, in order, after the viewer resumes.
-Gliss's eight-credit presentation window is separate from this receive queue.
+## Why the receive-queue change was dropped
 
-The allocation counters include the source and relay in this probe, excluding
-kernel buffers. Backpressure can move retained data into source write buffers;
-these counters do not prove a whole-session memory reduction. See the
+Production retains the pinned websockets 15 receive high-water mark of 16.
+The proposed reduction to two showed no established benefit for normal video.
+At 2 Mbit/s and 30 fps, a video frame averages about 8 KiB. Even at 50 Mbit/s the
+average is about 208 KiB, although individual keyframes can be larger because
+bitrate is a soft target.
+
+In the real-Uvicorn video-only probe, eight frames of 8 KiB, 64 KiB or 256 KiB
+left the relay's receive queue empty with either setting. The data fitted into
+socket/transport buffers. This loopback result does not cover all WAN buffer
+sizes or blackholes. Long audio stalls can form a queue, but the savings from
+fewer small packets are limited.
+
+The original 7-to-2-frame result blocked a mock browser's first write and used
+1 MiB packets. It does not demonstrate a production video-memory saving.
+Those two historical records are labeled `mock_stalled_candidate` in the
+original dataset.
+
+Interleaved A/B runs of 512 mixed-traffic viewers and 256 uncapped video viewers,
+three runs per queue size and hop count, showed no consistent throughput
+advantage for either queue. The final change therefore retains the default
+queue and fixes teardown instead. Both the queue and Gliss's separate
+eight-credit presentation window remain unchanged in production.
+
+[Review follow-up measurements](benchmarks/tunnel-review-2026-11-04.jsonl)
+contain these A/B runs, the real stalled probes, and a capacity rerun with the
+final production settings. The allocation counters from the old mock probe
+included both source and relay, excluding kernel buffers; backpressure can move
+data upstream, so they are not a whole-session memory bound. See the
 [websockets buffer guide](https://websockets.readthedocs.io/en/15.0/topics/memory.html).
 
 ## Is Python a bottleneck?
@@ -93,14 +131,18 @@ viewer, except the uncapped runs which use 300.
 
 [Raw samples and profile summary](benchmarks/tunnel-capacity-2026-11-04.jsonl)
 include source and receiver CPU, per-hop CPU, delivered traffic and timings.
+These initial capacity samples used the candidate queue of two and the old
+ten-second close timeout. The follow-up A/B data above compares the default
+queue of 16; the final-config rerun is described below. These unpinned CPU
+measurements can vary substantially with scheduling on this P/E-core host.
 
 - **64 viewers, video only:** approximately 30 fps per viewer. One hop used
-  20.9% of one core; two hops used 18.6% and 18.2%. p95 control RTT stayed below
-  4 ms. Scheduling and batching mean two-hop timings need not exceed one-hop
+  about 21% of one core; two hops used about 19% and 18%. p95 control RTT stayed
+  below 4 ms. Scheduling and batching mean two-hop timings need not exceed one-hop
   timings in every short run.
 - **64 viewers, video + audio + pointer controls:** approximately 30 fps per
   viewer, with pointer traffic capped at 60/s and audio at 50 packets/s.
-  One hop used 42.9% of one core; two hops used about 43% each. p95 control RTT
+  One hop used about 43% of one core; two hops used about 43% each. p95 control RTT
   was 1.8 ms direct, 2.2 ms through one hop and 3.1 ms through two.
 - **512 viewers with the same mixed workload:** relay CPU reached about 91%
   of one core per hop. Median source/receiver CPU was below 72%. p95 control RTT
@@ -115,6 +157,12 @@ include source and receiver CPU, per-hop CPU, delivered traffic and timings.
   direct, 47,540 through one hop and 45,296 through two. A relay used about 91–93%
   of one core while the source and receiver used about 57–63%. This confirms a
   throughput ceiling in the Python relay stack.
+
+With the final production settings (queue 16, close timeout 2 s), three new
+512-viewer mixed-traffic runs through two hops delivered about 29.2 fps per
+viewer, with median p95 control RTT around 174 ms. Each relay used about 90% of
+one core; source and receiver used about 60% and 64%. This reproduces the relay
+saturation finding without retaining the rejected queue change.
 
 Video payload is about 2 Mbit/s per viewer at 30 fps; synthetic audio adds up to
 0.41 Mbit/s. The larger cases exceed ordinary 1 Gbit/s network capacity, even

@@ -15,7 +15,6 @@ import socket
 import struct
 import sys
 import time
-import tracemalloc
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
@@ -30,17 +29,22 @@ from websockets.exceptions import ConnectionClosed
 from app.services import desktop_stream
 
 AUDIO_SEQUENCE = 1 << 63
+# Label only: production uses the pinned websockets 15 default, not this value.
+DEFAULT_RECEIVE_HIGH_WATER = 16
 
 
-def worker(pipe, target, remote, queue, protocol):
-    if queue is not None:
+def worker(pipe, target, remote, queue, protocol, close_timeout):
+    if queue is not None or close_timeout is not None:
         original = desktop_stream.connect
 
-        def connect_with_queue(*args, **kwargs):
-            kwargs['max_queue'] = queue
+        def configured_connect(*args, **kwargs):
+            if queue is not None:
+                kwargs['max_queue'] = queue
+            if close_timeout is not None:
+                kwargs['close_timeout'] = close_timeout
             return original(*args, **kwargs)
 
-        desktop_stream.connect = connect_with_queue
+        desktop_stream.connect = configured_connect
 
     @asynccontextmanager
     async def session(host, port):
@@ -181,7 +185,7 @@ async def measure(args, hops):
     try:
         source_process, url, source_pipe = await launch(source_worker, payload, args, begin)
         for hop in range(hops):
-            _, url, _ = await launch(worker, url, hop > 0, args.queue, args.protocol)
+            _, url, _ = await launch(worker, url, hop > 0, args.queue, args.protocol, args.close_timeout)
         if hops:
             url += '/tunnel'
         processes = [psutil.Process(p.pid) for p in workers[1:]]
@@ -292,7 +296,8 @@ async def measure(args, hops):
                 'input_rate_limit': args.input_rate, 'input_messages': input_count,
                 'audio_rate_limit': args.audio_rate, 'audio_packets': audio_count,
                 'audio_size_bytes': args.audio_size, 'stagger': args.stagger,
-                'queue_high_water': args.queue or desktop_stream.RECEIVE_HIGH_WATER,
+                'queue_high_water': args.queue or DEFAULT_RECEIVE_HIGH_WATER,
+                'close_timeout_s': args.close_timeout or desktop_stream.CLOSE_TIMEOUT_S,
                 'protocol': args.protocol, 'python': sys.version.split()[0],
                 'elapsed_s': round(elapsed, 3),
                 'relay_cpu_s': round(cpu, 3),
@@ -326,95 +331,134 @@ async def measure(args, hops):
 
 
 async def measure_stalled(args):
-    queue = args.queue
-    blocked = asyncio.Event()
-    finished = asyncio.Event()
-    paused = asyncio.Event()
+    """Observe real socket buffering and time cleanup after a stalled viewer."""
+    allow_media = asyncio.Event()
+    admitted = asyncio.Event()
+    released = asyncio.Event()
     active = None
-
-    class Browser:
-        async def accept(self):
-            pass
-
-        async def iter_text(self):
-            await asyncio.Future()
-            yield ''
-
-        async def send_bytes(self, message):
-            blocked.set()
-            await asyncio.Future()
-
-        async def send_text(self, message):
-            pass
-
-    async def native(stream):
-        # Match the configured native presentation window without ACKs.
-        for i in range(8):
-            await stream.send(bytes([i]) * (1024 * 1024))
-        finished.set()
-        await stream.wait_closed()
-
-    @asynccontextmanager
-    async def session(host, port):
-        yield url, {}
+    sent = 0
+    audio_sent = 0
     original_connect = desktop_stream.connect
     original_session = desktop_stream.gliss_session
 
-    def configured_connect(*args, **kwargs):
-        class TrackingConnection(desktop_stream.ClientConnection):
-            def connection_made(self, transport):
-                nonlocal active
-                super().connection_made(transport)
-                active = self
-                original_pause = self.recv_messages.pause
+    class Connection(desktop_stream.ClientConnection):
+        def connection_made(self, transport):
+            nonlocal active
+            super().connection_made(transport)
+            active = self
 
-                def pause():
-                    paused.set()
-                    original_pause()
-                self.recv_messages.pause = pause
-        if queue is not None:
-            kwargs['max_queue'] = queue
-        kwargs['close_timeout'] = .1
-        return original_connect(*args, **kwargs, create_connection=TrackingConnection)
-    desktop_stream.connect = configured_connect
-    desktop_stream.gliss_session = session
-    async with serve(native, '127.0.0.1', 0, compression=None, close_timeout=.1) as server:
-        url = f'ws://127.0.0.1:{server.sockets[0].getsockname()[1]}'
-        tracemalloc.start()
-        task = asyncio.create_task(desktop_stream.relay_stream(
-            Browser(), desktop_stream.local_stream('fixture', 1)))
+    def observed_connect(*settings, **options):
+        if args.queue is not None:
+            options['max_queue'] = args.queue
+        if args.close_timeout is not None:
+            options['close_timeout'] = args.close_timeout
+        return original_connect(*settings, **options, create_connection=Connection)
+
+    async def native(stream):
+        nonlocal sent, audio_sent
+        admitted.set()
+        await allow_media.wait()
+
+        async def audio():
+            nonlocal audio_sent
+            while True:
+                await stream.send(bytes(args.audio_size))
+                audio_sent += 1
+                await asyncio.sleep(1 / args.audio_rate)
+
+        audio_task = asyncio.create_task(audio()) if args.audio_rate else None
         try:
-            await asyncio.wait_for(blocked.wait(), 3)
-            # Small TCP buffers may block the source before all eight sends
-            # finish. Either source completion or paused reads is the signal.
-            signals = [asyncio.create_task(event.wait())
-                       for event in (finished, paused)]
-            try:
-                done, _ = await asyncio.wait(signals, timeout=3, return_when=asyncio.FIRST_COMPLETED)
-                if not done:
-                    raise TimeoutError(
-                        'Neither source completion nor read backpressure observed')
-            finally:
-                for signal in signals:
-                    signal.cancel()
-                await asyncio.gather(*signals, return_exceptions=True)
-            # Let the final TCP read settle; this mode is a memory probe,
-            # not a throughput or latency measurement.
-            await asyncio.sleep(.1)
-            current, peak = tracemalloc.get_traced_memory()
-            # Inspect the pinned websockets 15 assembler only in this probe.
-            queued = active.recv_messages.frames.queue
-            return {'mode': 'stalled', 'queue_high_water': queue or desktop_stream.RECEIVE_HIGH_WATER,
-                    'read_paused': paused.is_set(),
-                    'source_finished': finished.is_set(),
-                    'queued_frames': len(active.recv_messages.frames),
-                    'queued_payload_mib': sum(len(frame.data) for frame in queued) / 2**20,
-                    'python_retained_mib': round(current / 2**20, 2),
-                    'python_peak_mib': round(peak / 2**20, 2)}
+            # Offer one full eight-credit video window; the viewer sends no ACK.
+            for index in range(8):
+                await stream.send(bytes([index]) * args.size)
+                sent += 1
+                if args.fps:
+                    await asyncio.sleep(1 / args.fps)
+            await stream.wait_closed()
+        except ConnectionClosed:
+            pass
         finally:
-            task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
-            tracemalloc.stop()
+            if audio_task:
+                audio_task.cancel()
+                await asyncio.gather(audio_task, return_exceptions=True)
+
+    async with serve(native, '127.0.0.1', 0, compression=None) as source:
+        source_url = f'ws://127.0.0.1:{source.sockets[0].getsockname()[1]}'
+
+        @asynccontextmanager
+        async def session(host, port):
+            yield source_url, {}
+
+        desktop_stream.connect = observed_connect
+        desktop_stream.gliss_session = session
+        app = FastAPI()
+
+        @app.websocket('/tunnel')
+        async def relay(websocket: WebSocket):
+            try:
+                await desktop_stream.relay_stream(
+                    websocket, desktop_stream.local_stream('fixture', 1))
+            finally:
+                released.set()
+
+        try:
+            with socket.socket() as listener:
+                listener.bind(('127.0.0.1', 0))
+                address = listener.getsockname()
+                server = uvicorn.Server(uvicorn.Config(
+                    app, log_level='critical', lifespan='off', ws=args.protocol,
+                    ws_per_message_deflate=False))
+                server_task = asyncio.create_task(
+                    server.serve(sockets=[listener]))
+                try:
+                    async with asyncio.timeout(3):
+                        while not server.started:
+                            if server_task.done():
+                                await server_task
+                                raise RuntimeError(
+                                    'Stall probe server stopped')
+                            await asyncio.sleep(.01)
+                    with socket.socket() as sock:
+                        sock.setsockopt(socket.SOL_SOCKET,
+                                        socket.SO_RCVBUF, 4096)
+                        sock.setblocking(False)
+                        await asyncio.get_running_loop().sock_connect(sock, address)
+                        url = f'ws://127.0.0.1:{address[1]}/tunnel'
+                        async with connect(url, sock=sock, compression=None,
+                                           max_size=None) as viewer:
+                            viewer.transport.pause_reading()
+                            allow_media.set()
+                            await asyncio.wait_for(admitted.wait(), 3)
+                            await asyncio.sleep(args.stall_seconds)
+                            # Pinned websockets 15 internals, diagnostics only.
+                            queued = active.recv_messages.frames.queue
+                            ended = released.is_set()
+                            result = {
+                                'mode': 'stalled', 'python': sys.version.split()[0],
+                                'size_bytes': args.size, 'offered_frames': 8,
+                                'sent_frames': sent, 'audio_rate_limit': args.audio_rate,
+                                'sent_audio_packets': audio_sent,
+                                'stall_seconds': args.stall_seconds,
+                                'queue_high_water': active.recv_messages.high,
+                                'close_timeout_s': active.close_timeout,
+                                'read_paused': active.recv_messages.paused,
+                                'queued_frames': len(queued),
+                                'queued_payload_bytes': sum(len(frame.data) for frame in queued),
+                                'ended_during_stall': ended,
+                            }
+                            started = time.perf_counter()
+                            viewer.transport.abort()
+                            await asyncio.wait_for(released.wait(), 30)
+                            result['teardown_s'] = None if ended else round(
+                                time.perf_counter() - started, 3)
+                            return result
+                finally:
+                    allow_media.set()
+                    if active:
+                        active.transport.abort()
+                    server.should_exit = True
+                    await asyncio.wait_for(server_task, 5)
+        finally:
             desktop_stream.connect = original_connect
             desktop_stream.gliss_session = original_session
 
@@ -444,10 +488,14 @@ if __name__ == '__main__':
     parser.add_argument('--stagger', action='store_true',
                         help='Spread initial frame and audio phases across viewers')
     parser.add_argument('--queue', type=int)
+    parser.add_argument('--close-timeout', type=float,
+                        help='Override upstream close timeout for A/B measurements')
     parser.add_argument('--protocol', default='auto')
     parser.add_argument('--repeats', type=int, default=3)
     parser.add_argument('--stalled', action='store_true',
-                        help='Block the receiver after its first write; inspect eight 1 MiB frames')
+                        help='Stop a real Uvicorn viewer reading, offer eight frames, then disconnect')
+    parser.add_argument('--stall-seconds', type=float, default=1,
+                        help='Time before the stalled viewer disconnects')
     parser.add_argument('--hops', type=int, nargs='+', default=[0, 1, 2])
     args = parser.parse_args()
     if min(args.viewers, args.frames, args.repeats) < 1 or args.size < 16 or args.fps < 0:
@@ -455,6 +503,8 @@ if __name__ == '__main__':
             'viewers, frames, repeats must be positive; size >= 16; fps >= 0')
     if args.queue is not None and args.queue < 1:
         parser.error('queue must be positive')
+    if args.stall_seconds <= 0 or (args.close_timeout is not None and args.close_timeout <= 0):
+        parser.error('stall-seconds and close-timeout must be positive')
     if min(args.input_rate, args.audio_rate) < 0 or args.audio_size < 16:
         parser.error(
             'input/audio rates must be nonnegative and audio size >= 16')
