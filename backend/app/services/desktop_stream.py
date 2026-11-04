@@ -13,6 +13,10 @@ from app.services.gliss import gliss_session
 
 logger = logging.getLogger(__name__)
 
+# Pause upstream reads promptly when a viewer stalls. This is a WebSocket
+# receive high-water mark, separate from Gliss's presentation ACK window.
+RECEIVE_HIGH_WATER = 2
+
 
 def is_resize(message: str) -> bool:
     try:
@@ -26,6 +30,7 @@ def is_resize(message: str) -> bool:
 async def local_stream(vnc_host: str, vnc_port: int) -> AsyncIterator[ClientConnection]:
     async with gliss_session(vnc_host, vnc_port) as (url, headers), connect(
         url, additional_headers=headers, max_size=None, compression=None, proxy=None,
+        max_queue=RECEIVE_HIGH_WATER,
     ) as stream:
         yield stream
 
@@ -37,6 +42,7 @@ async def slave_stream(slave: SlaveORM, vm_id: str) -> AsyncIterator[ClientConne
         f"ws://{hostname}:{slave.port}/vms/{vm_id}/desktop/tunnel",
         additional_headers={"X-Slave-Token": slave.api_key},
         open_timeout=10, max_size=None, compression=None, proxy=None,
+        max_queue=RECEIVE_HIGH_WATER,
     ) as stream:
         yield stream
 

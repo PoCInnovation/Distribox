@@ -248,6 +248,84 @@ async def test_relay_cancellation_releases_both_directions_and_upstream():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("remote", [False, True], ids=["local", "slave"])
+async def test_slow_viewer_pauses_upstream_reads_and_preserves_frames(monkeypatch, remote):
+    blocked = asyncio.Event()
+    paused = asyncio.Event()
+    release = asyncio.Event()
+    delivered = asyncio.Event()
+    received = []
+    frames = [bytes([index]) * (1024 * 1024) for index in range(8)]
+
+    class Browser:
+        async def accept(self):
+            pass
+
+        async def iter_text(self):
+            await asyncio.Future()
+            yield ""
+
+        async def send_bytes(self, message):
+            blocked.set()
+            await release.wait()
+            received.append(message)
+            if len(received) == len(frames):
+                delivered.set()
+
+    class Connection(desktop_stream.ClientConnection):
+        def connection_made(self, transport):
+            super().connection_made(transport)
+            pause = self.recv_messages.pause
+
+            def pause_reading():
+                pause()
+                paused.set()
+
+            self.recv_messages.pause = pause_reading
+
+    original_connect = desktop_stream.connect
+
+    def observed_connect(*args, **kwargs):
+        return original_connect(*args, **kwargs, create_connection=Connection)
+
+    monkeypatch.setattr(desktop_stream, "connect", observed_connect)
+
+    async def native(stream):
+        # Gliss permits eight unacknowledged frames. No ACK is sent while the
+        # viewer is blocked, so this reproduces a full native media window.
+        for frame in frames:
+            await stream.send(frame)
+        await stream.wait_closed()
+
+    async with serve(native, "127.0.0.1", 0, compression=None) as server:
+        port = server.sockets[0].getsockname()[1]
+
+        @asynccontextmanager
+        async def session(host, vnc_port):
+            yield f"ws://127.0.0.1:{port}", {}
+
+        monkeypatch.setattr(desktop_stream, "gliss_session", session)
+        if remote:
+            slave = SimpleNamespace(
+                hostname="127.0.0.1", port=port, api_key="fixture")
+            upstream = desktop_stream.slave_stream(slave, VM_ID)
+        else:
+            upstream = desktop_stream.local_stream("fixture", 1)
+        task = asyncio.create_task(
+            desktop_stream.relay_stream(Browser(), upstream))
+        try:
+            await asyncio.wait_for(blocked.wait(), 2)
+            await asyncio.wait_for(paused.wait(), 2)
+            assert received == []
+            release.set()
+            await asyncio.wait_for(delivered.wait(), 2)
+            assert received == frames
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("name,value", [
     ("GLISS_IN_FLIGHT_FRAMES", "0"), ("GLISS_IN_FLIGHT_FRAMES", "9"),
     ("GLISS_IN_FLIGHT_FRAMES", "invalid"),
