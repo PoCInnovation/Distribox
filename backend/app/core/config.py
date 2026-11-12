@@ -6,6 +6,7 @@ from botocore import UNSIGNED
 from botocore.config import Config
 from dotenv import load_dotenv
 from os import getenv
+import re
 from sqlmodel import create_engine
 from app.telemetry.monitor import SystemMonitor
 load_dotenv()
@@ -74,3 +75,22 @@ SLAVE_API_KEY = get_env_or_default("SLAVE_API_KEY", "")
 VIRT_TYPE = get_env_or_default("VIRT_TYPE", "kvm")
 
 ROOT_PATH = get_env_or_default("ROOT_PATH", "")
+
+
+def desktop_resolution() -> tuple[int, int] | None:
+    """The fixed guest size of VITE_GLISS_RESOLUTION, which the viewer uses too."""
+    value = (getenv("VITE_GLISS_RESOLUTION") or "").strip()
+    if not value:
+        return None
+    match = re.fullmatch(r"([0-9]+)x([0-9]+)", value)
+    width, height = (int(match[1]), int(match[2])) if match else (0, 0)
+    if (not 640 <= width <= 3840 or width % 16 or
+            not 480 <= height <= 2160 or height % 2):
+        raise ValueError(
+            "VITE_GLISS_RESOLUTION must be WIDTHxHEIGHT: width 640–3840 in "
+            "multiples of 16, height 480–2160 in multiples of 2")
+    return width, height
+
+
+# Reject a malformed size when the backend starts, not when a VM does.
+desktop_resolution()

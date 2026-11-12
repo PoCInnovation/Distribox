@@ -1,7 +1,7 @@
 from lxml import etree
 from app.models.vm import VmCreateXML
 from app.core.constants import VMS_DIR, IMAGES_DIR
-from app.core.config import VIRT_TYPE
+from app.core.config import VIRT_TYPE, desktop_resolution
 from app.services.image_service import ImageService
 
 # QEMU VNC keymaps differ from guest XKB layouts. Only use bundled QEMU maps;
@@ -116,7 +116,7 @@ def build_xml(vm_read: VmCreateXML):
     etree.SubElement(devices, "graphics", **vnc_attrs)
 
     video = etree.SubElement(devices, "video")
-    etree.SubElement(video, "model", type="virtio")
+    set_display_resolution(etree.SubElement(video, "model", type="virtio"))
 
     etree.SubElement(devices, "console", type="pty")
     etree.SubElement(devices, "input", type="keyboard", bus="ps2")
@@ -198,6 +198,34 @@ def configure_vnc_keyboard(
     if graphics is None or graphics.get("keymap") == keymap:
         return None
     graphics.set("keymap", keymap)
+    return etree.tostring(root, encoding="utf-8").decode()
+
+
+def set_display_resolution(model: etree._Element) -> bool:
+    """Make the fixed desktop size the default mode of a virtio display.
+
+    A guest starts in its display's default mode, so this also fixes the size
+    for guests that ignore the viewer's resize requests.
+    """
+    resolution = desktop_resolution()
+    if resolution is None or model.get("type") != "virtio":
+        return False
+    x, y = map(str, resolution)
+    current = model.find("resolution")
+    if current is None:
+        current = etree.SubElement(model, "resolution")
+    elif (current.get("x"), current.get("y")) == (x, y):
+        return False
+    current.set("x", x)
+    current.set("y", y)
+    return True
+
+
+def configure_display_resolution(domain_xml: str) -> str | None:
+    root = etree.fromstring(domain_xml.encode())
+    model = root.find("./devices/video/model")
+    if model is None or not set_display_resolution(model):
+        return None
     return etree.tostring(root, encoding="utf-8").decode()
 
 

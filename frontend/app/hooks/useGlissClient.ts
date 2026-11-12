@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { toast } from "sonner";
 import { API_BASE_URL, TUNNEL_URL } from "~/lib/api";
+import { parseDesktopResolution } from "~/lib/desktop-resolution";
 import type {
   GlissProfilingHandle,
   GlissProfilingOptions,
@@ -227,6 +228,9 @@ export function useGlissClient(
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
     async function initGliss() {
+      const fixedSize = parseDesktopResolution(
+        import.meta.env.VITE_GLISS_RESOLUTION,
+      );
       const { GlissClient } = await importGlissClient();
 
       if (cancelled) return;
@@ -240,16 +244,16 @@ export function useGlissClient(
       canvasRef.current = canvas;
       container.appendChild(canvas);
 
-      // Ask the guest for the container size in CSS pixels. QEMU's VNC server
-      // rounds widths up to a multiple of 16; H.264 needs even sizes up to
-      // 3840x2160.
-      const requestedSize = () => [
-        Math.min(
-          3840,
-          Math.max(640, Math.floor(container.clientWidth / 16) * 16),
-        ),
-        Math.min(2160, Math.max(480, container.clientHeight & ~1)),
-      ];
+      // Use a configured guest size or follow the container in CSS pixels.
+      // QEMU VNC rounds widths to 16; H.264 needs even sizes up to 3840x2160.
+      const requestedSize = () =>
+        fixedSize ?? [
+          Math.min(
+            3840,
+            Math.max(640, Math.floor(container.clientWidth / 16) * 16),
+          ),
+          Math.min(2160, Math.max(480, container.clientHeight & ~1)),
+        ];
       let [w, h] = [0, 0];
 
       const connectParams =

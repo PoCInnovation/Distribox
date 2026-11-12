@@ -9,6 +9,7 @@ services:
         - VITE_TUNNEL_URL=${VITE_TUNNEL_URL:-}
         - VITE_PORT=${VITE_PORT:-3000}
         - VITE_FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+        - VITE_GLISS_RESOLUTION=${VITE_GLISS_RESOLUTION:-}
     container_name: distribox-frontend
     restart: unless-stopped
     environment:
@@ -16,6 +17,7 @@ services:
       - VITE_TUNNEL_URL=${VITE_TUNNEL_URL:-}
       - VITE_PORT=${VITE_PORT:-3000}
       - VITE_FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - VITE_GLISS_RESOLUTION=${VITE_GLISS_RESOLUTION:-}
     ports:
       - "${VITE_PORT:-3000}:${VITE_PORT:-3000}"
     depends_on:
@@ -37,6 +39,7 @@ services:
       - VITE_TUNNEL_URL=${VITE_TUNNEL_URL:-}
       - VITE_PORT=${VITE_PORT:-3000}
       - VITE_FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - VITE_GLISS_RESOLUTION=${VITE_GLISS_RESOLUTION:-}
     ports:
       - "${VITE_PORT:-3000}:${VITE_PORT:-3000}"
     volumes:
