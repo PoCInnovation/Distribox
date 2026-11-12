@@ -309,6 +309,7 @@ Copy `.env.example` to `.env` and adjust as needed. Key variables:
 | `GLISS_IN_FLIGHT_FRAMES` | `8` | Maximum frames awaiting browser presentation ACKs, from 1 to 8 |
 | `GLISS_FPS` | `30` | Capture frame-rate cap, from 1 to 60 |
 | `GLISS_H264_BITRATE` | `2000000` | Soft H.264 encoder target, 1000–50000000 bits/second; actual traffic can exceed it |
+| `VITE_GLISS_RESOLUTION` | - | Fixed desktop size such as `1920x1080`; empty follows the browser window. Width 640–3840 in multiples of 16, height 480–2160 in multiples of 2. The backend reads it too: recreate it, then stop and start each VM |
 | `SSH_*` | disabled | See [SSH gateway](#ssh-gateway) |
 
 `VITE_*` values are baked into the frontend at build time. After changing them, rebuild it with `docker compose --profile master up -d --build frontend`.
