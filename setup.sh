@@ -352,7 +352,7 @@ configure_storage() {
     info 'Prepare shared directories; existing VM files keep their ownership and permissions'
     local directory
     for directory in "$STORAGE_DIR" "$STORAGE_DIR/images" "$STORAGE_DIR/vms"; do
-        [[ ! -L $directory ]] || die "$directory is a symlink. Use a bind mount for custom storage; see the storage section in README.md."
+        [[ ! -L $directory ]] || die "$directory is a symlink. Use a bind mount for custom storage; see docs/storage.md."
     done
     run_root install -d -m 2775 -o root -g distribox "$STORAGE_DIR" "$STORAGE_DIR/images" "$STORAGE_DIR/vms"
     # QEMU identities differ by distro. Libvirt manages individual disk ownership.

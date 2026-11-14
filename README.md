@@ -4,7 +4,7 @@
   <img src=".github/assets/distribox.png" alt="Distribox Logo" width="200"/>
 </div>
 
-Distribox is a self-hosted platform for creating, managing, and sharing virtual machines through a simple web interface.
+Distribox is a self-hosted platform for creating, managing and sharing virtual machines from a web interface.
 
 <div align="center">
   <a href="https://youtu.be/eH6qJUTcxvI" target="_blank">
@@ -14,162 +14,107 @@ Distribox is a self-hosted platform for creating, managing, and sharing virtual 
 
 ## Features
 
----
+### Create and manage VMs
 
-## VM Creation and Management
-Create virtual machines with custom specs: CPU cores, RAM, disk size, and operating system. Control VMs with start, stop, restart, duplicate, rename, and delete. Connect to any VM directly from your browser.
+Pick an operating system, CPU cores, RAM and disk size. From the dashboard you can then start, stop, restart, duplicate, rename or delete the VM, and open it in your browser.
 
 <div align="center">
   <img src=".github/assets/create-vm.png" alt="VM Creation" width="700"/>
 </div>
 
----
+### Desktop in the browser
 
-## Graphical VM Streaming
-Distribox uses [gliss](https://github.com/lg-epitech/gliss) to stream VM desktops over WebSocket. For each connection, the backend on the VM's host starts a gliss server on its VNC display. Slave hosts send encoded video through their authenticated API to the master, which relays it to the browser. gliss is installed with the backend's Python dependencies. No client-side software required.
-
-Enable VM audio with **Enable sound** in the desktop toolbar. Audio shares the authenticated desktop connection and stays off until requested. Existing VMs need a full shutdown and start to add the sound device; see [VM sound](images/README.md#vm-sound).
+VM desktops stream to the browser through [gliss](https://github.com/lg-epitech/gliss), so there is nothing to install on the client. You can turn on the VM's sound from the desktop toolbar, and your text clipboard is shared with the VM in both directions.
 
 <div align="center">
   <img src=".github/assets/vm-streaming.png" alt="VM Streaming" width="700"/>
 </div>
 
-### Shared text clipboard
+The [desktop guide](docs/desktop.md) covers what guests and browsers need for sound, the clipboard and keyboard layouts.
 
-Your system text clipboard is shared with the VM. Copy and paste with your usual shortcuts in either direction; on macOS, Cmd acts as Ctrl in the VM. Your system clipboard is sent to the VM when it opens and whenever you return to it. Only text is shared.
+### Share a VM
 
-Chromium-based browsers ask for clipboard access when the VM opens. If access is blocked, Distribox tells you and you can allow it in the browser's site settings. Firefox and Safari have no lasting permission: they read the clipboard when you press the paste shortcut and may ask you to confirm. Safari can refuse to copy VM text to your system clipboard.
+Create a credential in a VM's **Access** tab and give it to whoever needs the machine. They paste it on the home page and get that desktop without an account. Revoke the credential to block new connections.
 
-Guests need `spice-vdagent` running in their desktop session. Without it, the VM cannot share its clipboard. New Ubuntu desktop images and cloud-init seeds install it; for existing/imported desktops, install the `spice-vdagent` package (`sudo apt install spice-vdagent` on Ubuntu or Debian, `sudo pacman -S spice-vdagent` on Arch), then log out and back in. A full shutdown and start adds the guest channel to existing VMs; saved sessions keep their devices. Unsupported hosts keep working without sharing.
+### SSH
 
-Host support requires libvirt 8.4+ and QEMU 6.1+ with SPICE protocol support.
-
----
-
-## Authentication and Authorization
-VM streaming is secured through authenticated WebSocket tunnels. Access requires either a JWT token with the appropriate policy, or a credential-based token generated per VM. All traffic between the browser and the VM is mediated by the backend.
-
----
-
-## Native SSH
-
-Hosts can enable **Allow SSH** for a VM or an event. Recipients then see an **SSH** button beside the web client, with a command to copy, their access secret, and the gateway fingerprint. No additional client software is required beyond an SSH client.
+Turn on **Allow SSH** for a VM or an event, and credential holders get an **SSH** button with a command to copy:
 
 ```bash
 ssh -p 2222 <credential-id>@distribox.example.com
 ```
 
-Paste the VM access secret at the password prompt. The gateway supports interactive terminals, remote commands, and SFTP, including modern `scp`. It connects only to the VM assigned to that credential. Disabling SSH, revoking the credential, or reaching its expiry or event deadline closes existing SSH connections within five seconds. SSH port forwarding, agent forwarding, and X11 forwarding are disabled.
+The gateway handles terminals, remote commands, SFTP and `scp`, and reaches only the VM tied to that credential. It is off by default. See the [SSH guide](docs/ssh.md) to set it up.
 
-SSH is disabled by default. The `vms:ssh:manage` policy controls the host switch; event changes apply to existing and future participant VMs. Duplicated and recovered VMs start with SSH disabled.
+### Users and policies
 
----
-
-## Policy-Based Access Control
-Distribox uses a policy-based permission system similar to RBAC. Each user is assigned one or more policies that grant access to specific actions (creating VMs, managing users, connecting to VMs, viewing metrics, etc.). If a user lacks a policy, the corresponding feature is hidden and access is denied. Admins have full access by default.
+Each user is given policies for the actions they may take, such as creating VMs, managing users, connecting to VMs or viewing metrics. Without the policy, the feature is hidden and access is denied. Admins have full access.
 
 <div align="center">
   <img src=".github/assets/users-and-policies.png" alt="Users and Policies" width="700"/>
 </div>
 
----
+### Images
 
-## Wide Range of Operating Systems
-Supported out of the box:
-- Ubuntu 22.04
-- Debian 12
-- Fedora 43
-- CentOS 10
-- AlmaLinux 9
-- Alpine Linux 3.21
-- Arch Linux (rolling)
+Ubuntu 22.04, Debian 12, Fedora 43, CentOS 10, AlmaLinux 9, Alpine Linux 3.21 and Arch Linux work out of the box. Their images sit in a remote registry. The backend downloads one the first time a VM needs it, caches it and picks up new revisions on its own.
 
----
+To use your own image, click **Upload** in the image picker and choose a qcow2, VMDK, VDI or raw disk, or a zip archive holding one. Tick the UEFI option for machines exported from VirtualBox or VMware with EFI enabled.
 
-## Distribox Image Registry
-OS images are hosted in a remote S3-based registry. When a VM is created, the backend downloads the corresponding image on demand and caches it locally. This keeps the installation lightweight -- no need to bundle large disk images. Image metadata includes revision tracking so updates are fetched automatically.
+### Multiple hosts
 
-### Local images
-Bring your own images: click **Upload** in the image picker and choose a qcow2, VMDK, VDI or raw disk, or a zip archive holding one. Distribox converts it, keeps it on the host and lists it next to the registry images. Tick the UEFI option for machines exported from VirtualBox or VMware with EFI enabled.
-
-When provisioning an imported image, choose a **Keyboard Layout** that matches the desktop inside the image. For a French AZERTY desktop such as GLO-2000 Lab, select **French - AZERTY**. Set your default under **Settings** to preselect it for new VMs. Distribox applies supported layouts to QEMU's VNC keyboard translation on each start, including when restoring a saved desktop session. This works without cloud-init or a guest agent. Images that support cloud-init also receive the keyboard setting inside the guest.
-
-**None (VM default)** leaves the existing VNC keymap unchanged. Imported images keep their guest keyboard settings, so selecting a different layout in Distribox requires matching the layout inside the guest as well.
-
-QEMU has no bundled VNC keymap for Latin American Spanish, Romanian, or Korean. These selections leave the existing VNC mapping unchanged while still configuring the guest through cloud-init when the image supports it.
-
----
-
-## Master / Slave Architecture
-Distribox supports a distributed setup where additional machines act as slave nodes. The master coordinates VM placement and proxies operations to slaves. Slaves report resource availability via periodic heartbeats, and the master routes new VMs to the node with the most available memory. The frontend includes a guided tutorial for registering slave nodes.
+Other machines can join as slave nodes. The master sends each new VM to the node with the most free memory, unless you pick one yourself. The **Slaves** page has a guided tutorial for registering a node.
 
 <div align="center">
   <img src=".github/assets/slaves-tutorial.png" alt="Slave Registration Tutorial" width="700"/>
 </div>
 
-Once connected, each slave node reports its status and resource usage in realtime.
+Connected nodes report their status and resource usage in real time.
 
 <div align="center">
   <img src=".github/assets/connected-slave.png" alt="Connected Slave Node" width="700"/>
 </div>
 
----
+### Host metrics
 
-## Realtime Host Metrics
-Monitor CPU, memory, and disk usage for the master node, individual slave nodes, or the entire cluster from the dashboard. When provisioning a VM, you can choose which node to deploy on and see its available resources.
+The dashboard shows CPU, memory and disk usage for the master, for each slave or for the whole cluster.
 
 <div align="center">
   <img src=".github/assets/host-metrics.png" alt="Host Metrics" width="700"/>
 </div>
 
----
+### Monitor
 
-## VM Monitor
-The monitor view displays periodical screenshots of all virtual machines on the instance. Running VMs show a live preview, and you can click on any of them to connect directly.
+The monitor shows periodic screenshots of every VM on the instance. Click a running VM to connect to it.
 
 <div align="center">
   <img src=".github/assets/monitor-view.png" alt="VM Monitor" width="700"/>
 </div>
 
----
+### Events
 
-## Events
-Events let you distribute a fixed number of VMs with a predefined spec to participants for a set duration. Create an event by choosing an OS, resource allocation, participant limit, and deadline. A shareable link is generated that participants can use to claim their VM.
+An event hands out VMs with the same spec to a limited number of participants until a deadline. Choose the OS, the resources, the participant limit and the deadline, and Distribox generates a link participants use to claim their VM.
 
 <div align="center">
   <img src=".github/assets/distribox-events.png" alt="Events Overview" width="700"/>
 </div>
 
-Each event page shows its details, the provisioned VMs with live previews, and the list of participants.
+Each event page shows its details, its VMs with live previews and its participants.
 
 <div align="center">
   <img src=".github/assets/distribox-event-page.png" alt="Event Page" width="700"/>
 </div>
 
-The share link can be previewed and copied directly from the dashboard.
+The share link can be previewed and copied from the dashboard.
 
 <div align="center">
   <img src=".github/assets/distribox-event-share-participant-link.png" alt="Event Share Link" width="700"/>
 </div>
 
-When an event reaches its deadline, the share link stops working, all VM credentials are revoked, and every virtual machine linked to the event is stopped automatically.
-
----
+At the deadline, the link stops working, the VM credentials are revoked and the event's VMs are stopped. A past event can be [run again](docs/lab-configurations.md) with the same setup.
 
 ## Quickstart
 
-Use an x86_64 Linux host with Docker Engine and the Compose plugin. Run the
-installer as your regular user; `bash setup.sh --help` lists its options and
-`bash setup.sh --dry-run` shows planned changes. Log out and back in afterward
-to apply group memberships. On minimal Alpine installations, install Bash first
-with `apk add bash`. On NixOS, the script prints flake integration instructions.
-
-VMs use libvirt's `default` NAT network. Setup preserves it if present; otherwise,
-it creates one on `virbr0` with DHCP on `192.168.122.0/24`. SELinux hosts also need
-appropriate image-storage labels and a policy allowing the backend to access
-the libvirt socket; setup leaves those policies to the administrator.
-
-To keep VM data on another partition, follow the [storage setup](#store-vm-data-on-another-partition) after `setup.sh` and before starting Compose.
+You need an x86_64 Linux host with Docker Engine and the Compose plugin.
 
 ```bash
 bash setup.sh
@@ -179,156 +124,31 @@ cp .env.example .env
 docker compose --profile master up -d --build
 ```
 
-The application will be available at `localhost:3000`.
+Distribox is then available at `localhost:3000`.
 
-For development with hot-reloading:
+`setup.sh` installs libvirt and the other host dependencies. Run it as your regular user, then log out and back in so the new group memberships apply. `bash setup.sh --dry-run` shows what it would change, and `--help` lists its options. On SELinux hosts, image-storage labels and backend access to the libvirt socket are left to you.
+
+To keep VM disks on another partition, [set up storage](docs/storage.md) after `setup.sh` and before starting Compose.
+
+For development with hot reloading:
 
 ```bash
 docker compose --profile dev up --build
 ```
 
-To run a slave node on another machine, follow the guide on the **Slaves** page of the dashboard. It ends with:
-
-```bash
-docker compose --profile slave up -d
-```
-
-### Store VM data on another partition
-
-Use `/data` for VM disks and downloaded images by bind-mounting `/data/distribox` at `/var/lib/distribox` **on the host**. Docker and libvirt then share the same files, and existing VM paths still work.
-
-Keep the Compose volume `/var/lib/distribox:/var/lib/distribox` unchanged.
-
-<details>
-<summary>Set up storage on /data</summary>
-
-Requires Linux with systemd, Docker Engine, `rsync`, and `/data` mounted through `/etc/fstab`. Run `setup.sh` and configure `.env` first. Back up existing data, and continue only when each command succeeds.
-
-1. **Check the disk.** Confirm `/data` is mounted and has room for the copy:
-
-   ```bash
-   findmnt --mountpoint /data
-   df -h /data
-   sudo du -sh /var/lib/distribox
-   ```
-
-   Stop if `/data` is not mounted. This guide assumes `/var/lib/distribox` is an ordinary directory, without custom mounts or storage pools. The destination and backup directories used below must not already exist.
-
-2. **Stop the backend and VMs.** Shut down each Distribox VM and wait until all report `shut off`. Stopping Docker does **not** stop host VMs.
-
-   ```bash
-   docker compose --profile master stop backend
-   sudo virsh -c qemu:///system list --all
-   sudo virsh -c qemu:///system shutdown VM_ID
-   ```
-
-   Replace `VM_ID` for each VM. Resume paused VMs before shutting them down.
-
-3. **Copy the data.** These flags preserve sparse disks and file permissions:
-
-   ```bash
-   sudo mkdir /data/distribox
-   sudo rsync -aHAXS --numeric-ids /var/lib/distribox/ /data/distribox/
-   sudo rsync -aHAXScn --numeric-ids --itemize-changes /var/lib/distribox/ /data/distribox/
-   ```
-
-   The last command verifies the copy and should print nothing. Fix any errors or differences before moving the original aside:
-
-   ```bash
-   sudo mv -T /var/lib/distribox /var/lib/distribox.before-storage-move
-   sudo install -d -m 755 /var/lib/distribox
-   ```
-
-4. **Mount at boot.** Back up `/etc/fstab`, then add:
-
-   ```fstab
-   /data/distribox /var/lib/distribox none bind,x-systemd.requires=data.mount 0 0
-   ```
-
-   Run `sudo systemctl edit docker.service` and `sudo systemctl edit libvirtd.service`. Add this to both:
-
-   ```ini
-   [Unit]
-   Requires=var-lib-distribox.mount
-   After=var-lib-distribox.mount
-   ```
-
-   This makes both services wait for storage. A missing mount blocks them, including their other workloads. Keep `nofail` off these storage mounts.
-
-5. **Mount and restart.**
-
-   ```bash
-   sudo findmnt --verify --verbose
-   sudo systemctl daemon-reload
-   sudo systemctl start var-lib-distribox.mount
-   df -h /data /var/lib/distribox
-   docker compose --profile master up -d --force-recreate backend
-   docker compose --profile master exec backend df -h /var/lib/distribox
-   ```
-
-   Host and container should now report the data partition's capacity. Recreating the backend is necessary: an old container can retain its previous mount. For a fresh install, also start the full application using the Quickstart command.
-
-Check your files and start a VM before removing `/var/lib/distribox.before-storage-move`. That backup still occupies space on the system disk. Verify the mounts after the next reboot.
-
-</details>
-
-<details>
-<summary>Other setups and rollback</summary>
-
-- **Development or slave:** use profile/service `dev`/`backend-dev` or `slave`/`slave` in the Compose commands.
-- **Modular libvirt:** edit `virtqemud.service` instead of `libvirtd.service`.
-- **Different mount path:** replace `/data` and find its unit name with `systemd-escape --path --suffix=mount /your/path`.
-- **Custom security policies:** preserve file labels and resolve AppArmor or SELinux denials through the host policy. Do not use world-writable permissions.
-
-To roll back, stop the backend and all Distribox VMs, then stop `var-lib-distribox.mount`. This also stops Docker and libvirt, so plan downtime for the whole host. Remove the fstab line and the service override lines added above, then reload systemd. Use `rmdir` on the empty mount point, restore the backup to `/var/lib/distribox`, restart services, and recreate the backend. If data changed after migration, copy the current data back while everything is stopped; the backup is stale.
-
-[Mount dependencies](https://www.freedesktop.org/software/systemd/man/latest/systemd.mount.html) · [Docker bind mounts](https://docs.docker.com/engine/storage/bind-mounts/)
-
-</details>
+To add a slave node on another machine, follow the guide on the dashboard's **Slaves** page.
 
 ## Configuration
 
-Copy `.env.example` to `.env` and adjust as needed. Key variables:
+Settings live in `.env`, and [`.env.example`](.env.example) documents each one. Before the first start, change `ADMIN_PASSWORD` and set `DISTRIBOX_SECRET` to a long random value (`openssl rand -hex 32`). Changing the secret later makes stored credentials unreadable.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DISTRIBOX_MODE` | `master` | `master` or `slave` |
-| `MASTER_URL` | - | URL of the master (slave mode only) |
-| `SLAVE_API_KEY` | - | API key for slave authentication |
-| `ADMIN_USERNAME` | `admin` | Default admin username |
-| `ADMIN_PASSWORD` | `admin` | Default admin password |
-| `DISTRIBOX_SECRET` | `secret` | Encryption key for sensitive data |
-| `JWT_SECRET_KEY` | derived | JWT signing key, derived from `DISTRIBOX_SECRET` when empty |
-| `BACKEND_PORT` | `8080` | Backend API port |
-| `VITE_PORT` | `3000` | Frontend port |
-| `VITE_API_DOMAIN` | `http://localhost:8080` | Backend URL as seen from the browser |
-| `VITE_TUNNEL_URL` | - | WebSocket URL for VM streaming, defaults to `VITE_API_DOMAIN` + `/tunnel` |
-| `FRONTEND_URL` | `http://localhost:3000` | Frontend URL, used for CORS |
-| `ROOT_PATH` | - | Path prefix the reverse proxy serves the API under, `/api` with the provided `nginx.conf` |
-| `VIRT_TYPE` | `kvm` | `kvm`, or `qemu` for software emulation |
-| `GLISS_IN_FLIGHT_FRAMES` | `8` | Maximum frames awaiting browser presentation ACKs, from 1 to 8 |
-| `GLISS_FPS` | `30` | Capture frame-rate cap, from 1 to 60 |
-| `GLISS_H264_BITRATE` | `2000000` | Soft H.264 encoder target, 1000–50000000 bits/second; actual traffic can exceed it |
-| `VITE_GLISS_RESOLUTION` | - | Fixed desktop size such as `1920x1080`; empty follows the browser window. Width 640–3840 in multiples of 16, height 480–2160 in multiples of 2. The backend reads it too: recreate it, then stop and start each VM |
-| `SSH_*` | disabled | See [SSH gateway](#ssh-gateway) |
-
-`VITE_*` values are baked into the frontend at build time. After changing them, rebuild it with `docker compose --profile master up -d --build frontend`.
-
-Gliss settings apply on the host running the VM. After editing `.env`, recreate the relevant backend container with `docker compose up -d backend` (master) or `docker compose up -d slave` (slave); `docker compose restart` keeps the old environment. Restart the process when running the backend manually. Eight in-flight frames keep 30 fps possible with roughly 250 ms of combined network and browser decode/paint delay. Use a smaller window, such as 4, to limit queued frames on constrained links. Lower `GLISS_FPS` or `GLISS_H264_BITRATE` when actual video traffic exceeds available bandwidth; the bitrate target is not a hard network cap. The backend Docker commands disable WebSocket deflate to avoid recompressing H.264. When launching the backend manually, use `uvicorn app.main:app --host 0.0.0.0 --port 8080 --ws-per-message-deflate false` from `backend/`.
-
-For an opt-in desktop recording panel and local JSON report, see [performance profiling](docs/performance-profiling.md).
-
-Update slave backends before the master when upgrading desktop streaming. The master requires the slave's `/vms/{vm_id}/desktop/tunnel` WebSocket endpoint; older slaves cannot stream through an updated master. Master-to-slave streaming uses the existing API port and `X-Slave-Token` over the trusted private network. The master retains viewer authorization and resize ownership.
-
-Existing slave VMs may listen only on the private address previously used by the master. Set the slave's `VNC_HOST` to that existing listen address before upgrading; Gliss still connects on the same host. Changing `VNC_LISTEN` or restarting the backend does not rewrite existing VM definitions. Move their VNC listeners to loopback during a planned VM restart, or keep `VNC_HOST` pointed at their current listener. `VNC_LISTEN=127.0.0.1` applies to newly defined VMs.
+`VITE_*` values are baked into the frontend at build time, so rebuild it after changing one with `docker compose --profile master up -d --build frontend`. For other settings, recreate the backend with `docker compose up -d backend`. `docker compose restart` keeps the old environment.
 
 ## Deployment
 
-### Reverse Proxy (nginx)
+### Reverse proxy and HTTPS
 
-In production, you should place nginx in front of the application to serve both the frontend and backend on a single port. A ready-to-use configuration is provided in [`nginx.conf`](./nginx.conf).
-
-Install it:
+In production, put nginx in front of Distribox. The provided [`nginx.conf`](nginx.conf) listens on port 80, proxies `/api` to the backend on port 8080 and sends everything else to the frontend on port 3000.
 
 ```bash
 sudo cp nginx.conf /etc/nginx/sites-available/distribox
@@ -336,25 +156,24 @@ sudo ln -s /etc/nginx/sites-available/distribox /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-This configuration:
-- Listens on port **80** and routes traffic to the frontend (port 3000) and backend (port 8080)
-- Serves the backend API under `/api`, stripping the prefix (`/api/vms/` reaches `/vms/`)
-- Proxies WebSocket connections for VM streaming (`/api/tunnel`)
-- Sends every other path to the frontend
+Serve it over HTTPS, because browsers only share the clipboard in a secure context. [Certbot](https://certbot.eff.org/) adds the certificate and the redirect to the nginx configuration:
 
-> Note: If you change port configuration for the deployment, we trust you will update the reverse proxy configuration accordingly.
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
 
-After enabling the reverse proxy, update your `.env` so the frontend calls the backend through nginx instead of directly, and the API docs load at `/api/docs` and `/api/redoc`:
+Then point `.env` at the proxy and rebuild with `docker compose --profile master up -d --build`:
 
 ```env
-VITE_API_DOMAIN=http://your-domain.com/api
-FRONTEND_URL=http://your-domain.com
+VITE_API_DOMAIN=https://your-domain.com/api
+FRONTEND_URL=https://your-domain.com
 ROOT_PATH=/api
 ```
 
 ### Firewall
 
-VNC servers listen on ports 5900-5999 on the host. These must **not** be exposed to the network -- VM streaming is handled through the backend's authenticated WebSocket tunnel. Keep `VNC_LISTEN` and `VNC_HOST` on loopback, including on slave nodes: each host encodes its own desktops. Block remote VNC access with your firewall:
+The VMs' VNC servers listen on host ports 5900-5999 and must not be reachable from the network. Streaming goes through the backend's authenticated tunnel. Keep `VNC_LISTEN` and `VNC_HOST` on loopback, on slave nodes too, and block the range:
 
 ```bash
 # ufw
@@ -364,79 +183,20 @@ sudo ufw deny 5900:5999/tcp
 sudo iptables -A INPUT -p tcp --dport 5900:5999 -j DROP
 ```
 
-### SSH gateway
+## Documentation
 
-Set these values in `.env`, then rebuild the backend:
+- [Desktop streaming](docs/desktop.md): sound, clipboard, keyboard layouts and stream settings
+- [SSH gateway](docs/ssh.md)
+- [VM data on another partition](docs/storage.md)
+- [Lab configurations](docs/lab-configurations.md): repeat a past event
+- [Desktop profiling](docs/performance-profiling.md)
+- [Images](images/README.md): build and customize OS images
+- [Atlas](atlas/README.md): upload images to the Distribox registry
+- [Backend](backend/README.md) and [frontend](frontend/README.md): run them outside Compose
 
-```env
-SSH_ENABLED=true
-SSH_PORT=2222
-SSH_PUBLIC_HOST=distribox.example.com
-```
+## Contributing
 
-`SSH_PUBLIC_HOST` is the hostname recipients connect to; it defaults to the hostname in `FRONTEND_URL`. Set `SSH_PUBLIC_PORT` only when an external port mapping differs from `SSH_PORT`. The backend uses host networking to reach guests behind libvirt NAT; it listens directly on the configured API and SSH ports. Allow the SSH TCP port through the host firewall; the HTTP reverse proxy does not carry native SSH traffic. The default database hostname is mapped to localhost inside backend containers, where Compose publishes PostgreSQL. Custom database hostnames continue to work.
-
-SSH requires a unique `DISTRIBOX_SECRET` of at least 32 characters on the master and each slave serving SSH VMs. For a new installation, generate one with `openssl rand -hex 32`. Keep existing encryption secrets when upgrading: replacing `DISTRIBOX_SECRET` makes previously encrypted credentials unreadable. Back up `/var/lib/distribox/ssh/host_key`, the per-VM directories, and the encryption secret. The persistent gateway key keeps the fingerprint stable across restarts.
-
-Guests need OpenSSH server, the `user` account, a running QEMU guest agent with `guest-exec` enabled, and an IPv4 DHCP lease on a libvirt-managed network. Updated image builders include OpenSSH. For older or custom images, install OpenSSH and install and enable the QEMU guest agent through the web client first. The guest agent must run as root and have the `org.qemu.guest_agent.0` virtio channel. Images using a different login account need the `user` account provisioned before SSH can be prepared.
-
-Enabling **Allow SSH** on a running VM prepares its key and configuration, enables the SSH service at boot, and reloads or starts it through systemd or OpenRC. Each explicit enable refreshes this setup, even if a previous connection was prepared recently. Setup failures leave access disabled and report the missing prerequisite. Enabling it on a stopped VM saves the preference and reports that setup is pending; the first SSH connection after startup prepares the guest. VMs enabled through an event also use preparation on their first connection.
-
-Guest setup disables password and root SSH login and verifies guest host keys through the guest agent. Guest keys stay on the server; the browser receives no private key or guest password. The web console login is unchanged.
-
-Slave connections use the existing authenticated management API and a private WebSocket relay. Update slave backends before enabling SSH through an updated master: older slaves cannot confirm that they applied the forced preparation. Keep master-to-slave traffic on a trusted, isolated network or an encrypted network tunnel: the current management API uses HTTP and carries both its API token and SSH preparation secrets. Only the master's SSH gateway port needs to be publicly reachable.
-
-New event and VM access secrets use 32 random bytes. Credential IDs alone no longer authorize web connections; share links must contain the access secret. JWT signing now derives a separate signing key from `DISTRIBOX_SECRET` unless `JWT_SECRET_KEY` is explicitly set. Users with sessions signed by the previous default key must log in again. An explicit JWT key must also contain at least 32 characters when SSH is enabled.
-
-### SSL is STRONGLY RECOMMENDED
-
-Distribox should be served over HTTPS. Without SSL:
-
-- Automatic clipboard reads and writes require the [Clipboard API in a secure context](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API#security_considerations). Browsers can also require permission or a user gesture.
-
-The easiest way to set up SSL is with [Certbot](https://certbot.eff.org/) (Let's Encrypt):
-
-```bash
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
-```
-
-Certbot will automatically modify your nginx configuration to:
-- Redirect HTTP (port 80) to HTTPS (port 443)
-- Install and renew your TLS certificate
-
-After running Certbot, update your `.env`:
-
-```env
-VITE_API_DOMAIN=https://your-domain.com/api
-FRONTEND_URL=https://your-domain.com
-```
-
-Certbot sets up automatic renewal via a systemd timer. You can verify it with:
-
-```bash
-sudo certbot renew --dry-run
-```
-
-## Tech Stack
-
-- **Backend:** FastAPI, SQLModel, PostgreSQL, libvirt, KVM/QEMU
-- **Frontend:** React Router v7, TypeScript, TailwindCSS v4, shadcn/ui
-- **Streaming:** [gliss](https://github.com/lg-epitech/gliss) over WebSocket
-- **Containerization:** Docker Compose
-
-## Get Involved
-
-Check out the [contributing guide](./CONTRIBUTING.md).
-
-If you're interested in how the project is organized at a higher level, contact the current project manager.
-
-### Further Documentation
-
-- [Backend](./backend/README.md) -- environment setup and standalone backend configuration
-- [Frontend](./frontend/README.md) -- environment setup and standalone frontend configuration
-- [Images](./images/README.md) -- guide for building and customizing OS images
-- [Atlas](./atlas/README.md) -- syncing tool to upload images to the Distribox registry
+See the [contributing guide](CONTRIBUTING.md).
 
 ## Our PoC team ❤️
 
