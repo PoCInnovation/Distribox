@@ -9,7 +9,7 @@ You will also need to create a symbolic link to the .env in the parent directory
 ln -s ../.env .env
 ```
 
-SSH gateway configuration and guest requirements are documented in the root README. Run one backend worker per container when SSH is enabled: the worker owns the SSH listener.
+SSH gateway configuration and guest requirements are documented in the [SSH guide](../docs/ssh.md). Run one backend worker per container when SSH is enabled: the worker owns the SSH listener.
 
 Run the backend tests from the repository root after installing the backend requirements and `pytest pytest-asyncio`:
 
