@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SecretField } from "@/components/ui/secret-field";
 import { API_BASE_URL } from "@/lib/api/core";
-import type { CreateSlavePayload, Slave } from "@/lib/types/slave";
+import type { CreateSlavePayload, RegisteredSlave } from "@/lib/types/slave";
 import { CodeBlock } from "./code-block";
 import { slaveEnvSnippet } from "./setup-guide";
 
@@ -29,7 +29,7 @@ export function RegisterNodeDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRegister: (payload: CreateSlavePayload) => Promise<Slave>;
+  onRegister: (payload: CreateSlavePayload) => Promise<RegisteredSlave>;
   isRegistering: boolean;
   existingNames: string[];
   onOpenGuide: () => void;
@@ -39,7 +39,7 @@ export function RegisterNodeDialog({
   const [port, setPort] = useState("8081");
   const [touched, setTouched] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [created, setCreated] = useState<Slave | null>(null);
+  const [created, setCreated] = useState<RegisteredSlave | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -245,7 +245,7 @@ function RegisteredStep({
   onDone,
   onOpenGuide,
 }: {
-  slave: Slave;
+  slave: RegisteredSlave;
   onDone: () => void;
   onOpenGuide: () => void;
 }) {

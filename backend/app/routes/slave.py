@@ -4,8 +4,9 @@ from app.models.slave import SlaveCreate, SlaveRead, SlaveHeartbeat
 from app.models.vm import VmRead
 from app.models.user_management import MissingPoliciesResponse
 from app.services.slave_service import SlaveService
-from app.utils.auth import require_policy
+from app.utils.auth import require_policy, user_has_policy
 from app.orm.slave import SlaveORM
+from app.orm.user import UserORM
 from app.core.config import engine
 from sqlmodel import Session, select
 
@@ -28,26 +29,36 @@ def _verify_slave_token(
         return slave
 
 
+def _slave_read(slave: SlaveORM, user: UserORM) -> SlaveRead:
+    """A slave's API key authorizes VM operations on it, so only users who
+    can register slaves get it."""
+    read = SlaveRead.model_validate(slave.model_dump())
+    if not user_has_policy(user, "slaves:create"):
+        read.api_key = None
+    return read
+
+
 @router.get(
     "/",
     status_code=status.HTTP_200_OK,
     response_model=list[SlaveRead],
-    dependencies=[Depends(require_policy("slaves:get"))],
     responses={403: {"model": MissingPoliciesResponse}},
 )
-def list_slaves():
-    return SlaveService.list_slaves()
+def list_slaves(user: UserORM = Depends(require_policy("slaves:get"))):
+    return [_slave_read(slave, user) for slave in SlaveService.list_slaves()]
 
 
 @router.get(
     "/{slave_id}",
     status_code=status.HTTP_200_OK,
     response_model=SlaveRead,
-    dependencies=[Depends(require_policy("slaves:getById"))],
     responses={403: {"model": MissingPoliciesResponse}},
 )
-def get_slave(slave_id: str):
-    return SlaveService.get_slave(slave_id)
+def get_slave(
+    slave_id: str,
+    user: UserORM = Depends(require_policy("slaves:getById")),
+):
+    return _slave_read(SlaveService.get_slave(slave_id), user)
 
 
 @router.post(

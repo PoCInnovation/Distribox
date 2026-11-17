@@ -5,7 +5,8 @@ export const SlaveSchema = z.object({
   name: z.string(),
   hostname: z.string(),
   port: z.number(),
-  api_key: z.string(),
+  /** Only returned to users who can register slaves. */
+  api_key: z.string().nullable(),
   status: z.string(),
   created_at: z.string(),
   last_heartbeat: z.string().nullable(),
@@ -20,6 +21,12 @@ export const SlaveSchema = z.object({
 export type Slave = z.infer<typeof SlaveSchema>;
 
 export const SlaveListSchema = z.array(SlaveSchema);
+
+export const RegisteredSlaveSchema = SlaveSchema.extend({
+  api_key: z.string(),
+});
+
+export type RegisteredSlave = z.infer<typeof RegisteredSlaveSchema>;
 
 export type CreateSlavePayload = {
   name: string;

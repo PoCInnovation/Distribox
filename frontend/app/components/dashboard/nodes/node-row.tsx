@@ -537,8 +537,12 @@ function OfflineChecklist({ node }: { node: ClusterNode }) {
           />
         </li>
         <li className="text-muted-foreground">
-          4. Compare the API key shown on the left with{" "}
-          <span className="font-mono">SLAVE_API_KEY</span> on the slave, then
+          4.{" "}
+          {node.apiKey
+            ? "Compare the API key shown on the left with "
+            : "Check that "}
+          <span className="font-mono">SLAVE_API_KEY</span> on the slave
+          {node.apiKey ? "" : " matches the key it was registered with"}, then
           restart it:{" "}
           <span className="font-mono text-foreground">
             docker compose --profile slave up -d

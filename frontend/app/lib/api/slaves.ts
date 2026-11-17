@@ -2,6 +2,8 @@ import { apiRequest } from "./core";
 import {
   type Slave,
   type CreateSlavePayload,
+  type RegisteredSlave,
+  RegisteredSlaveSchema,
   SlaveListSchema,
   SlaveSchema,
 } from "@/lib/types/slave";
@@ -18,14 +20,16 @@ export async function getSlave(slaveId: string): Promise<Slave> {
   return apiRequest(`/slaves/${slaveId}`, {}, SlaveSchema);
 }
 
-export async function createSlave(payload: CreateSlavePayload): Promise<Slave> {
+export async function createSlave(
+  payload: CreateSlavePayload,
+): Promise<RegisteredSlave> {
   return apiRequest(
     "/slaves/",
     {
       method: "POST",
       body: JSON.stringify(payload),
     },
-    SlaveSchema,
+    RegisteredSlaveSchema,
   );
 }
 
