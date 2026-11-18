@@ -21,6 +21,10 @@ class ImageRead(ImageBase):
     pass
 
 
+class CatalogImage(ImageRead):
+    min_disk_size: int | None
+
+
 class ImageUpload(BaseModel):
     name: str = Field(min_length=1)
     distribution: str = "custom"

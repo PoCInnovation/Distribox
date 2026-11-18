@@ -1,7 +1,7 @@
 from typing import Literal
 from fastapi import APIRouter, Depends, Query, Request, status
 from app.services.image_service import ImageService
-from app.models.image import ImageRead, ImageUpload, ImageUploadStatus
+from app.models.image import CatalogImage, ImageRead, ImageUpload, ImageUploadStatus
 from app.models.user_management import MissingPoliciesResponse
 from app.utils.auth import require_policy
 
@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 @router.get("/", status_code=status.HTTP_200_OK,
-            response_model=list[ImageRead],
+            response_model=list[CatalogImage],
             dependencies=[Depends(require_policy("images:get"))],
             responses={403: {"model": MissingPoliciesResponse}})
 def get_distribox_image_list():

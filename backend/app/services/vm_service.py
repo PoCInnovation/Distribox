@@ -1,6 +1,4 @@
 import uuid
-import json
-import math
 import os
 import secrets
 import subprocess
@@ -115,16 +113,6 @@ class Vm:
         return os_value
 
     @staticmethod
-    def _min_disk_size(image_path: Path) -> int:
-        result = subprocess.run(
-            ["qemu-img", "info", "--output=json", str(image_path)],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return math.ceil(json.loads(result.stdout)["virtual-size"] / 2**30)
-
-    @staticmethod
     def has_revision_changed(metadata_filename: str) -> bool:
         local_image = ImageService.get_local_image(metadata_filename)
         if local_image is None:
@@ -174,7 +162,7 @@ class Vm:
 
     @classmethod
     def _require_disk_size(cls, image_path: Path, disk_size: int):
-        min_disk_size = cls._min_disk_size(image_path)
+        min_disk_size = ImageService.local_min_disk_size(image_path)
         if disk_size < min_disk_size:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

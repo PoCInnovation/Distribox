@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import uuid
 import zipfile
+from unittest.mock import Mock
 
 import pytest
 import yaml
@@ -59,12 +60,46 @@ def test_local_images_are_listed_after_registry_ones(tmp_path, monkeypatch):
     monkeypatch.setattr(ImageService, "get_registry_image_list",
                         lambda: [registry])
 
+    client = Mock()
+    client.get_object.return_value = {"Body": io.BytesIO(b"bad header")}
+    monkeypatch.setattr(image_service, "s3", client)
+
     images = ImageService.get_distribox_image_list()
 
+    assert images[0].min_disk_size is None
     assert [image.image for image in images] == [
         "distribox-debian-12.qcow2", "course-vm.qcow2"]
     assert images[0].firmware == "bios"
     assert images[1].firmware == "efi"
+
+
+def test_catalog_reports_virtual_disk_minimum_for_local_and_registry_images(
+        tmp_path, monkeypatch):
+    monkeypatch.setattr(image_service, "IMAGES_DIR", tmp_path)
+    write_image(tmp_path, "local")
+    registry = ImageRead(**write_image(tmp_path, "registry"))
+    (tmp_path / registry.image).unlink()
+    monkeypatch.setattr(ImageService, "get_registry_image_list",
+                        lambda: [registry])
+    # The local disk's virtual size is one sector over 24 GiB.
+    run = Mock(return_value=subprocess.CompletedProcess(
+        [], 0, json.dumps({"virtual-size": 24 * 2**30 + 512})))
+    monkeypatch.setattr(subprocess, "run", run)
+    # Only the first 32 bytes of the uncached qcow2 are needed.
+    header = b"QFI\xfb" + (3).to_bytes(4, "big") + bytes(16)
+    body = io.BytesIO(header + (9 * 2**30).to_bytes(8, "big"))
+    registry_client = Mock()
+    registry_client.get_object.return_value = {"Body": body}
+    monkeypatch.setattr(image_service, "s3", registry_client)
+
+    images = ImageService.get_distribox_image_list()
+
+    assert {i.image: i.min_disk_size for i in images} == {
+        "local.qcow2": 25, "registry.qcow2": 9}
+    registry_client.get_object.assert_called_once_with(
+        Bucket=image_service.distribox_bucket_registry, Key="registry.qcow2",
+        Range="bytes=0-31")
+    assert body.closed
 
 
 def test_registry_errors_do_not_hide_local_images(tmp_path, monkeypatch):

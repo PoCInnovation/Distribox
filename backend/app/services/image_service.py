@@ -1,3 +1,5 @@
+from contextlib import closing
+from functools import lru_cache
 import asyncio
 import json
 import logging
@@ -8,7 +10,7 @@ import zipfile
 from pathlib import Path
 import yaml
 from fastapi import HTTPException, status
-from app.models.image import ImageRead, ImageUpload
+from app.models.image import CatalogImage, ImageRead, ImageUpload
 from app.core.constants import IMAGES_DIR
 from app.core.config import s3, distribox_bucket_registry
 
@@ -16,6 +18,23 @@ logger = logging.getLogger(__name__)
 
 DISK_SUFFIXES = (".qcow2", ".vmdk", ".vdi", ".img", ".raw")
 conversions: dict[str, asyncio.Task] = {}
+
+
+def _disk_gib(size_bytes: int) -> int:
+    return (size_bytes + 2**30 - 1) // 2**30
+
+
+@lru_cache(maxsize=256)
+def _registry_min_disk_size(image: str, revision: int) -> int:
+    # A registry revision identifies the bytes published under this filename.
+    response = s3.get_object(Bucket=distribox_bucket_registry, Key=image,
+                             Range="bytes=0-31")
+    with closing(response["Body"]) as body:
+        header = body.read(32)
+    if (len(header) != 32 or header[:4] != b"QFI\xfb" or
+            int.from_bytes(header[4:8], "big") not in (2, 3)):
+        raise ValueError("Invalid qcow2 header")
+    return _disk_gib(int.from_bytes(header[24:32], "big"))
 
 
 class ImageService():
@@ -93,7 +112,32 @@ class ImageService():
         }
         for image in ImageService.get_local_image_list():
             images.setdefault(image.image, image)
-        return list(images.values())
+        catalog = []
+        for image in images.values():
+            minimum = None
+            try:
+                image_path = (IMAGES_DIR / image.image).resolve()
+                if not image_path.is_relative_to(IMAGES_DIR.resolve()):
+                    raise ValueError("Invalid image path")
+                if image_path.is_file():
+                    minimum = ImageService.local_min_disk_size(image_path)
+                else:
+                    minimum = _registry_min_disk_size(
+                        image.image, image.revision)
+            except Exception as error:
+                logger.warning("Cannot read disk size for %s: %s",
+                               image.image, error)
+            catalog.append(CatalogImage(**image.model_dump(),
+                                        min_disk_size=minimum))
+        return catalog
+
+    @staticmethod
+    def local_min_disk_size(image_path: Path) -> int:
+        result = subprocess.run(
+            ["qemu-img", "info", "--output=json", str(image_path)],
+            capture_output=True, text=True, check=True,
+        )
+        return _disk_gib(json.loads(result.stdout)["virtual-size"])
 
     @staticmethod
     def _slug(name: str) -> str:
