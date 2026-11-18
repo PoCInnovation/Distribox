@@ -197,6 +197,29 @@
   }
 }
 
+/* Activity bar: sweep across a phase whose progress can't be measured. */
+@keyframes activity-sweep {
+  from {
+    left: -40%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+.animate-activity-sweep {
+  animation: activity-sweep 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-activity-sweep {
+    animation: none;
+    left: 0;
+    width: 100%;
+    opacity: 0.35;
+  }
+}
+
 /* Brand gradient for pages outside the dashboard (sign-in, credential entry, errors) */
 .bg-brand-gradient {
   background-image:

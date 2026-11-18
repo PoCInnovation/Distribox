@@ -9,6 +9,16 @@ from app.core.constants import BASE_DIR
 class HostService:
 
     @staticmethod
+    def get_free_capacity() -> tuple[float, int, float]:
+        """Free memory (GB), CPU count and free disk (GB) of this host.
+
+        Unlike get_host_info, it asks no slave anything, so it stays fast.
+        """
+        return (psutil.virtual_memory().available / 2**30,
+                system_monitor.cpu["cpu_count"],
+                shutil.disk_usage(BASE_DIR).free / 2**30)
+
+    @staticmethod
     def get_host_info():
         disk_usage = shutil.disk_usage(BASE_DIR)
         mem_usage = psutil.virtual_memory()

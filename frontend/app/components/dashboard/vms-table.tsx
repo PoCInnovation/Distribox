@@ -32,7 +32,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Policy, VMState, type VirtualMachineMetadata } from "@/lib/types";
+import {
+  Policy,
+  VMState,
+  type Operation,
+  type VirtualMachineMetadata,
+} from "@/lib/types";
 import {
   getStateUi,
   getStatusBucket,
@@ -53,6 +58,11 @@ import { CopyText } from "./copy-text";
 import { VmActionMenu } from "./vm-action-menu";
 import { KbdGroup, useModKey } from "@/components/ui/kbd";
 import { useCommandPalette } from "@/components/command-palette";
+import { SegmentedProgress } from "@/components/activity/operation-progress";
+import {
+  phaseFraction,
+  phaseLabel,
+} from "@/components/activity/operation-model";
 
 export const MASTER_HOST_LABEL = "Master";
 
@@ -109,6 +119,8 @@ function compare(
 
 interface DashboardVMsTableProps {
   vms: VirtualMachineMetadata[];
+  /** VM creations still running, shown as placeholder rows on top. */
+  creating?: Operation[];
   /** VM currently open in the drawer; its row is highlighted. */
   openVmId: string | null;
   onOpen: (vm: VirtualMachineMetadata) => void;
@@ -120,6 +132,7 @@ interface DashboardVMsTableProps {
 
 export function DashboardVMsTable({
   vms,
+  creating = [],
   openVmId,
   onOpen,
   onBulk,
@@ -175,6 +188,16 @@ export function DashboardVMsTable({
       (a, b) => dir * compare(a, b, sortKey) || a.name.localeCompare(b.name),
     );
   }, [vms, query, status, host, sortKey, sortDir]);
+
+  const visibleCreating = useMemo(() => {
+    if (status !== "all") return [];
+    const q = query.trim().toLowerCase();
+    return creating.filter((op) => {
+      const label = op.slave_name ?? MASTER_HOST_LABEL;
+      if (host !== "all" && label !== host) return false;
+      return !q || op.name.toLowerCase().includes(q);
+    });
+  }, [creating, query, status, host]);
 
   const filteredIds = useMemo(
     () => new Set(filtered.map((v) => v.id)),
@@ -340,6 +363,7 @@ export function DashboardVMsTable({
               {hasFilters
                 ? `${filtered.length} of ${vms.length}`
                 : `${vms.length} ${vms.length === 1 ? "machine" : "machines"}`}
+              {creating.length > 0 && ` · ${creating.length} creating`}
             </span>
             <button
               type="button"
@@ -361,7 +385,7 @@ export function DashboardVMsTable({
         </div>
       )}
 
-      {vms.length === 0 ? (
+      {vms.length === 0 && creating.length === 0 ? (
         <EmptyState
           icon={<Server className="size-6" />}
           title="No virtual machines yet"
@@ -377,7 +401,7 @@ export function DashboardVMsTable({
             ) : null
           }
         />
-      ) : filtered.length === 0 ? (
+      ) : filtered.length === 0 && visibleCreating.length === 0 ? (
         <EmptyState
           icon={<SearchX className="size-6" />}
           title="No machines match"
@@ -478,6 +502,9 @@ export function DashboardVMsTable({
             </tr>
           </thead>
           <tbody>
+            {visibleCreating.map((op) => (
+              <CreatingRow key={op.id} op={op} />
+            ))}
             {filtered.map((vm) => (
               <VmRow
                 key={vm.id}
@@ -672,6 +699,85 @@ function VmRow({
           <VmActionMenu vm={vm} />
         </div>
       </td>
+    </tr>
+  );
+}
+
+function CreatingRow({ op }: { op: Operation }) {
+  const fraction = phaseFraction(op);
+  return (
+    <tr
+      aria-busy="true"
+      className="h-[52px] border-b border-border/70 bg-primary/[0.03] last:border-b-0"
+    >
+      <td className="relative pl-4">
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 w-0.5 bg-primary/60"
+        />
+      </td>
+      <td className="px-3">
+        <span
+          className="block truncate font-mono text-[13.5px] font-medium text-foreground/80"
+          title={op.name}
+        >
+          {op.name}
+        </span>
+      </td>
+      <td className="px-3">
+        <div
+          className="flex flex-col gap-1.5"
+          title={phaseLabel(op)}
+          aria-label={`Creating, ${phaseLabel(op).toLowerCase()}`}
+        >
+          <span className="flex items-baseline gap-2 text-sm whitespace-nowrap">
+            <span className="text-primary">Creating</span>
+            {fraction !== null && (
+              <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">
+                {Math.floor(fraction * 100)}%
+              </span>
+            )}
+          </span>
+          <SegmentedProgress op={op} />
+        </div>
+      </td>
+      <td className="px-3">
+        {op.params?.os && (
+          <VmOsLabel image={op.params.os} className="opacity-80" />
+        )}
+      </td>
+      <td className="hidden px-3 2xl:table-cell">
+        {op.params?.vcpus != null && (
+          <span className="grid grid-cols-3 gap-x-2 font-mono text-[13px] text-foreground/70 tabular-nums">
+            <span className="truncate">
+              {op.params.vcpus}
+              <span className="ml-0.5 text-[11px] text-muted-foreground">
+                vCPU
+              </span>
+            </span>
+            <span className="truncate">
+              {op.params.mem}
+              <span className="ml-0.5 text-[11px] text-muted-foreground">
+                GB
+              </span>
+            </span>
+            <span className="truncate">
+              {op.params.disk_size}
+              <span className="ml-0.5 text-[11px] text-muted-foreground">
+                GB
+              </span>
+            </span>
+          </span>
+        )}
+      </td>
+      <td className="px-3">
+        <span className="text-muted-foreground/60">—</span>
+      </td>
+      <td className="hidden px-3 text-muted-foreground 2xl:table-cell">
+        {op.slave_name ?? MASTER_HOST_LABEL}
+      </td>
+      <td className="px-3" />
+      <td className="pr-3" />
     </tr>
   );
 }

@@ -8,8 +8,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Response, WebSocket, status
 from app.core.config import SLAVE_API_KEY, VNC_HOST
-from app.models.vm import VmCreate, VmRead
-from app.services.vm_service import VmService
+from app.models.vm import SlaveVmCreate, VmRead
+from app.services.vm_service import Vm, VmService
 from app.services.host_service import HostService
 from app.services.vm_screenshot import capture_screenshot
 from app.services.desktop_stream import local_stream, relay_stream
@@ -41,8 +41,9 @@ async def relay_vm_desktop(websocket: WebSocket, vm_id: UUID):
     response_model=VmRead,
     dependencies=[Depends(require_slave_token)],
 )
-def create_vm(vm: VmCreate):
-    return VmService.create_vm(vm)
+def create_vm(vm: SlaveVmCreate):
+    # The master tracks the creation as an operation; a slave only builds.
+    return Vm(vm, vm.id)
 
 
 @router.get(

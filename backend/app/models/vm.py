@@ -32,6 +32,11 @@ class VmCreate(VmBase):
     auto_place: bool = False
 
 
+class SlaveVmCreate(VmCreate):
+    """What a master sends a slave: the master picks the VM's id."""
+    id: Optional[UUID] = None
+
+
 class VmCreateXML(VmBase):
     id: UUID
 

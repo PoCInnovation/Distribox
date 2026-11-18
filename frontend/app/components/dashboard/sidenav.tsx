@@ -35,6 +35,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
+import { ActivityBar } from "@/components/activity/activity-bar";
 import { isAdmin } from "@/lib/is-admin";
 import { useAuthz } from "@/contexts/authz-context";
 import type { PolicyName } from "@/lib/policy-utils";
@@ -229,6 +230,10 @@ export function DashboardSidenav() {
           </div>
           {navItems.map(renderNavItem)}
         </nav>
+
+        <div className="px-3 pb-3 empty:hidden">
+          <ActivityBar collapsed={collapsed} />
+        </div>
 
         <div className="space-y-2 border-t border-sidebar-border/75 p-3">
           {(() => {
