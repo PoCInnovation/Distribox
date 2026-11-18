@@ -1,8 +1,11 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { ArrowUpRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Operation } from "@/lib/types";
+import { Policy, type Operation } from "@/lib/types";
+import { getVMs } from "@/lib/api";
+import { useAuthz } from "@/contexts/authz-context";
 import { DistroLogo } from "@/components/distro-logo";
 import { useOsInfo } from "@/components/dashboard/vm-os-label";
 import { useDismissOperations } from "@/hooks/useOperations";
@@ -35,6 +38,7 @@ export function ActivityPanel({
 }) {
   const { running, attention, done } = groupOperations(operations);
   const dismiss = useDismissOperations();
+  const vmIds = useVmIds();
 
   return (
     <div className="flex max-h-[min(78vh,40rem)] flex-col">
@@ -68,6 +72,7 @@ export function ActivityPanel({
                 key={op.id}
                 op={op}
                 now={now}
+                canOpen={hasVm(op) && vmIds.has(op.vm_id ?? "")}
                 onDismiss={() => dismiss.mutate([op.id])}
                 onNavigate={onNavigate}
               />
@@ -92,6 +97,7 @@ export function ActivityPanel({
                 key={op.id}
                 op={op}
                 now={now}
+                canOpen={hasVm(op) && vmIds.has(op.vm_id ?? "")}
                 onDismiss={() => dismiss.mutate([op.id])}
                 onNavigate={onNavigate}
               />
@@ -101,6 +107,18 @@ export function ActivityPanel({
       </div>
     </div>
   );
+}
+
+/** Ids of the VMs the user can see, to offer Open only for those. */
+function useVmIds(): Set<string> {
+  const authz = useAuthz();
+  const { data } = useQuery({
+    queryKey: ["vms"],
+    queryFn: getVMs,
+    enabled: authz.hasPolicy(Policy.VMS_GET),
+    retry: false,
+  });
+  return useMemo(() => new Set(data?.map((vm) => vm.id)), [data]);
 }
 
 function Section({
@@ -208,11 +226,13 @@ function RunningCard({ op, now }: { op: Operation; now: number }) {
 function FinishedRow({
   op,
   now,
+  canOpen,
   onDismiss,
   onNavigate,
 }: {
   op: Operation;
   now: number;
+  canOpen: boolean;
   onDismiss: () => void;
   onNavigate: () => void;
 }) {
@@ -236,7 +256,7 @@ function FinishedRow({
         <span className="ml-auto shrink-0 text-[11px] text-muted-foreground tabular-nums">
           {formatAgo(op.finished_at ?? op.updated_at, now)}
         </span>
-        {hasVm(op) && op.vm_id && (
+        {canOpen && (
           <Link
             to={`/dashboard?vm=${op.vm_id}`}
             onClick={onNavigate}

@@ -32,6 +32,8 @@ from app.utils.auth import get_current_user
 os.environ.setdefault("AWS_EC2_METADATA_DISABLED", "true")
 
 DISK = b"disk image" * 1000
+# Upper bound for creation threads; a loaded host can take seconds to fsync.
+WAIT_S = 30
 IMAGE = ImageRead(name="Test", image="test.qcow2", version="1",
                   distribution="test", family="test", revision=1)
 
@@ -50,7 +52,7 @@ class QemuImg:
             return subprocess.CompletedProcess(
                 args, 0, json.dumps({"virtual-size": 9 * 2**30}))
         self.resizing.set()
-        assert self.may_resize.wait(10)
+        assert self.may_resize.wait(WAIT_S)
         return subprocess.CompletedProcess(
             args, 1 if self.resize_error else 0, "", self.resize_error)
 
@@ -110,7 +112,7 @@ def vm_create(**fields):
 def wait_for(operation):
     for thread in threading.enumerate():
         if thread.name == f"operation-{operation.id}":
-            thread.join(10)
+            thread.join(WAIT_S)
             assert not thread.is_alive()
 
 
@@ -118,7 +120,7 @@ def start_held_at_resize(host):
     """A creation whose disk is copied and which then waits."""
     host.qemu_img.may_resize.clear()
     operation = VmService.start_vm_creation(vm_create(), "host")
-    assert host.qemu_img.resizing.wait(10)
+    assert host.qemu_img.resizing.wait(WAIT_S)
     return operation
 
 
@@ -284,6 +286,16 @@ def test_disk_smaller_than_a_local_image_is_rejected_at_once(host):
     assert error.value.detail == "Disk size must be at least 9 GB"
     assert stored(host) == []
     assert list(host.vms.iterdir()) == []
+
+
+def test_image_path_instead_of_a_name_is_rejected_at_once(host):
+    image = vm_service.IMAGES_DIR / "test.qcow2"
+    with pytest.raises(HTTPException) as error:
+        VmService.start_vm_creation(vm_create(os=str(image)), "host")
+
+    assert error.value.status_code == 400
+    assert stored(host) == []
+    assert image.read_bytes() == DISK
 
 
 def test_vm_is_recorded_after_it_started(host, monkeypatch):

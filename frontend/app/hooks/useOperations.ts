@@ -42,7 +42,9 @@ export function useOperations() {
 }
 
 /** Put a just-started operation in the list before the next poll. */
-export function addOperation(queryClient: QueryClient, op: Operation) {
+export async function addOperation(queryClient: QueryClient, op: Operation) {
+  // A poll that started before the POST would overwrite it with an older list.
+  await queryClient.cancelQueries({ queryKey: OPERATIONS_KEY });
   queryClient.setQueryData<Operation[]>(OPERATIONS_KEY, (prev) => [
     op,
     ...(prev ?? []).filter((o) => o.id !== op.id),

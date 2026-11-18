@@ -12,8 +12,6 @@ export function useCreateVM() {
 
   return useMutation<Operation, Error, CreateVMPayload>({
     mutationFn: createVM,
-    onSuccess: (op) => {
-      addOperation(queryClient, op);
-    },
+    onSuccess: (op) => addOperation(queryClient, op),
   });
 }

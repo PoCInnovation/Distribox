@@ -45,7 +45,7 @@ COPY_SYNC_INTERVAL = 64 * 2**20
 def copy_disk(source: Path, target: Path, progress: Progress) -> None:
     buffer = memoryview(bytearray(COPY_CHUNK_SIZE))
     copied = unsynced = 0
-    with source.open("rb") as src, target.open("wb") as dst:
+    with source.open("rb") as src, target.open("xb") as dst:
         while size := src.readinto(buffer):
             dst.write(buffer[:size])
             copied += size
@@ -107,7 +107,7 @@ class Vm:
 
     @staticmethod
     def _resolve_image_name(os_value: str) -> str:
-        if not os_value.endswith(".qcow2"):
+        if Path(os_value).name != os_value or not os_value.endswith(".qcow2"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid image '{os_value}': expected .qcow2 image",
@@ -650,6 +650,7 @@ class VmService:
     ) -> tuple[OperationRead, Callable[[Progress], Any]]:
         """Check what can be checked at once, then record the operation."""
         params = vm_create.model_dump(mode="json")
+        Vm._resolve_image_name(vm_create.os)
         slave = VmService._pick_slave(vm_create)
         vm_id = uuid.uuid4()
         if slave is None:
@@ -707,7 +708,10 @@ class VmService:
         """Pick the best node, prioritizing master. Returns slave UUID or None for master."""
         from app.services.host_service import HostService
         from app.services.slave_service import SlaveService
-        from app.services.slave_client import slave_get_host_info as _slave_get_host_info
+        from app.services.slave_client import (
+            PROBE_TIMEOUT,
+            slave_get_host_info as _slave_get_host_info,
+        )
 
         try:
             master = HostService.get_host_info()
@@ -722,7 +726,7 @@ class VmService:
         best_mem = -1
         for slave in SlaveService.get_online_slaves():
             try:
-                info = _slave_get_host_info(slave)
+                info = _slave_get_host_info(slave, timeout=PROBE_TIMEOUT)
                 slave_mem = info.get("mem", {}).get("available", 0)
                 slave_cpu = info.get("cpu", {}).get("cpu_count", 0)
                 slave_disk = info.get("disk", {}).get("available", 0)

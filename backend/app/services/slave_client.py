@@ -8,7 +8,10 @@ from app.orm.slave import SlaveORM
 logger = logging.getLogger(__name__)
 
 TIMEOUT = httpx.Timeout(120.0, connect=10.0)
-VM_CREATE_TIMEOUT = httpx.Timeout(600.0, connect=10.0)
+# Creations run in a background operation, so only a hung slave should end one.
+VM_CREATE_TIMEOUT = httpx.Timeout(3600.0, connect=10.0)
+# Placement probes run before POST /vms/ answers, so they must stay short.
+PROBE_TIMEOUT = httpx.Timeout(5.0, connect=3.0)
 
 
 def _slave_base_url(slave: SlaveORM) -> str:
@@ -91,6 +94,7 @@ def slave_get_screenshot(slave: SlaveORM, vm_id: str) -> bytes:
         return response.content
 
 
-def slave_get_host_info(slave: SlaveORM) -> dict:
+def slave_get_host_info(slave: SlaveORM,
+                        timeout: Optional[httpx.Timeout] = None) -> dict:
     """Get host info from a slave node."""
-    return slave_request(slave, "GET", "/host/info")
+    return slave_request(slave, "GET", "/host/info", timeout=timeout)
