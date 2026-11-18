@@ -8,6 +8,7 @@ export const ImageMetadataSchema = z.object({
   family: z.string(),
   revision: z.number(),
   firmware: z.string().optional(),
+  min_disk_size: z.number().int().nonnegative().nullish(),
 });
 
 export type ImageMetadata = z.infer<typeof ImageMetadataSchema>;

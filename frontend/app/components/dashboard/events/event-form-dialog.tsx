@@ -40,11 +40,6 @@ import {
 } from "../provision/model";
 import { CopyFromMenu, labConfigOf } from "../provision/copy-from-menu";
 import { DeadlineField, FleetCapacity } from "../event-form-fields";
-import {
-  minDiskFromError,
-  minDiskMessage,
-  useImageMinDisk,
-} from "@/lib/min-disk";
 import { formatCapacity } from "../provision/model";
 import {
   SLUG_PATTERN,
@@ -174,7 +169,10 @@ export function EventFormDialog({
 
   const slugValid = form.slug.length >= 2 && SLUG_PATTERN.test(form.slug);
   const deadlineValid = !!form.deadline && form.deadline.getTime() > Date.now();
-  const minDisk = useImageMinDisk(mutation.error, form.os);
+  // The disk can't be smaller than the image's own disk.
+  const imageMinDisk =
+    images?.find((i) => i.image === form.os)?.min_disk_size ?? 0;
+  const diskSize = Math.max(form.size.disk, imageMinDisk);
   const errors = {
     name: form.name.trim() === "" ? "Give the event a name." : null,
     slug: !slugValid
@@ -187,10 +185,6 @@ export function EventFormDialog({
       form.os === "" ||
       (!editing && images && !images.some((i) => i.image === form.os))
         ? "Pick the image every participant gets."
-        : null,
-    disk:
-      minDisk !== null && form.size.disk < minDisk
-        ? minDiskMessage(minDisk)
         : null,
     deadline: !form.deadline
       ? "Pick when joining closes."
@@ -216,7 +210,7 @@ export function EventFormDialog({
             vm_os: form.os,
             vm_vcpus: form.size.vcpus,
             vm_mem: form.size.mem,
-            vm_disk_size: form.size.disk,
+            vm_disk_size: diskSize,
             max_vms: form.seats,
             deadline: form.deadline.toISOString(),
             ssh_enabled:
@@ -233,7 +227,7 @@ export function EventFormDialog({
           vm_distribution: form.distribution,
           vm_vcpus: form.size.vcpus,
           vm_mem: form.size.mem,
-          vm_disk_size: form.size.disk,
+          vm_disk_size: diskSize,
           keyboard_layout: form.keyboard || null,
           max_vms: form.seats,
           deadline: form.deadline.toISOString(),
@@ -418,7 +412,6 @@ export function EventFormDialog({
             <FormRow
               label="Size"
               help="Per participant. Presets come from your defaults in Settings."
-              error={show("disk")}
             >
               <div className="space-y-4">
                 <div
@@ -450,7 +443,8 @@ export function EventFormDialog({
                       >
                         <span className="text-sm font-medium">{p.label}</span>
                         <span className="font-mono text-xs text-muted-foreground">
-                          {p.vcpus} vCPU, {p.mem} GB, {p.disk} GB
+                          {p.vcpus} vCPU, {p.mem} GB,{" "}
+                          {Math.max(p.disk, imageMinDisk)} GB
                         </span>
                       </button>
                     );
@@ -505,8 +499,9 @@ export function EventFormDialog({
                   <SizeStepper
                     label="Disk"
                     unit="GB"
-                    value={form.size.disk}
+                    value={diskSize}
                     {...SIZE_LIMITS.disk}
+                    min={Math.max(SIZE_LIMITS.disk.min, imageMinDisk)}
                     onChange={(v) =>
                       set("size", { ...form.size, disk: clampSize("disk", v) })
                     }
@@ -628,10 +623,10 @@ export function EventFormDialog({
             seats={form.seats}
             vcpus={form.size.vcpus}
             mem={form.size.mem}
-            disk={form.size.disk}
+            disk={diskSize}
             totals={clusterInfo?.totals}
           />
-          {mutation.isError && minDiskFromError(mutation.error) === null && (
+          {mutation.isError && (
             <p
               role="alert"
               className="flex basis-full items-start gap-2 text-sm text-destructive md:order-first"

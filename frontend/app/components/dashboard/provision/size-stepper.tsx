@@ -82,7 +82,7 @@ export function SizeStepper({
             value={draft ?? String(value)}
             disabled={disabled}
             onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ""))}
-            onBlur={(e) => commit(e.target.value)}
+            onBlur={() => draft !== null && commit(draft)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();

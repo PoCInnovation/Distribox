@@ -24,11 +24,6 @@ import { KEYBOARD_LAYOUTS, getKeyboardLabel } from "@/lib/keyboard-layouts";
 import { VMImageSelect } from "@/components/dashboard/vm-image-picker";
 import { cn } from "@/lib/utils";
 import { FormRow } from "./provision/form-row";
-import {
-  minDiskFromError,
-  minDiskMessage,
-  useImageMinDisk,
-} from "@/lib/min-disk";
 import { SizeStepper } from "./provision/size-stepper";
 import { NodeCard } from "./provision/capacity";
 import { SummaryRail, type SummaryStatus } from "./provision/summary-rail";
@@ -99,7 +94,9 @@ export default function ProvisionPage() {
   const [nameTouched, setNameTouched] = useState(false);
   const [nameDirty, setNameDirty] = useState(false);
   const [os, setOs] = useState("");
-  const [size, setSize] = useState<VmSize>(sizeFromSettings(undefined));
+  const [requestedSize, setSize] = useState<VmSize>(
+    sizeFromSettings(undefined),
+  );
   const [placement, setPlacement] = useState<Placement>(null);
   const [keyboard, setKeyboard] = useState("");
   const [ssh, setSsh] = useState(false);
@@ -140,9 +137,19 @@ export default function ProvisionPage() {
   }, [placement, onlineSlaves, hasSlaves]);
 
   // Derived: presets, capacity, fit
+  const selectedImage = images?.find((i) => i.image === os) ?? null;
+  // The disk can't be smaller than the image's own disk.
+  const imageMinDisk = selectedImage?.min_disk_size ?? 0;
+  const size = useMemo(
+    () => ({
+      ...requestedSize,
+      disk: Math.max(requestedSize.disk, imageMinDisk),
+    }),
+    [requestedSize, imageMinDisk],
+  );
   const base = useMemo(() => sizeFromSettings(settings), [settings]);
   const presets = useMemo(() => buildPresets(base), [base]);
-  const activePreset = matchPreset(presets, size);
+  const activePreset = matchPreset(presets, requestedSize);
 
   const nodes = useMemo(() => {
     const fromCluster = nodesFromCluster(cluster);
@@ -179,22 +186,13 @@ export default function ProvisionPage() {
       sizeError = `Too big for ${targetFit.node.name}`;
     }
   }
-  const minDisk = useImageMinDisk(createVM.error, os);
-  const diskError =
-    minDisk !== null && size.disk < minDisk ? minDiskMessage(minDisk) : null;
   const showNameError = nameTouched || submitted ? nameError : null;
   const showImageError = submitted ? imageError : null;
-  const errorCount = [nameError, imageError, sizeError, diskError].filter(
+  const errorCount = [nameError, imageError, sizeError].filter(Boolean).length;
+  const visibleErrorCount = [showNameError, showImageError, sizeError].filter(
     Boolean,
   ).length;
-  const visibleErrorCount = [
-    showNameError,
-    showImageError,
-    sizeError,
-    diskError,
-  ].filter(Boolean).length;
 
-  const selectedImage = images?.find((i) => i.image === os) ?? null;
   const placementText =
     placement === "auto"
       ? predicted
@@ -214,7 +212,6 @@ export default function ProvisionPage() {
         .join("; ");
       return { tone: "error", text: `${sizeError}. ${detail}.` };
     }
-    if (diskError) return { tone: "error", text: diskError };
     if (fits.length === 0) {
       return canReadHost
         ? null
@@ -402,7 +399,7 @@ export default function ProvisionPage() {
             id="row-size"
             label="Size"
             help="Presets come from your defaults in Settings."
-            error={sizeError ?? diskError}
+            error={sizeError}
           >
             <div className="space-y-4">
               <div
@@ -430,7 +427,8 @@ export default function ProvisionPage() {
                     >
                       <span className="text-sm font-medium">{p.label}</span>
                       <span className="font-mono text-xs text-muted-foreground">
-                        {p.vcpus} vCPU, {p.mem} GB, {p.disk} GB
+                        {p.vcpus} vCPU, {p.mem} GB,{" "}
+                        {Math.max(p.disk, imageMinDisk)} GB
                       </span>
                     </button>
                   );
@@ -494,7 +492,7 @@ export default function ProvisionPage() {
                   label="Disk"
                   unit="GB"
                   value={size.disk}
-                  min={SIZE_LIMITS.disk.min}
+                  min={Math.max(SIZE_LIMITS.disk.min, imageMinDisk)}
                   max={SIZE_LIMITS.disk.max}
                   step={SIZE_LIMITS.disk.step}
                   onChange={(v) =>
@@ -682,7 +680,7 @@ export default function ProvisionPage() {
           errorCount={visibleErrorCount}
           pending={pending}
           submitError={
-            createVM.isError && minDiskFromError(createVM.error) === null
+            createVM.isError
               ? `Provisioning failed. ${createVM.error.message || "Unknown error."}`
               : null
           }
