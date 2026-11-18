@@ -268,7 +268,7 @@ export default function ProvisionPage() {
         slave_id: slaveId,
         auto_place: placement === "auto",
       });
-      toast.success(`${name.trim()} is provisioned`);
+      toast.success(`Creating ${name.trim()}`);
       navigate("/dashboard");
     } catch {
       // The rail shows createVM.error.

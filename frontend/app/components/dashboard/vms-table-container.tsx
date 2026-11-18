@@ -7,6 +7,7 @@ import { RenameVMDialog } from "@/components/dashboard/RenameVMDialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PolicyNotice } from "@/components/policy/policy-notice";
 import { useVMs } from "~/hooks/useVMs";
+import { useOperations } from "@/hooks/useOperations";
 import {
   VmActionsProvider,
   useVmActions,
@@ -38,6 +39,19 @@ export function DashboardVMsTableContainer() {
     duplicateVM,
     renameVM,
   } = useVMs();
+
+  const { operations } = useOperations();
+  // Creations still running: their VM isn't in the list until they succeed.
+  const creating = useMemo(
+    () =>
+      operations.filter(
+        (op) =>
+          op.kind === "vm.create" &&
+          op.status === "running" &&
+          !vms?.some((vm) => vm.id === op.vm_id),
+      ),
+    [operations, vms],
+  );
 
   const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(
     null,
@@ -137,6 +151,7 @@ export function DashboardVMsTableContainer() {
         ) : (
           <DashboardVMsTable
             vms={vms}
+            creating={creating}
             openVmId={openVm?.id ?? null}
             onOpen={(vm) => setOpenVm(vm)}
             onBulk={handleBulk}

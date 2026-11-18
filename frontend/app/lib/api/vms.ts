@@ -1,14 +1,6 @@
-import type { CreateVMPayload, VirtualMachineMetadata } from "@/lib/types";
-import {
-  CreateVMPayloadSchema,
-  VirtualMachineMetadataSchema,
-} from "@/lib/types";
-import {
-  API_BASE_URL,
-  apiRequest,
-  getAuthToken,
-  validateWithSchema,
-} from "./core";
+import type { VirtualMachineMetadata } from "@/lib/types";
+import { VirtualMachineMetadataSchema } from "@/lib/types";
+import { API_BASE_URL, apiRequest, getAuthToken } from "./core";
 
 /**
  * Build the authenticated URL for a VM screenshot image.
@@ -20,19 +12,6 @@ export function getVmScreenshotUrl(vmId: string): string {
 
 export async function getVMs(): Promise<VirtualMachineMetadata[]> {
   return apiRequest("/vms/", {}, VirtualMachineMetadataSchema.array());
-}
-
-export async function createVM(payload: CreateVMPayload): Promise<void> {
-  const validatedPayload = validateWithSchema(
-    CreateVMPayloadSchema,
-    payload,
-    "/vms",
-  );
-
-  await apiRequest("/vms/", {
-    method: "POST",
-    body: JSON.stringify(validatedPayload),
-  });
 }
 
 export async function startVM(id: string): Promise<VirtualMachineMetadata> {

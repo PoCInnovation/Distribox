@@ -8,3 +8,4 @@ export * from "./credentials";
 export * from "./recoverable-vms";
 export * from "./events";
 export * from "./slaves";
+export * from "./operations";
