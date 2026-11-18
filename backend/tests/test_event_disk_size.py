@@ -2,7 +2,7 @@ import json
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import Mock, call
+from unittest.mock import ANY, Mock, call
 
 import pytest
 from fastapi import HTTPException
@@ -107,7 +107,7 @@ def test_create_downloads_missing_registry_image(
         call(vm_service.distribox_bucket_registry, "small.metadata.yaml",
              tmp_path / "small.metadata.yaml"),
         call(vm_service.distribox_bucket_registry, "small.qcow2",
-             tmp_path / "small.qcow2"),
+             tmp_path / "small.qcow2", Callback=ANY),
     ]
     assert qemu_img.call_args.args[0][-1] == str(tmp_path / "small.qcow2")
 

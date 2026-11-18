@@ -3,6 +3,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlmodel import Session
+from app.models.operation import OperationRead
 from app.models.user_management import MissingPoliciesResponse
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, VmCredentialRead, RecoverableVm, RecoverableVmCreate, VmRename
 from app.services.vm_service import VmService
@@ -169,15 +170,15 @@ def stop_vm(vm_id: str, force: bool = False):
 
 @router.post(
     "/",
-    status_code=status.HTTP_201_CREATED,
-    response_model=VmRead,
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=OperationRead,
     responses={403: {"model": MissingPoliciesResponse}},
 )
 def create_vm(vm: VmCreate, current_user: UserORM = Depends(require_policy("vms:create"))):
+    """Start creating a VM. The operation returned tracks its progress."""
     if vm.ssh_enabled:
         ensure_policy(current_user, "vms:ssh:manage")
-    created_vm = VmService.create_vm(vm)
-    return created_vm
+    return VmService.start_vm_creation(vm, current_user.username)
 
 
 @router.post(

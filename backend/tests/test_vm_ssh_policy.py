@@ -42,16 +42,22 @@ def api_client(policies):
 
 @pytest.mark.parametrize("can_manage", [False, True])
 def test_vm_creation_cannot_bypass_ssh_permission(monkeypatch, can_manage):
+    now = datetime.now(timezone.utc)
     create = Mock(return_value={
-        **VM_PAYLOAD, "id": str(uuid4()), "state": "Running", "ipv4": None,
+        "id": str(uuid4()), "kind": "vm.create", "status": "running",
+        "name": VM_PAYLOAD["name"], "vm_id": str(uuid4()), "slave_id": None,
+        "slave_name": None, "params": VM_PAYLOAD, "phases": ["copying_disk"],
+        "phase": "copying_disk", "phase_started_at": now, "bytes_done": None,
+        "bytes_total": None, "error": None, "created_by": "host",
+        "created_at": now, "updated_at": now, "finished_at": None,
     })
-    monkeypatch.setattr(vm_service.VmService, "create_vm", create)
+    monkeypatch.setattr(vm_service.VmService, "start_vm_creation", create)
     policies = ["vms:create"] + (["vms:ssh:manage"] if can_manage else [])
     response = api_client(policies).post("/vms/", json=VM_PAYLOAD)
-    assert response.status_code == (201 if can_manage else 403)
+    assert response.status_code == (202 if can_manage else 403)
     assert create.called == can_manage
     if can_manage:
-        assert response.json()["ssh_enabled"]
+        assert response.json()["params"]["ssh_enabled"]
 
 
 @pytest.mark.parametrize("can_manage", [False, True])

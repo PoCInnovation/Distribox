@@ -1,16 +1,20 @@
 import uuid
 import json
 import math
+import os
 import secrets
 import subprocess
 import logging
-from shutil import copy, rmtree
+import threading
+from shutil import copy, copymode, rmtree
+import httpx
 import libvirt
 from app.utils.vm import wait_for_state, get_pause_reason, recover_after_pause
-from typing import Optional
+from typing import Any, Callable, Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML, VmRename
 from app.models.image import ImageRead
+from app.models.operation import OperationRead
 from app.core.xml_builder import build_xml, configure_display_resolution, configure_vnc_audio, configure_vnc_clipboard, configure_vnc_keyboard, upgrade_display_devices
 from app.core.config import QEMUConfig, engine
 from sqlalchemy import func
@@ -26,10 +30,34 @@ from app.utils.seed import ensure_seed_iso
 from app.core.config import s3, distribox_bucket_registry
 from os import path
 from app.services.image_service import ImageService
+from app.services.operation_service import NO_PROGRESS, VM_CREATE, OperationService, Progress
 from pathlib import Path
 from sqlalchemy.orm import make_transient
 
 logger = logging.getLogger(__name__)
+
+COPY_CHUNK_SIZE = 4 * 2**20
+# Flushing as the copy goes keeps its progress close to what is on disk, and
+# spares the resize a wait of minutes on the page cache.
+COPY_SYNC_INTERVAL = 64 * 2**20
+
+
+def copy_disk(source: Path, target: Path, progress: Progress) -> None:
+    buffer = memoryview(bytearray(COPY_CHUNK_SIZE))
+    copied = unsynced = 0
+    with source.open("rb") as src, target.open("wb") as dst:
+        while size := src.readinto(buffer):
+            dst.write(buffer[:size])
+            copied += size
+            unsynced += size
+            if unsynced >= COPY_SYNC_INTERVAL:
+                dst.flush()
+                os.fsync(dst.fileno())
+                unsynced = 0
+            progress.advance(copied)
+        dst.flush()
+        os.fsync(dst.fileno())
+    copymode(source, target)
 
 
 def with_vnc_clipboard(conn: libvirt.virConnect, domain_xml: str) -> str:
@@ -106,8 +134,32 @@ class Vm:
             return False
         return registry_image.revision != local_image.revision
 
+    @staticmethod
+    def _download_registry_image(image: str, image_path: Path,
+                                 progress: Progress) -> None:
+        try:
+            size = s3.head_object(
+                Bucket=distribox_bucket_registry, Key=image)["ContentLength"]
+        except Exception:
+            size = None
+        progress.phase("fetching_image",
+                       size if isinstance(size, int) else None)
+        lock = threading.Lock()
+        downloaded = 0
+
+        # boto3 calls this from several threads, with the size of each part.
+        def on_bytes(amount: int) -> None:
+            nonlocal downloaded
+            with lock:
+                downloaded += amount
+                progress.advance(downloaded)
+
+        s3.download_file(distribox_bucket_registry, image, image_path,
+                         Callback=on_bytes)
+
     @classmethod
-    def _download_image(cls, image: str) -> Path:
+    def _download_image(cls, image: str,
+                        progress: Progress = NO_PROGRESS) -> Path:
         image_path = IMAGES_DIR / image
         metadata_filename = image.replace("qcow2", "metadata.yaml")
         if (cls.has_revision_changed(metadata_filename) is True):
@@ -117,15 +169,11 @@ class Vm:
                 IMAGES_DIR / metadata_filename)
         if (path.exists(image_path)
                 is False or cls.has_revision_changed is True):
-            s3.download_file(
-                distribox_bucket_registry,
-                image,
-                image_path)
+            cls._download_registry_image(image, image_path, progress)
         return image_path
 
     @classmethod
-    def check_disk_size(cls, os_value: str, disk_size: int):
-        image_path = cls._download_image(cls._resolve_image_name(os_value))
+    def _require_disk_size(cls, image_path: Path, disk_size: int):
         min_disk_size = cls._min_disk_size(image_path)
         if disk_size < min_disk_size:
             raise HTTPException(
@@ -133,8 +181,24 @@ class Vm:
                 detail=f"Disk size must be at least {min_disk_size} GB",
             )
 
-    def __init__(self, vm_create: VmCreate):
-        self.id = uuid.uuid4()
+    @classmethod
+    def check_disk_size(cls, os_value: str, disk_size: int,
+                        progress: Progress = NO_PROGRESS):
+        image_path = cls._download_image(
+            cls._resolve_image_name(os_value), progress)
+        cls._require_disk_size(image_path, disk_size)
+
+    @classmethod
+    def check_local_image(cls, os_value: str, disk_size: int):
+        """What can be rejected at once, without reaching the registry."""
+        image_path = IMAGES_DIR / cls._resolve_image_name(os_value)
+        if image_path.exists():
+            cls._require_disk_size(image_path, disk_size)
+
+    def __init__(self, vm_create: VmCreate,
+                 vm_id: Optional[uuid.UUID] = None,
+                 progress: Progress = NO_PROGRESS):
+        self.id = vm_id or uuid.uuid4()
         self.name = vm_create.name
         self.os = self._resolve_image_name(vm_create.os)
         self.mem = vm_create.mem
@@ -148,21 +212,30 @@ class Vm:
         self.credentials_count: int = 0
 
         vm_dir = VMS_DIR / str(self.id)
-        distribox_image_dir = IMAGES_DIR / self.os
+        image_path = IMAGES_DIR / self.os
 
         try:
-            self.check_disk_size(self.os, self.disk_size)
-            vm_dir.mkdir(parents=True, exist_ok=True)
+            self.check_disk_size(self.os, self.disk_size, progress)
+            progress.phase("copying_disk", image_path.stat().st_size)
+            vm_dir.mkdir(parents=True, exist_ok=False)
             ensure_seed_iso(
                 keyboard_layout=self.keyboard_layout,
                 vm_dir=vm_dir,
             )
-            copy(distribox_image_dir, vm_dir)
             vm_path = vm_dir / self.os
-            subprocess.run(
+            copy_disk(image_path, vm_path, progress)
+            progress.phase("resizing_disk")
+            resize = subprocess.run(
                 ["qemu-img", "resize", vm_path, f"{self.disk_size}G"],
-                check=True,
+                capture_output=True,
+                text=True,
             )
+            if resize.returncode != 0:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Could not resize the disk: {resize.stderr.strip()}",
+                )
+            progress.phase("defining")
             vm_xml = build_xml(VmCreateXML(
                 id=self.id,
                 os=self.os,
@@ -174,6 +247,15 @@ class Vm:
             ))
             conn = QEMUConfig.get_connection()
             conn.defineXML(with_vnc_clipboard(conn, vm_xml))
+            # The record comes last, so the VM is listed only once its
+            # creation is over. A VM that fails to start is still created.
+            start_error = None
+            if vm_create.activate_at_start is True:
+                progress.phase("starting")
+                try:
+                    self.start()
+                except Exception as error:
+                    start_error = error
             with Session(engine) as session:
                 vm_record = VmORM(
                     id=self.id,
@@ -188,8 +270,8 @@ class Vm:
                 )
                 session.add(vm_record)
                 session.commit()
-            if vm_create.activate_at_start is True:
-                self.start()
+            if start_error is not None:
+                raise start_error
         except Exception:
             raise
 
@@ -550,17 +632,72 @@ class VmService:
 
     @staticmethod
     def create_vm(vm_create: VmCreate):
-        if vm_create.slave_id:
-            return VmService._create_vm_on_slave(vm_create)
-        if vm_create.auto_place:
+        """Create a VM and wait for it, recorded as an operation."""
+        operation, job = VmService._prepare_creation(vm_create, None)
+        return OperationService.run(operation.id, job)
+
+    @staticmethod
+    def start_vm_creation(vm_create: VmCreate,
+                          created_by: Optional[str]) -> OperationRead:
+        """Create a VM in the background and return its operation."""
+        operation, job = VmService._prepare_creation(vm_create, created_by)
+        OperationService.run_in_background(operation.id, job)
+        return operation
+
+    @staticmethod
+    def _prepare_creation(
+        vm_create: VmCreate, created_by: Optional[str],
+    ) -> tuple[OperationRead, Callable[[Progress], Any]]:
+        """Check what can be checked at once, then record the operation."""
+        params = vm_create.model_dump(mode="json")
+        slave = VmService._pick_slave(vm_create)
+        vm_id = uuid.uuid4()
+        if slave is None:
+            Vm.check_local_image(vm_create.os, vm_create.disk_size)
+            phases = ["fetching_image", "copying_disk", "resizing_disk",
+                      "defining"]
+            if vm_create.activate_at_start:
+                phases.append("starting")
+        else:
+            phases = ["creating_on_node"]
+
+        def job(progress: Progress):
+            if slave is None:
+                return Vm(vm_create, vm_id, progress)
+            return VmService._create_vm_on_slave(
+                vm_create, slave, vm_id, progress)
+
+        operation = OperationService.create(
+            VM_CREATE,
+            vm_create.name,
+            phases,
+            vm_id=vm_id,
+            slave_id=slave.id if slave else None,
+            slave_name=slave.name if slave else None,
+            params=params,
+            created_by=created_by,
+        )
+        return operation, job
+
+    @staticmethod
+    def _pick_slave(vm_create: VmCreate) -> Optional[SlaveORM]:
+        """The slave that will host the VM, or None for this host."""
+        from app.services.slave_service import SlaveService
+
+        slave_id = vm_create.slave_id
+        if slave_id is None and vm_create.auto_place:
             slave_id = VmService._auto_pick_node(
                 vm_create.mem, vm_create.vcpus, vm_create.disk_size
             )
-            if slave_id:
-                vm_create.slave_id = slave_id
-                return VmService._create_vm_on_slave(vm_create)
-        vm = Vm(vm_create)
-        return vm
+        if slave_id is None:
+            return None
+        slave = SlaveService.get_slave(str(slave_id))
+        if slave.status != "online":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Slave {slave.name} is not online",
+            )
+        return slave
 
     @staticmethod
     def _auto_pick_node(
@@ -601,19 +738,13 @@ class VmService:
         return best_slave.id if best_slave else None
 
     @staticmethod
-    def _create_vm_on_slave(vm_create: VmCreate):
+    def _create_vm_on_slave(vm_create: VmCreate, slave: SlaveORM,
+                            vm_id: uuid.UUID, progress: Progress):
         """Create a VM on a slave node."""
         from app.services.slave_client import slave_create_vm
-        from app.services.slave_service import SlaveService
-
-        slave = SlaveService.get_slave(str(vm_create.slave_id))
-        if slave.status != "online":
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Slave {slave.name} is not online",
-            )
 
         payload = {
+            "id": str(vm_id),
             "os": vm_create.os,
             "name": vm_create.name,
             "mem": vm_create.mem,
@@ -623,13 +754,25 @@ class VmService:
             "ssh_enabled": vm_create.ssh_enabled,
             "activate_at_start": vm_create.activate_at_start,
         }
-        result = slave_create_vm(slave, payload)
-        vm_id = result["id"]
+        try:
+            result = slave_create_vm(slave, payload)
+        except httpx.TimeoutException as error:
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail=(
+                    f"{slave.name} did not finish creating the VM in time. "
+                    "It may still appear there as an unmanaged VM."
+                ),
+            ) from error
+        created_id = uuid.UUID(str(result["id"]))
+        if created_id != vm_id:
+            # A slave on an older version picks the id itself.
+            progress.set_vm(created_id)
 
         # Store a reference in the master DB
         with Session(engine) as session:
             vm_record = VmORM(
-                id=uuid.UUID(vm_id) if isinstance(vm_id, str) else vm_id,
+                id=created_id,
                 name=vm_create.name,
                 os=vm_create.os,
                 mem=vm_create.mem,
@@ -832,9 +975,16 @@ class VmService:
     @staticmethod
     def get_recoverable_vms() -> list[RecoverableVm]:
         recoverable_vms = []
-        vm_root = Path(VMS_DIR)
+        # A VM still being created has files and no record yet: it is not
+        # untracked until its creation fails or is interrupted. The order
+        # matters. A creation is recorded before its folder exists, and its
+        # VM before it ends, so folders are read first and VM records last.
+        folders = list(Path(VMS_DIR).iterdir())
+        creating = OperationService.running_vm_ids()
         with Session(engine) as session:
-            for vm in vm_root.iterdir():
+            for vm in folders:
+                if vm.name in creating:
+                    continue
                 vm_record = session.get(VmORM, uuid.UUID(vm.name))
                 if vm_record is None:
                     for vm_file in vm.iterdir():

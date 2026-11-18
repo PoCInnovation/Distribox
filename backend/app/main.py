@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, col, select
 from app.core.policies import DISTRIBOX_ADMIN_POLICY
-from app.routes import vm, image, host, auth, user_management, tunnel, event, slave
+from app.routes import vm, image, host, auth, user_management, tunnel, event, slave, operation
 from app.routes import slave_agent, ssh, ssh_slave
 from app.orm.user import UserORM
 from app.orm.vm import VmORM
@@ -15,10 +15,12 @@ from app.orm.vm_credential import VmCredentialORM  # noqa: F401
 from app.orm.event import EventORM, EventParticipantORM  # noqa: F401
 from app.orm.user_settings import UserSettingsORM  # noqa: F401
 from app.orm.slave import SlaveORM  # noqa: F401
+from app.orm.operation import OperationORM  # noqa: F401
 from app.utils.auth import hash_password
 from app.core.config import engine, get_env_or_default, init_db, DISTRIBOX_MODE, QEMUConfig, ROOT_PATH
 from app.utils.crypto import encrypt_secret, is_encrypted_secret
 from app.services.vm_service import VmService
+from app.services.operation_service import OperationService
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +92,11 @@ async def startup_event():
         logger.info("Starting in SLAVE mode")
         asyncio.create_task(_slave_heartbeat_loop())
         return
+
+    # Nothing runs yet, so every operation still marked running was cut
+    # short by the last shutdown.
+    OperationService.interrupt_orphans()
+    OperationService.purge_expired()
 
     admin_username = get_env_or_default("ADMIN_USERNAME", "admin")
     admin_password = get_env_or_default("ADMIN_PASSWORD", "admin")
@@ -267,3 +274,5 @@ else:
     app.include_router(ssh.router, tags=["ssh"])
     app.include_router(event.router, prefix="/events", tags=["events"])
     app.include_router(slave.router, prefix="/slaves", tags=["slaves"])
+    app.include_router(operation.router, prefix="/operations",
+                       tags=["operations"])
