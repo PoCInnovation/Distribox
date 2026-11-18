@@ -122,8 +122,10 @@ export function outcomeLabel(op: Operation): string {
   switch (op.status) {
     case "succeeded":
       return op.phase === "starting" ? "Running" : "Ready";
-    case "failed":
-      return `Failed while ${phaseLabel(op).toLowerCase()}`;
+    case "failed": {
+      const label = phaseLabel(op);
+      return `Failed while ${label.charAt(0).toLowerCase()}${label.slice(1)}`;
+    }
     case "interrupted":
       return "Interrupted by a backend restart";
     default:

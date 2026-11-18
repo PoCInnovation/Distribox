@@ -256,7 +256,7 @@ function FinishedRow({
         </button>
       </div>
       <p className={cn("mt-1 pl-[26px] text-xs", tone)}>{outcomeLabel(op)}</p>
-      {op.error && (
+      {op.error && op.status === "failed" && (
         <p className="mt-1.5 ml-[26px] border-l-2 border-destructive/60 bg-destructive/[0.06] px-2 py-1.5 font-mono text-[11px] leading-relaxed break-words text-foreground/80">
           {op.error}
         </p>

@@ -363,6 +363,7 @@ export function DashboardVMsTable({
               {hasFilters
                 ? `${filtered.length} of ${vms.length}`
                 : `${vms.length} ${vms.length === 1 ? "machine" : "machines"}`}
+              {creating.length > 0 && ` · ${creating.length} creating`}
             </span>
             <button
               type="button"
@@ -723,13 +724,14 @@ function CreatingRow({ op }: { op: Operation }) {
           {op.name}
         </span>
       </td>
-      <td className="px-3" colSpan={2}>
-        <div className="flex max-w-[17rem] flex-col gap-1.5">
+      <td className="px-3">
+        <div
+          className="flex flex-col gap-1.5"
+          title={phaseLabel(op)}
+          aria-label={`Creating, ${phaseLabel(op).toLowerCase()}`}
+        >
           <span className="flex items-baseline gap-2 text-sm whitespace-nowrap">
             <span className="text-primary">Creating</span>
-            <span className="truncate text-xs text-muted-foreground">
-              {phaseLabel(op)}
-            </span>
             {fraction !== null && (
               <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">
                 {Math.floor(fraction * 100)}%
@@ -738,6 +740,11 @@ function CreatingRow({ op }: { op: Operation }) {
           </span>
           <SegmentedProgress op={op} />
         </div>
+      </td>
+      <td className="px-3">
+        {op.params?.os && (
+          <VmOsLabel image={op.params.os} className="opacity-80" />
+        )}
       </td>
       <td className="hidden px-3 2xl:table-cell">
         {op.params?.vcpus != null && (

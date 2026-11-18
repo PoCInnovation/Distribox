@@ -75,15 +75,14 @@ export function useDismissOperations() {
   });
 }
 
-/** A clock that ticks every second while `active`, for elapsed timers. */
-export function useNow(active: boolean): number {
+/** Current time, refreshed every `intervalMs`, for timers and "x min ago". */
+export function useNow(intervalMs: number): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!active) return;
     setNow(Date.now());
-    const id = window.setInterval(() => setNow(Date.now()), 1_000);
+    const id = window.setInterval(() => setNow(Date.now()), intervalMs);
     return () => window.clearInterval(id);
-  }, [active]);
+  }, [intervalMs]);
   return now;
 }
 
@@ -118,6 +117,10 @@ export function useOperationOutcomes(operations: Operation[]) {
                 onClick: () => navigate(`/dashboard?vm=${vmId}`),
               }
             : undefined,
+          classNames: {
+            actionButton:
+              "!rounded-none !border !border-border !bg-transparent !text-foreground hover:!border-primary/50 hover:!text-primary",
+          },
         });
       } else if (op.status === "failed") {
         toast.error(`Couldn't create ${op.name}`, {

@@ -55,7 +55,8 @@ export function ActivityBar({ collapsed }: { collapsed: boolean }) {
   useOperationOutcomes(operations);
   const [open, setOpen] = useState(false);
   const running = operations.some((op) => op.status === "running");
-  const now = useNow(running || open);
+  // Seconds matter for elapsed timers; otherwise only for aging successes.
+  const now = useNow(running || open ? 1_000 : 30_000);
 
   if (operations.length === 0) return null;
 
