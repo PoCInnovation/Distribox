@@ -13,11 +13,14 @@ from fastapi import HTTPException, status
 from app.models.image import CatalogImage, ImageRead, ImageUpload
 from app.core.constants import IMAGES_DIR
 from app.core.config import s3, distribox_bucket_registry
+from app.services.image_preparation import prepare_for_ssh
 
 logger = logging.getLogger(__name__)
 
 DISK_SUFFIXES = (".qcow2", ".vmdk", ".vdi", ".img", ".raw")
 conversions: dict[str, asyncio.Task] = {}
+# The images whose conversion is over and that are being prepared for SSH.
+preparing: set[str] = set()
 
 
 def _disk_gib(size_bytes: int) -> int:
@@ -162,6 +165,7 @@ class ImageService():
         slug = ImageService._slug(name)
         upload_path = ImageService._upload_path(slug, filename)
         if offset == 0:
+            ImageService._require_idle(slug)
             if (IMAGES_DIR / f"{slug}.metadata.yaml").exists():
                 raise HTTPException(
                     status.HTTP_409_CONFLICT,
@@ -180,7 +184,15 @@ class ImageService():
     @staticmethod
     async def finish_upload(filename: str, upload: ImageUpload):
         slug = ImageService._slug(upload.name)
+        ImageService._require_idle(slug)
         upload_path = ImageService._upload_path(slug, filename)
+        if (IMAGES_DIR / f"{slug}.metadata.yaml").exists():
+            # Another upload took the name while this one was being sent.
+            upload_path.unlink(missing_ok=True)
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"An image named '{slug}' already exists",
+            )
         if not upload_path.exists():
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
@@ -196,22 +208,64 @@ class ImageService():
             firmware=upload.firmware,
         )
         conversions[slug] = asyncio.create_task(
-            ImageService._convert_upload(slug, upload_path, image))
+            ImageService._convert_upload(upload_path, image))
         return image
 
     @staticmethod
-    async def _convert_upload(slug: str, upload_path: Path, image: ImageRead):
+    async def _convert_upload(upload_path: Path, image: ImageRead):
         image_path = IMAGES_DIR / image.image
         try:
             await asyncio.to_thread(
                 ImageService._convert_image, upload_path, image_path)
+            return await ImageService._prepare(image)
         except Exception:
             image_path.unlink(missing_ok=True)
             raise
         finally:
             upload_path.unlink(missing_ok=True)
+
+    @staticmethod
+    def _require_idle(slug: str):
+        """Two jobs on one image would overwrite each other's files."""
+        if slug in conversions and not conversions[slug].done():
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"The image '{slug}' is still being processed",
+            )
+
+    @staticmethod
+    async def _prepare(image: ImageRead, replace: bool = False):
+        """Prepare an image for SSH and record how that went in its metadata."""
+        slug = Path(image.image).stem
+        preparing.add(slug)
+        try:
+            image.ssh_detail = await asyncio.to_thread(
+                prepare_for_ssh, IMAGES_DIR / image.image, replace=replace)
+        finally:
+            preparing.discard(slug)
+        image.ssh_ready = image.ssh_detail is None
         (IMAGES_DIR / f"{slug}.metadata.yaml").write_text(
             yaml.safe_dump(image.model_dump(), sort_keys=False))
+        return image.ssh_detail
+
+    @staticmethod
+    async def prepare_image(image_name: str):
+        """Prepare an image that was uploaded before, or again after a failure."""
+        image = next((image for image in ImageService.get_local_image_list()
+                      if image.image == image_name and image.family == "local"),
+                     None)
+        if image is None:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                f"No uploaded image named '{image_name}'",
+            )
+        slug = Path(image.image).stem
+        ImageService._require_idle(slug)
+        # VMs can be created from this image meanwhile: it is replaced, not
+        # changed.
+        conversions[slug] = asyncio.create_task(
+            ImageService._prepare(image, replace=True))
+        return image
 
     @staticmethod
     def upload_status(name: str) -> dict:
@@ -221,11 +275,13 @@ class ImageService():
             raise HTTPException(
                 status.HTTP_404_NOT_FOUND, "No upload in progress")
         if not task.done():
-            return {"status": "converting", "detail": None}
+            return {"status": "preparing" if slug in preparing else "converting",
+                    "detail": None}
         del conversions[slug]
         error = task.exception()
         if error is None:
-            return {"status": "ready", "detail": None}
+            # A ready image comes with the reason SSH could not be set up, if any.
+            return {"status": "ready", "detail": task.result()}
         detail = error.detail if isinstance(
             error, HTTPException) else str(error)
         return {"status": "failed", "detail": detail}

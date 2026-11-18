@@ -58,7 +58,7 @@ Each user is given policies for the actions they may take, such as creating VMs,
 
 Ubuntu 22.04, Debian 12, Fedora 43, CentOS 10, AlmaLinux 9, Alpine Linux 3.21 and Arch Linux work out of the box. Their images sit in a remote registry. The backend downloads one the first time a VM needs it, caches it and picks up new revisions on its own.
 
-To use your own image, click **Upload** in the image picker and choose a qcow2, VMDK, VDI or raw disk, or a zip archive holding one. Tick the UEFI option for machines exported from VirtualBox or VMware with EFI enabled.
+To use your own image, click **Upload** in the image picker and choose a qcow2, VMDK, VDI or raw disk, or a zip archive holding one. Tick the UEFI option for machines exported from VirtualBox or VMware with EFI enabled. A Linux image is set up for SSH as part of the upload.
 
 ### Multiple hosts
 

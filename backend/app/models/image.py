@@ -10,6 +10,9 @@ class ImageBase(BaseModel):
     family: str
     revision: int
     firmware: str = "bios"
+    # Uploaded images only: whether they have what SSH needs, and why not.
+    ssh_ready: Optional[bool] = None
+    ssh_detail: Optional[str] = None
 
     @field_validator("version", mode="before")
     @classmethod
@@ -33,5 +36,5 @@ class ImageUpload(BaseModel):
 
 
 class ImageUploadStatus(BaseModel):
-    status: Literal["converting", "ready", "failed"]
+    status: Literal["converting", "preparing", "ready", "failed"]
     detail: Optional[str] = None

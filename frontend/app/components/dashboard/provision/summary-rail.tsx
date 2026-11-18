@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { DistroLogo } from "@/components/distro-logo";
 import type { ImageMetadata } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { ImageSshNote } from "./image-ssh-note";
 import { titleOfImage, type VmSize } from "./model";
 
 export interface SummaryStatus {
@@ -134,6 +135,9 @@ export function SummaryRail({
             on={ssh}
             onChange={onSshChange}
           />
+        )}
+        {ssh !== null && image && (
+          <ImageSshNote key={image.image} image={image} />
         )}
         <Toggle
           label="Start after creation"

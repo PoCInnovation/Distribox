@@ -16,7 +16,7 @@ name = Path(sys.argv[0]).name
 args = sys.argv[1:]
 state = Path(os.environ['SERVICE_STATE'])
 if name == 'id':
-    if os.environ.get('MISSING_USER'):
+    if args[-1] != os.environ['ACCOUNT']:
         sys.exit(1)
     if args[0] == '-u': print(os.getuid())
     if args[0] == '-g': print(os.getgid())
@@ -55,18 +55,22 @@ def guest_script(tmp_path):
     (ssh / 'ssh_host_ed25519_key.pub').write_text('guest-host-key\n')
     home = tmp_path / 'home'
     home.mkdir()
-    (etc / 'passwd').write_text(
-        f'user:x:{os.getuid()}:{os.getgid()}::{home}:/bin/sh\n')
     state = tmp_path / 'state'
     state.mkdir()
-    for command in ('awk', 'mkdir', 'touch', 'grep', 'chmod', 'chown', 'head', 'mktemp', 'mv', 'rm', 'cat'):
+    for command in ('awk', 'mkdir', 'touch', 'grep', 'chmod', 'chown', 'head', 'mktemp', 'mv', 'rm', 'cat',
+                    'sort', 'cut'):
         (binaries / command).symlink_to(shutil.which(command))
     for command in ('id', 'sshd', 'ssh-keygen'):
         path = binaries / command
         path.write_text(f'#!{sys.executable}\n{STUB}')
         path.chmod(0o755)
 
-    def run(manager, **environment):
+    def run(manager, account='user', **environment):
+        (etc / 'passwd').write_text(
+            'root:x:0:0::/root:/bin/sh\n'
+            'nobody:x:65534:65534::/:/usr/sbin/nologin\n' + (
+                f'later:x:1002:1002::/home/later:/bin/sh\n'
+                f'{account}:x:1001:1001::{home}:/bin/sh\n' if account else ''))
         for command in {'systemctl'} if manager.startswith('systemd') else (
                 {'rc-service', 'rc-update'} if manager == 'openrc' else set()):
             path = binaries / command
@@ -77,7 +81,7 @@ def guest_script(tmp_path):
         script = script.replace('/etc/ssh', str(ssh)).replace(
             '/etc/passwd', str(etc / 'passwd')).replace('/run/sshd', str(tmp_path / 'run' / 'sshd'))
         env = {
-            **os.environ, 'SERVICE_STATE': str(state),
+            **os.environ, 'SERVICE_STATE': str(state), 'ACCOUNT': account,
             'SYSTEMD_UNIT': 'sshd.service' if manager == 'systemd-sshd' else 'ssh.service',
             **environment,
         }
@@ -100,11 +104,21 @@ def test_setup_enables_service_and_applies_configuration(guest_script, manager, 
     assert (state / 'enabled').exists()
     assert (state / 'running').read_text() == 'new-configuration'
     assert (home / '.ssh' / 'authorized_keys').read_text().strip() == 'test-public-key'
-    assert result.stdout == 'guest-host-key\n'
+    assert result.stdout == 'user\nguest-host-key\n'
+
+
+def test_setup_uses_the_first_regular_account_without_a_user_account(guest_script):
+    run, state, home = guest_script
+
+    result = run('systemd-ssh', account='student')
+
+    assert result.returncode == 0, result.stderr
+    assert (home / '.ssh' / 'authorized_keys').read_text().strip() == 'test-public-key'
+    assert result.stdout == 'student\nguest-host-key\n'
 
 
 @pytest.mark.parametrize('environment,exitcode', [
-    ({'MISSING_USER': '1'}, 11),
+    ({'account': ''}, 11),
     ({'INVALID_CONFIG': '1'}, 14),
     ({'SERVICE_FAILURE': '1'}, 13),
 ])

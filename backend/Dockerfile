@@ -6,6 +6,14 @@ RUN apt-get update && apt-get install -y \
     genisoimage \
     && rm -rf /var/lib/apt/lists/*
 
+# libguestfs prepares uploaded images for SSH. It works on a disk from a small
+# virtual machine, which needs a kernel.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    guestfish \
+    libguestfs-xfs \
+    "linux-image-cloud-$(dpkg --print-architecture)" \
+    && rm -rf /var/lib/apt/lists/*
+
 FROM base as builder
 WORKDIR /code
 COPY ./requirements.txt /code/requirements.txt

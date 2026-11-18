@@ -76,7 +76,8 @@ def agent_response(monkeypatch, stdout, exitcode=0):
 
 def test_prepare_uses_pinned_host_key_and_persistent_encrypted_identity(guest, monkeypatch):
     host_key = public_key()
-    agent = agent_response(monkeypatch, host_key + " guest-comment\n")
+    agent = agent_response(
+        monkeypatch, "user\n" + host_key + " guest-comment\n")
 
     first = ssh_guest.prepare_guest(guest.id)
     second = ssh_guest.prepare_guest(guest.id)
@@ -99,6 +100,21 @@ def test_prepare_uses_pinned_host_key_and_persistent_encrypted_identity(guest, m
     assert stored_key.private_bytes_raw() == first_key.private_bytes_raw()
     assert "PRIVATE KEY" not in str(agent.call_args_list)
     assert not list(guest.directory.glob("tmp*"))
+
+
+def test_prepare_signs_in_to_the_account_the_guest_reports(guest, monkeypatch):
+    agent_response(monkeypatch, "student\n" + public_key())
+
+    assert ssh_guest.prepare_guest(guest.id)["username"] == "student"
+
+
+def test_unusable_guest_account_is_rejected(guest, monkeypatch):
+    agent_response(monkeypatch, "-oProxyCommand=id\n" + public_key())
+
+    with pytest.raises(HTTPException) as failure:
+        ssh_guest.prepare_guest(guest.id)
+
+    assert failure.value.status_code == 503
 
 
 @pytest.mark.parametrize("lease", [
@@ -173,7 +189,7 @@ def test_running_vm_without_dhcp_lease_does_not_defer_setup(guest, monkeypatch):
 
 
 def test_refresh_runs_setup_again_instead_of_using_connection_cache(guest, monkeypatch):
-    agent = agent_response(monkeypatch, public_key())
+    agent = agent_response(monkeypatch, "user\n" + public_key())
     ssh_guest.prepare_guest(guest.id)
     agent.reset_mock()
 
@@ -184,7 +200,7 @@ def test_refresh_runs_setup_again_instead_of_using_connection_cache(guest, monke
 
 
 def test_failed_refresh_invalidates_old_connection_cache(guest, monkeypatch):
-    agent_response(monkeypatch, public_key())
+    agent_response(monkeypatch, "user\n" + public_key())
     ssh_guest.prepare_guest(guest.id)
     agent = Mock(side_effect=libvirt.libvirtError("guest agent disconnected"))
     monkeypatch.setattr(ssh_guest.libvirt_qemu, "qemuAgentCommand", agent)

@@ -72,8 +72,9 @@ export function UploadImageDialog({
   const [efi, setEfi] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [preparing, setPreparing] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const upload = useUploadImage(setProgress);
+  const upload = useUploadImage(setProgress, () => setPreparing(true));
 
   const reset = () => {
     setFile(null);
@@ -82,6 +83,7 @@ export function UploadImageDialog({
     setVersion("");
     setEfi(false);
     setProgress(0);
+    setPreparing(false);
     setSubmitted(false);
     setDragging(false);
     upload.reset();
@@ -118,12 +120,19 @@ export function UploadImageDialog({
           firmware: efi ? "efi" : "bios",
         },
       });
-      toast.success(`Image "${image.name}" is ready`);
+      if (image.ssh_detail) {
+        toast.warning(
+          `Image "${image.name}" is ready, without SSH. ${image.ssh_detail}.`,
+        );
+      } else {
+        toast.success(`Image "${image.name}" is ready`);
+      }
       onUploaded(image);
       reset();
       onOpenChange(false);
     } catch {
       setProgress(0);
+      setPreparing(false);
     }
   };
 
@@ -132,7 +141,9 @@ export function UploadImageDialog({
   const status =
     progress < 100
       ? `Uploading, ${progress}%`
-      : "Converting to qcow2. This can take a few minutes.";
+      : preparing
+        ? "Setting up SSH on the image."
+        : "Converting to qcow2. This can take a few minutes.";
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

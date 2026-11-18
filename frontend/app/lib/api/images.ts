@@ -42,7 +42,11 @@ function sendChunk(
   });
 }
 
-async function waitForConversion(name: string): Promise<void> {
+/** Resolves with why SSH could not be set up on the image, if it could not. */
+async function waitForImage(
+  name: string,
+  onPreparing?: () => void,
+): Promise<string | null> {
   const params = new URLSearchParams({ name });
   while (true) {
     const result = await apiRequest(
@@ -50,18 +54,30 @@ async function waitForConversion(name: string): Promise<void> {
       {},
       ImageUploadStatusSchema,
     );
-    if (result.status === "ready") return;
+    if (result.status === "ready") return result.detail ?? null;
     if (result.status === "failed") {
       throw new Error(result.detail ?? "Image conversion failed");
     }
+    if (result.status === "preparing") onPreparing?.();
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
+}
+
+/** Sets up SSH on an uploaded image; resolves like `waitForImage`. */
+export async function prepareImage(image: string): Promise<string | null> {
+  await apiRequest(
+    `/images/prepare?${new URLSearchParams({ image })}`,
+    { method: "POST" },
+    ImageMetadataSchema,
+  );
+  return waitForImage(image.replace(/\.qcow2$/, ""));
 }
 
 export async function uploadImage(
   file: File,
   payload: ImageUploadPayload,
   onProgress: (percent: number) => void,
+  onPreparing: () => void,
 ): Promise<ImageMetadata> {
   const chunkParams = new URLSearchParams({
     filename: file.name,
@@ -89,6 +105,6 @@ export async function uploadImage(
     ImageMetadataSchema,
   );
   onProgress(100);
-  await waitForConversion(payload.name);
-  return image;
+  const sshDetail = await waitForImage(payload.name, onPreparing);
+  return { ...image, ssh_ready: sshDetail === null, ssh_detail: sshDetail };
 }

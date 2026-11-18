@@ -48,6 +48,14 @@ async def upload_image(
     return await ImageService.finish_upload(filename, upload)
 
 
+@router.post("/prepare", status_code=status.HTTP_202_ACCEPTED,
+             response_model=ImageRead,
+             dependencies=[Depends(require_policy("images:upload"))],
+             responses={403: {"model": MissingPoliciesResponse}})
+async def prepare_image(image: str = Query(min_length=1)):
+    return await ImageService.prepare_image(image)
+
+
 @router.get("/upload/status", status_code=status.HTTP_200_OK,
             response_model=ImageUploadStatus,
             dependencies=[Depends(require_policy("images:upload"))],
