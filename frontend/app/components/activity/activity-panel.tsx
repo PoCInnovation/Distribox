@@ -17,7 +17,6 @@ import {
   formatEta,
   formatRate,
   groupOperations,
-  hasVm,
   outcomeLabel,
   phaseEtaSeconds,
   phaseFraction,
@@ -72,7 +71,7 @@ export function ActivityPanel({
                 key={op.id}
                 op={op}
                 now={now}
-                canOpen={hasVm(op) && vmIds.has(op.vm_id ?? "")}
+                canOpen={vmIds.has(op.vm_id ?? "")}
                 onDismiss={() => dismiss.mutate([op.id])}
                 onNavigate={onNavigate}
               />
@@ -97,7 +96,7 @@ export function ActivityPanel({
                 key={op.id}
                 op={op}
                 now={now}
-                canOpen={hasVm(op) && vmIds.has(op.vm_id ?? "")}
+                canOpen={vmIds.has(op.vm_id ?? "")}
                 onDismiss={() => dismiss.mutate([op.id])}
                 onNavigate={onNavigate}
               />

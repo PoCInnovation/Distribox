@@ -714,10 +714,9 @@ class VmService:
         )
 
         try:
-            master = HostService.get_host_info()
-            if (master.mem.available >= required_mem and
-                    master.cpu.cpu_count >= required_vcpus and
-                    master.disk.available >= required_disk):
+            mem, cpus, disk = HostService.get_free_capacity()
+            if (mem >= required_mem and cpus >= required_vcpus and
+                    disk >= required_disk):
                 return None
         except Exception:
             pass

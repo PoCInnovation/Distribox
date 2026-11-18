@@ -109,15 +109,6 @@ export function formatAgo(iso: string, now: number): string {
   return `${Math.floor(hours / 24)} d ago`;
 }
 
-/** Whether the operation left a VM behind that can be opened. */
-export function hasVm(op: Operation): boolean {
-  if (!op.vm_id) return false;
-  return (
-    op.status === "succeeded" ||
-    (op.status === "failed" && op.phase === "starting")
-  );
-}
-
 export function outcomeLabel(op: Operation): string {
   switch (op.status) {
     case "succeeded":

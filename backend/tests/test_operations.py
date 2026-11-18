@@ -298,6 +298,22 @@ def test_image_path_instead_of_a_name_is_rejected_at_once(host):
     assert image.read_bytes() == DISK
 
 
+def test_auto_placement_with_room_here_asks_no_slave(host, monkeypatch):
+    from app.services import host_service
+    host_info = Mock(side_effect=AssertionError("lists every VM"))
+    probe = Mock(side_effect=AssertionError("asks a slave"))
+    monkeypatch.setattr(host_service.HostService, "get_host_info", host_info)
+    monkeypatch.setattr(host_service.HostService, "get_free_capacity",
+                        staticmethod(lambda: (64.0, 16, 500.0)))
+    monkeypatch.setattr(slave_client, "slave_get_host_info", probe)
+
+    operation = VmService.start_vm_creation(vm_create(auto_place=True), "host")
+    wait_for(operation)
+
+    assert operation.slave_id is None
+    assert not host_info.called and not probe.called
+
+
 def test_vm_is_recorded_after_it_started(host, monkeypatch):
     records_at_start = []
     monkeypatch.setattr(vm_service.Vm, "start", lambda self: (
