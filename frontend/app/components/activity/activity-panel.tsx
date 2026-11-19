@@ -9,6 +9,12 @@ import { useAuthz } from "@/contexts/authz-context";
 import { DistroLogo } from "@/components/distro-logo";
 import { useOsInfo } from "@/components/dashboard/vm-os-label";
 import { useDismissOperations } from "@/hooks/useOperations";
+import { useImageUploads } from "@/hooks/useImages";
+import {
+  cancelImageUpload,
+  dismissImageUploads,
+  type ImageUpload,
+} from "@/lib/image-uploads";
 import { SegmentedProgress, StatusGlyph } from "./operation-progress";
 import {
   formatAgo,
@@ -23,6 +29,7 @@ import {
   phaseIndex,
   phaseLabel,
   phaseSpeed,
+  UPLOAD_KIND,
 } from "./operation-model";
 
 /** The expanded activity view: every operation the server still lists. */
@@ -38,6 +45,13 @@ export function ActivityPanel({
   const { running, attention, done } = groupOperations(operations);
   const dismiss = useDismissOperations();
   const vmIds = useVmIds();
+  // Uploads only exist in this tab; everything else is dismissed on the server.
+  const dismissAll = (ops: Operation[]) => {
+    const uploads = ops.filter((op) => op.kind === UPLOAD_KIND);
+    if (uploads.length) dismissImageUploads(uploads.map((op) => op.id));
+    const others = ops.filter((op) => op.kind !== UPLOAD_KIND);
+    if (others.length) dismiss.mutate(others.map((op) => op.id));
+  };
 
   return (
     <div className="flex max-h-[min(78vh,40rem)] flex-col">
@@ -72,7 +86,7 @@ export function ActivityPanel({
                 op={op}
                 now={now}
                 canOpen={vmIds.has(op.vm_id ?? "")}
-                onDismiss={() => dismiss.mutate([op.id])}
+                onDismiss={() => dismissAll([op])}
                 onNavigate={onNavigate}
               />
             ))}
@@ -84,7 +98,7 @@ export function ActivityPanel({
             action={
               <button
                 type="button"
-                onClick={() => dismiss.mutate(done.map((op) => op.id))}
+                onClick={() => dismissAll(done)}
                 className="text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
                 Clear
@@ -97,7 +111,7 @@ export function ActivityPanel({
                 op={op}
                 now={now}
                 canOpen={vmIds.has(op.vm_id ?? "")}
-                onDismiss={() => dismiss.mutate([op.id])}
+                onDismiss={() => dismissAll([op])}
                 onNavigate={onNavigate}
               />
             ))}
@@ -169,7 +183,15 @@ function OsTile({ op }: { op: Operation }) {
   );
 }
 
+function useUpload(op: Operation): ImageUpload | undefined {
+  const uploads = useImageUploads();
+  return op.kind === UPLOAD_KIND
+    ? uploads.find((u) => u.id === op.id)
+    : undefined;
+}
+
 function RunningCard({ op, now }: { op: Operation; now: number }) {
+  const upload = useUpload(op);
   const fraction = phaseFraction(op);
   const speed = phaseSpeed(op);
   const eta = phaseEtaSeconds(op);
@@ -178,7 +200,15 @@ function RunningCard({ op, now }: { op: Operation; now: number }) {
   return (
     <li className="px-4 py-3.5">
       <div className="flex items-center gap-3">
-        <OsTile op={op} />
+        {upload ? (
+          <DistroLogo
+            distribution={upload.distribution}
+            size="sm"
+            className="size-8 bg-secondary"
+          />
+        ) : (
+          <OsTile op={op} />
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
             <p
@@ -190,8 +220,23 @@ function RunningCard({ op, now }: { op: Operation; now: number }) {
             <span className="ml-auto font-mono text-sm text-primary tabular-nums">
               {fraction !== null ? `${Math.floor(fraction * 100)}%` : null}
             </span>
+            {upload?.phase === "uploading" && (
+              <button
+                type="button"
+                onClick={() => cancelImageUpload(upload.id)}
+                className="inline-flex h-6 shrink-0 items-center border border-border px-2 text-[11px] text-foreground transition-colors hover:border-destructive/60 hover:text-destructive"
+              >
+                Cancel
+              </button>
+            )}
           </div>
-          <SpecLine op={op} />
+          {upload ? (
+            <p className="truncate text-xs text-muted-foreground">
+              {upload.fileName} · {formatBytes(upload.fileSize)}
+            </p>
+          ) : (
+            <SpecLine op={op} />
+          )}
         </div>
       </div>
 

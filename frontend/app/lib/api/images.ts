@@ -22,15 +22,18 @@ function sendChunk(
   chunk: Blob,
   params: URLSearchParams,
   onLoaded: (loaded: number) => void,
+  signal: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    signal.addEventListener("abort", () => xhr.abort(), { once: true });
     xhr.open("PUT", `${API_BASE_URL}/images/upload?${params}`);
     const token = getAuthToken();
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
     xhr.setRequestHeader("Content-Type", "application/octet-stream");
     xhr.upload.onprogress = (event) => onLoaded(event.loaded);
     xhr.onerror = () => reject(new Error("Upload failed"));
+    xhr.onabort = () => reject(signal.reason);
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve();
@@ -73,24 +76,44 @@ export async function prepareImage(image: string): Promise<string | null> {
   return waitForImage(image.replace(/\.qcow2$/, ""));
 }
 
+export interface UploadCallbacks {
+  /** Bytes of the file sent so far. */
+  onProgress: (bytesSent: number) => void;
+  /** Every chunk is stored and the backend starts converting. */
+  onConverting: () => void;
+  /** The image is converted and SSH is being set up on it. */
+  onPreparing: () => void;
+}
+
 export async function uploadImage(
   file: File,
   payload: ImageUploadPayload,
-  onProgress: (percent: number) => void,
-  onPreparing: () => void,
+  { onProgress, onConverting, onPreparing }: UploadCallbacks,
+  signal: AbortSignal,
 ): Promise<ImageMetadata> {
   const chunkParams = new URLSearchParams({
     filename: file.name,
     name: payload.name,
   });
-  for (let offset = 0; offset < file.size; offset += CHUNK_SIZE) {
-    chunkParams.set("offset", String(offset));
-    await sendChunk(
-      file.slice(offset, offset + CHUNK_SIZE),
-      chunkParams,
-      (loaded) => onProgress(Math.round(((offset + loaded) / file.size) * 100)),
-    );
+  try {
+    for (let offset = 0; offset < file.size; offset += CHUNK_SIZE) {
+      signal.throwIfAborted();
+      chunkParams.set("offset", String(offset));
+      await sendChunk(
+        file.slice(offset, offset + CHUNK_SIZE),
+        chunkParams,
+        (loaded) => onProgress(offset + loaded),
+        signal,
+      );
+    }
+  } catch (error) {
+    if (signal.aborted) {
+      chunkParams.delete("offset");
+      await apiRequest(`/images/upload?${chunkParams}`, { method: "DELETE" });
+    }
+    throw error;
   }
+  onConverting();
 
   const params = new URLSearchParams({
     filename: file.name,
@@ -104,7 +127,6 @@ export async function uploadImage(
     { method: "POST" },
     ImageMetadataSchema,
   );
-  onProgress(100);
   const sshDetail = await waitForImage(payload.name, onPreparing);
   return { ...image, ssh_ready: sshDetail === null, ssh_detail: sshDetail };
 }

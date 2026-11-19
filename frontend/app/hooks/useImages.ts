@@ -1,6 +1,13 @@
+import { useSyncExternalStore } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getImages, prepareImage, uploadImage } from "@/lib/api";
-import type { ImageUploadPayload } from "@/lib/types";
+import { getImages, prepareImage } from "@/lib/api";
+import {
+  getImageUploads,
+  subscribeImageUploads,
+  type ImageUpload,
+} from "@/lib/image-uploads";
+
+const NO_UPLOADS: ImageUpload[] = [];
 
 export function useImages(enabled = true) {
   return useQuery({
@@ -11,24 +18,13 @@ export function useImages(enabled = true) {
   });
 }
 
-export function useUploadImage(
-  onProgress: (percent: number) => void,
-  onPreparing: () => void,
-) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      file,
-      payload,
-    }: {
-      file: File;
-      payload: ImageUploadPayload;
-    }) => uploadImage(file, payload, onProgress, onPreparing),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["images"] });
-    },
-  });
+/** Uploads started from this tab, newest first. */
+export function useImageUploads(): ImageUpload[] {
+  return useSyncExternalStore(
+    subscribeImageUploads,
+    getImageUploads,
+    () => NO_UPLOADS,
+  );
 }
 
 export function usePrepareImage() {

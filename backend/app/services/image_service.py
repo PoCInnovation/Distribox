@@ -177,9 +177,20 @@ class ImageService():
                 status.HTTP_409_CONFLICT,
                 "Upload out of sync, please start again",
             )
-        with upload_path.open("ab") as upload_file:
-            async for chunk in stream:
-                upload_file.write(chunk)
+        try:
+            with upload_path.open("ab") as upload_file:
+                async for chunk in stream:
+                    upload_file.write(chunk)
+        except BaseException:
+            upload_path.unlink(missing_ok=True)
+            raise
+
+    @staticmethod
+    def cancel_upload(name: str, filename: str):
+        slug = ImageService._slug(name)
+        # Once converting, the upload is the conversion's input.
+        ImageService._require_idle(slug)
+        ImageService._upload_path(slug, filename).unlink(missing_ok=True)
 
     @staticmethod
     async def finish_upload(filename: str, upload: ImageUpload):

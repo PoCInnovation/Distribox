@@ -32,6 +32,16 @@ async def upload_image_chunk(
     await ImageService.write_chunk(name, filename, offset, request.stream())
 
 
+@router.delete("/upload", status_code=status.HTTP_204_NO_CONTENT,
+               dependencies=[Depends(require_policy("images:upload"))],
+               responses={403: {"model": MissingPoliciesResponse}})
+def cancel_image_upload(
+    filename: str = Query(min_length=1),
+    name: str = Query(min_length=1),
+):
+    ImageService.cancel_upload(name, filename)
+
+
 @router.post("/upload", status_code=status.HTTP_202_ACCEPTED,
              response_model=ImageRead,
              dependencies=[Depends(require_policy("images:upload"))],
