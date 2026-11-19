@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getImages, uploadImage } from "@/lib/api";
+import { getImages, prepareImage, uploadImage } from "@/lib/api";
 import type { ImageUploadPayload } from "@/lib/types";
 
 export function useImages(enabled = true) {
@@ -11,7 +11,10 @@ export function useImages(enabled = true) {
   });
 }
 
-export function useUploadImage(onProgress: (percent: number) => void) {
+export function useUploadImage(
+  onProgress: (percent: number) => void,
+  onPreparing: () => void,
+) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -21,9 +24,18 @@ export function useUploadImage(onProgress: (percent: number) => void) {
     }: {
       file: File;
       payload: ImageUploadPayload;
-    }) => uploadImage(file, payload, onProgress),
+    }) => uploadImage(file, payload, onProgress, onPreparing),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["images"] });
     },
+  });
+}
+
+export function usePrepareImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: prepareImage,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["images"] }),
   });
 }

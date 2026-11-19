@@ -44,9 +44,22 @@ async def upload(name, filename, data, chunk_size=1000, **fields):
             single_chunk(data[offset:offset + chunk_size]))
     image = await ImageService.finish_upload(
         filename, ImageUpload(name=name, **fields))
-    while (result := ImageService.upload_status(name))["status"] == "converting":
+    return image, await finished(name)
+
+
+async def finished(name):
+    while (result := ImageService.upload_status(name))["status"] in (
+            "converting", "preparing"):
         await asyncio.sleep(0.05)
-    return image, result
+    return result
+
+
+@pytest.fixture(autouse=True)
+def ssh_preparation(monkeypatch):
+    """Stands in for libguestfs; set `reason` for an image it cannot prepare."""
+    preparation = Mock(return_value=None)
+    monkeypatch.setattr(image_service, "prepare_for_ssh", preparation)
+    return preparation
 
 
 def test_local_images_are_listed_after_registry_ones(tmp_path, monkeypatch):
@@ -208,6 +221,117 @@ def test_upload_extracts_and_converts_zipped_vmdk(tmp_path, monkeypatch):
     assert ImageService.get_local_image("course-vm.metadata.yaml") == image
     assert image.family == "local"
     assert image.firmware == "efi"
+    assert image.ssh_ready is True
+
+
+def test_upload_says_why_ssh_could_not_be_set_up(tmp_path, monkeypatch, ssh_preparation):
+    monkeypatch.setattr(image_service, "IMAGES_DIR", tmp_path)
+    monkeypatch.setattr(ImageService, "_convert_image",
+                        lambda source, target: source.rename(target))
+    ssh_preparation.return_value = "No Linux system was found on the disk"
+
+    image, result = asyncio.run(upload("Course VM", "disk.qcow2", b"disk"))
+
+    assert result == {"status": "ready",
+                      "detail": "No Linux system was found on the disk"}
+    ssh_preparation.assert_called_once_with(
+        tmp_path / "course-vm.qcow2", replace=False)
+    stored = ImageService.get_local_image("course-vm.metadata.yaml")
+    assert stored.ssh_ready is False
+    assert stored.ssh_detail == "No Linux system was found on the disk"
+
+
+def test_upload_fails_when_the_prepared_image_cannot_be_saved(tmp_path, monkeypatch, ssh_preparation):
+    monkeypatch.setattr(image_service, "IMAGES_DIR", tmp_path)
+    monkeypatch.setattr(ImageService, "_convert_image",
+                        lambda source, target: source.rename(target))
+    ssh_preparation.side_effect = RuntimeError("Could not save the prepared image")
+
+    image, result = asyncio.run(upload("Course VM", "disk.qcow2", b"disk"))
+
+    assert result == {"status": "failed",
+                      "detail": "Could not save the prepared image"}
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_image_uploaded_earlier_can_be_prepared(tmp_path, monkeypatch, ssh_preparation):
+    monkeypatch.setattr(image_service, "IMAGES_DIR", tmp_path)
+    write_image(tmp_path, "course-vm", family="local", firmware="efi")
+    seen = []
+    ssh_preparation.side_effect = lambda path, replace: seen.append(
+        ImageService.upload_status("course-vm")["status"])
+
+    async def run():
+        await ImageService.prepare_image("course-vm.qcow2")
+        with pytest.raises(HTTPException) as error:
+            await ImageService.prepare_image("course-vm.qcow2")
+        assert error.value.status_code == 409
+        return await finished("course-vm")
+
+    assert asyncio.run(run()) == {"status": "ready", "detail": None}
+    assert seen == ["preparing"]
+    # VMs may be created from it meanwhile, so it must be replaced, not changed.
+    ssh_preparation.assert_called_once_with(
+        tmp_path / "course-vm.qcow2", replace=True)
+    stored = ImageService.get_local_image("course-vm.metadata.yaml")
+    assert stored.ssh_ready is True
+    assert stored.firmware == "efi"
+
+
+def test_second_upload_of_an_image_still_being_processed_is_rejected(tmp_path, monkeypatch, ssh_preparation):
+    monkeypatch.setattr(image_service, "IMAGES_DIR", tmp_path)
+    monkeypatch.setattr(ImageService, "_convert_image",
+                        lambda source, target: source.rename(target))
+    refused = []
+
+    def upload_again(path, replace):
+        for attempt in (
+            ImageService.write_chunk("Course VM", "disk.qcow2", 0, single_chunk(b"other")),
+            ImageService.finish_upload("disk.qcow2", ImageUpload(name="Course VM")),
+        ):
+            with pytest.raises(HTTPException) as error:
+                asyncio.run(attempt)
+            refused.append(error.value.status_code)
+
+    ssh_preparation.side_effect = upload_again
+
+    image, result = asyncio.run(upload("Course VM", "disk.qcow2", b"disk"))
+
+    assert result == {"status": "ready", "detail": None}
+    assert refused == [409, 409]
+    assert (tmp_path / "course-vm.qcow2").read_bytes() == b"disk"
+
+
+def test_upload_finished_after_its_name_was_taken_is_rejected(tmp_path, monkeypatch, ssh_preparation):
+    monkeypatch.setattr(image_service, "IMAGES_DIR", tmp_path)
+    # Two uploads of one name started together, and the other one finished.
+    write_image(tmp_path, "course-vm", family="local")
+    (tmp_path / "course-vm.qcow2").write_bytes(b"published")
+    (tmp_path / "course-vm.upload.vmdk").write_bytes(b"late")
+
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(ImageService.finish_upload(
+            "disk.vmdk", ImageUpload(name="Course VM")))
+
+    assert error.value.status_code == 409
+    assert (tmp_path / "course-vm.qcow2").read_bytes() == b"published"
+    assert sorted(path.name for path in tmp_path.iterdir()) == [
+        "course-vm.metadata.yaml", "course-vm.qcow2"]
+    ssh_preparation.assert_not_called()
+
+
+@pytest.mark.parametrize("name", [
+    "distribox-debian-12.qcow2", "missing.qcow2", "../course-vm.qcow2"])
+def test_only_uploaded_images_can_be_prepared(tmp_path, monkeypatch, ssh_preparation, name):
+    monkeypatch.setattr(image_service, "IMAGES_DIR", tmp_path)
+    write_image(tmp_path, "course-vm", family="local")
+    write_image(tmp_path, "distribox-debian-12", family="debian")
+
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(ImageService.prepare_image(name))
+
+    assert error.value.status_code == 404
+    ssh_preparation.assert_not_called()
 
 
 def test_xml_enables_uefi_for_efi_images(tmp_path, monkeypatch):

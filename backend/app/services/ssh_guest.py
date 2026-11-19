@@ -3,6 +3,7 @@ import binascii
 import ipaddress
 import json
 import os
+import re
 import stat
 import tempfile
 import time
@@ -22,12 +23,23 @@ from app.core.constants import VMS_DIR
 from app.utils.crypto import decrypt_secret, encrypt_secret
 
 
+# Imported images keep their own login instead of the usual "user" account:
+# sign in to their first regular account then.
+GUEST_ACCOUNT = r'''
+account=user
+if ! id user >/dev/null 2>&1; then
+    account=$(awk -F: '$3 >= 1000 && $3 < 60000 && $6 ~ /^\// && $7 !~ /(nologin|false)$/ { print $3 ":" $1 }' /etc/passwd |
+        sort -n | head -n 1 | cut -d: -f2)
+fi
+'''
+
 GUEST_SETUP = r'''
 set -eu
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 command -v sshd >/dev/null || exit 10
-id user >/dev/null || exit 11
-guest_home=$(awk -F: '$1 == "user" { print $6 }' /etc/passwd)
+''' + GUEST_ACCOUNT + r'''
+[ -n "$account" ] || exit 11
+guest_home=$(awk -F: -v account="$account" '$1 == account { print $6 }' /etc/passwd)
 case "$guest_home" in /*) ;; *) exit 1 ;; esac
 umask 077
 mkdir -p "$guest_home/.ssh"
@@ -35,7 +47,7 @@ touch "$guest_home/.ssh/authorized_keys"
 grep -Fqx "$1" "$guest_home/.ssh/authorized_keys" || printf '\n%s\n' "$1" >> "$guest_home/.ssh/authorized_keys"
 chmod 700 "$guest_home/.ssh"
 chmod 600 "$guest_home/.ssh/authorized_keys"
-chown "$(id -u user):$(id -g user)" "$guest_home/.ssh" "$guest_home/.ssh/authorized_keys"
+chown "$(id -u "$account"):$(id -g "$account")" "$guest_home/.ssh" "$guest_home/.ssh/authorized_keys"
 if command -v restorecon >/dev/null; then restorecon -RF "$guest_home/.ssh"; fi
 mkdir -p /etc/ssh/sshd_config.d /run/sshd
 chmod 755 /run/sshd
@@ -64,6 +76,7 @@ elif command -v rc-service >/dev/null && command -v rc-update >/dev/null; then
 else
     exit 12
 fi
+printf '%s\n' "$account"
 cat /etc/ssh/ssh_host_*_key.pub
 '''
 
@@ -225,7 +238,7 @@ def _agent_command(domain, command: str, arguments: dict) -> dict:
         raise HTTPException(503, GUEST_AGENT_REQUIRED) from exc
 
 
-def _install_key(domain, public_key: str) -> list[str]:
+def _install_key(domain, public_key: str) -> tuple[str, list[str]]:
     process = _agent_command(domain, "guest-exec", {
         "path": "/bin/sh", "arg": ["-c", GUEST_SETUP, "distribox-ssh", public_key],
         "capture-output": True,
@@ -251,12 +264,15 @@ def _install_key(domain, public_key: str) -> list[str]:
                 "out-data", ""), validate=True).decode()
             if len(output) > 65536:
                 raise ValueError("Guest output is too large")
+            account, *lines = output.splitlines()
+            if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,31}\$?", account):
+                raise ValueError("Invalid guest account")
             keys = [serialization.load_ssh_public_key(line.encode()).public_bytes(
                 serialization.Encoding.OpenSSH, serialization.PublicFormat.OpenSSH,
-            ).decode() for line in output.splitlines() if line.strip()]
+            ).decode() for line in lines if line.strip()]
             if not keys:
                 raise ValueError("Missing host keys")
-            return keys
+            return account, keys
         except (ValueError, UnicodeError, binascii.Error, UnsupportedAlgorithm) as exc:
             raise HTTPException(
                 503, "The VM did not provide valid SSH host keys") from exc
@@ -296,11 +312,11 @@ def _prepare_running_guest(connection, domain, vm_id: str) -> dict:
     public_key = key.public_key().public_bytes(
         serialization.Encoding.OpenSSH, serialization.PublicFormat.OpenSSH,
     ).decode()
-    host_keys = _install_key(domain, public_key)
+    username, host_keys = _install_key(domain, public_key)
     return {
         "host": host,
         "port": 22,
-        "username": "user",
+        "username": username,
         "private_key": key.private_bytes(
             serialization.Encoding.PEM, serialization.PrivateFormat.OpenSSH,
             serialization.NoEncryption(),

@@ -36,6 +36,9 @@ services:
     extra_hosts:
       - "database:127.0.0.1"
       - "host.docker.internal:host-gateway"
+    # KVM, when the host has it: preparing uploaded images is faster with it.
+    device_cgroup_rules:
+      - "c 10:232 rwm"
     volumes:
       - /var/run/libvirt/libvirt-sock:/var/run/libvirt/libvirt-sock
       - /var/lib/distribox:/var/lib/distribox
@@ -79,6 +82,9 @@ services:
     extra_hosts:
       - "database:127.0.0.1"
       - "host.docker.internal:host-gateway"
+    # KVM, when the host has it: preparing uploaded images is faster with it.
+    device_cgroup_rules:
+      - "c 10:232 rwm"
     volumes:
       - ./app:/code/app
       - ./.env:/code/.env

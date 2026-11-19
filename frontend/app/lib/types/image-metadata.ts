@@ -9,6 +9,9 @@ export const ImageMetadataSchema = z.object({
   revision: z.number(),
   firmware: z.string().optional(),
   min_disk_size: z.number().int().nonnegative().nullish(),
+  // Uploaded images only: whether they have what SSH needs, and why not.
+  ssh_ready: z.boolean().nullable().optional(),
+  ssh_detail: z.string().nullable().optional(),
 });
 
 export type ImageMetadata = z.infer<typeof ImageMetadataSchema>;
@@ -21,6 +24,6 @@ export interface ImageUploadPayload {
 }
 
 export const ImageUploadStatusSchema = z.object({
-  status: z.enum(["converting", "ready", "failed"]),
+  status: z.enum(["converting", "preparing", "ready", "failed"]),
   detail: z.string().nullable().optional(),
 });

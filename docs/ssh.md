@@ -26,7 +26,11 @@ SSH requires a unique `DISTRIBOX_SECRET` of at least 32 characters on the master
 
 ## Guest requirements
 
-Guests need OpenSSH server, the `user` account, a running QEMU guest agent with `guest-exec` enabled, and an IPv4 DHCP lease on a libvirt-managed network. Updated image builders include OpenSSH. For older or custom images, install OpenSSH and install and enable the QEMU guest agent through the web client first. The guest agent must run as root and have the `org.qemu.guest_agent.0` virtio channel. Images using a different login account need the `user` account provisioned before SSH can be prepared.
+Guests need OpenSSH server, a user account, a running QEMU guest agent with `guest-exec` enabled, and an IPv4 DHCP lease on a libvirt-managed network. The guest agent must run as root and have the `org.qemu.guest_agent.0` virtio channel. SSH signs in to the `user` account, or to the image's first regular account when it has none.
+
+Registry images are built with these. If enabling SSH on a VM reports a missing prerequisite, install it in that VM through the web client.
+
+Uploading a Linux image installs the guest agent and OpenSSH server it lacks, with its own package manager and whether or not its VMs use SSH, so the host needs Internet access during the upload. An OpenSSH server installed this way stays off in a VM until **Allow SSH** is turned on for it; one the image came with is left as it is. Where the image's SELinux policy confines the guest agent, as on RHEL-family systems, the agent is also allowed to run commands and SELinux stops enforcing its rules for the agent, which otherwise cannot configure OpenSSH. When an image cannot be prepared, the upload says why, and the image still works in the web client. For an image uploaded before this was automatic, choose it on the provision page and use **Set it up** under **Allow SSH**; this needs free space for a second copy of the image. A VM created earlier keeps its own copy of the disk: install both packages inside it.
 
 Enabling **Allow SSH** on a running VM prepares its key and configuration, enables the SSH service at boot, and reloads or starts it through systemd or OpenRC. Each explicit enable refreshes this setup, even if a previous connection was prepared recently. Setup failures leave access disabled and report the missing prerequisite. Enabling it on a stopped VM saves the preference and reports that setup is pending; the first SSH connection after startup prepares the guest. VMs enabled through an event also use preparation on their first connection.
 
