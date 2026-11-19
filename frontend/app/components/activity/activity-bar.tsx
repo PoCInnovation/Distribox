@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Operation } from "@/lib/types";
@@ -17,6 +17,7 @@ import {
   useOperationOutcomes,
   useOperations,
 } from "@/hooks/useOperations";
+import { useImageUploads } from "@/hooks/useImages";
 import { ActivityPanel } from "./activity-panel";
 import {
   ProgressRing,
@@ -32,6 +33,7 @@ import {
   phaseEtaSeconds,
   phaseFraction,
   phaseLabel,
+  uploadOperation,
 } from "./operation-model";
 
 const MAX_ROWS = 3;
@@ -51,8 +53,13 @@ function summary(ops: Operation[]): string {
  * operations finishing (refreshing the VM list, toasts).
  */
 export function ActivityBar({ collapsed }: { collapsed: boolean }) {
-  const { operations } = useOperations();
-  useOperationOutcomes(operations);
+  const { operations: serverOperations } = useOperations();
+  useOperationOutcomes(serverOperations);
+  const uploads = useImageUploads();
+  const operations = useMemo(
+    () => [...uploads.map(uploadOperation), ...serverOperations],
+    [uploads, serverOperations],
+  );
   const [open, setOpen] = useState(false);
   const running = operations.some((op) => op.status === "running");
   // Seconds matter for elapsed timers; otherwise only for aging successes.

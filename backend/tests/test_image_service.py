@@ -167,6 +167,49 @@ def test_upload_rejects_out_of_sync_chunks(tmp_path, monkeypatch):
     assert error.value.status_code == 409
 
 
+def test_interrupted_chunk_removes_partial_upload(tmp_path, monkeypatch):
+    monkeypatch.setattr(image_service, "IMAGES_DIR", tmp_path)
+
+    async def disconnected():
+        yield b"abc"
+        raise ConnectionResetError("client went away")
+
+    with pytest.raises(ConnectionResetError):
+        asyncio.run(ImageService.write_chunk(
+            "Lab VM", "disk.img", 0, disconnected()))
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_cancel_removes_partial_upload(tmp_path, monkeypatch):
+    monkeypatch.setattr(image_service, "IMAGES_DIR", tmp_path)
+    asyncio.run(ImageService.write_chunk(
+        "Lab VM", "disk.vmdk", 0, single_chunk(b"abc")))
+
+    ImageService.cancel_upload("Lab VM", "disk.vmdk")
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_cancel_leaves_an_upload_being_converted_alone(tmp_path, monkeypatch):
+    monkeypatch.setattr(image_service, "IMAGES_DIR", tmp_path)
+    refused = []
+
+    def convert(source, target):
+        with pytest.raises(HTTPException) as error:
+            ImageService.cancel_upload("Lab VM", "disk.qcow2")
+        refused.append(error.value.status_code)
+        source.rename(target)
+
+    monkeypatch.setattr(ImageService, "_convert_image", convert)
+
+    image, result = asyncio.run(upload("Lab VM", "disk.qcow2", b"disk"))
+
+    assert refused == [409]
+    assert result == {"status": "ready", "detail": None}
+    assert (tmp_path / "lab-vm.qcow2").read_bytes() == b"disk"
+
+
 def test_finish_without_data_is_rejected(tmp_path, monkeypatch):
     monkeypatch.setattr(image_service, "IMAGES_DIR", tmp_path)
 

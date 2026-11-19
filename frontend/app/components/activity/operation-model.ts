@@ -1,3 +1,4 @@
+import type { ImageUpload } from "@/lib/image-uploads";
 import type { Operation } from "@/lib/types";
 
 /** How long a finished success stays in the compact sidebar bar. */
@@ -9,6 +10,9 @@ const PHASE_LABELS: Record<string, string> = {
   resizing_disk: "Resizing disk",
   defining: "Registering VM",
   starting: "Starting VM",
+  uploading: "Uploading",
+  converting: "Converting to qcow2",
+  preparing: "Setting up SSH",
 };
 
 /** Relative width of each phase in the segmented bar. */
@@ -18,7 +22,39 @@ const PHASE_WEIGHTS: Record<string, number> = {
   resizing_disk: 1,
   defining: 1,
   starting: 1,
+  uploading: 4,
+  converting: 1,
+  preparing: 2,
 };
+
+export const UPLOAD_KIND = "image.upload";
+
+/** An upload from this tab, shaped like a server operation for the lists. */
+export function uploadOperation(upload: ImageUpload): Operation {
+  const uploading = upload.phase === "uploading";
+  const iso = (ms: number) => new Date(ms).toISOString();
+  return {
+    id: upload.id,
+    kind: UPLOAD_KIND,
+    status: upload.status,
+    name: upload.name,
+    vm_id: null,
+    slave_id: null,
+    slave_name: null,
+    params: null,
+    phases: ["uploading", "converting", "preparing"],
+    phase: upload.phase,
+    phase_started_at: iso(upload.phaseStartedAt),
+    indeterminate: !uploading,
+    bytes_done: uploading ? upload.bytesSent : null,
+    bytes_total: uploading ? upload.fileSize : null,
+    error: upload.error,
+    created_by: null,
+    created_at: iso(upload.startedAt),
+    updated_at: iso(upload.updatedAt),
+    finished_at: upload.finishedAt === null ? null : iso(upload.finishedAt),
+  };
+}
 
 export function phaseLabel(op: Operation, phase = op.phase): string {
   if (phase === "creating_on_node") {

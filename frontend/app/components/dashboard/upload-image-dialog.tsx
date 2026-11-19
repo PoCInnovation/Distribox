@@ -1,5 +1,5 @@
-import { useId, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useEffect, useId, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { FileIcon, UploadIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,7 +14,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { useUploadImage } from "@/hooks/useImages";
+import { useImageUploads } from "@/hooks/useImages";
+import {
+  cancelImageUpload,
+  detachImageUpload,
+  dismissImageUploads,
+  startImageUpload,
+} from "@/lib/image-uploads";
 import type { ImageMetadata } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +70,7 @@ export function UploadImageDialog({
   onUploaded,
 }: UploadImageDialogProps) {
   const ids = useId();
+  const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
@@ -71,29 +78,47 @@ export function UploadImageDialog({
   const [version, setVersion] = useState("");
   const [efi, setEfi] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [preparing, setPreparing] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const upload = useUploadImage(setProgress, () => setPreparing(true));
+  const [uploadId, setUploadId] = useState<string | null>(null);
+  const upload = useImageUploads().find((u) => u.id === uploadId);
+  const pending = upload?.status === "running";
+  // Converting and setting up SSH can't be stopped.
+  const processing = pending && upload.phase !== "uploading";
+  const progress = upload?.fileSize
+    ? Math.floor((upload.bytesSent / upload.fileSize) * 100)
+    : 0;
+
+  // Closing or leaving the page hands a running upload to the Activity bar.
+  useEffect(() => {
+    if (!uploadId) return;
+    return () => detachImageUpload(uploadId);
+  }, [uploadId]);
 
   const reset = () => {
+    if (upload?.status === "failed") dismissImageUploads([upload.id]);
+    setUploadId(null);
     setFile(null);
     setName("");
     setDistribution("");
     setVersion("");
     setEfi(false);
-    setProgress(0);
-    setPreparing(false);
     setSubmitted(false);
     setDragging(false);
-    upload.reset();
   };
 
   const handleOpenChange = (next: boolean) => {
-    if (upload.isPending) return;
     if (!next) reset();
     onOpenChange(next);
   };
+
+  const uploaded = upload?.status === "succeeded" ? upload.image : null;
+  useEffect(() => {
+    if (!uploaded) return;
+    onUploaded(uploaded);
+    handleOpenChange(false);
+    // Runs once per finished upload; the handlers are recreated each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploaded]);
 
   const pickFile = (selected: File | null) => {
     setFile(selected);
@@ -106,44 +131,36 @@ export function UploadImageDialog({
     if (/\.(vmdk|vdi)$/i.test(selected.name)) setEfi(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // The dialog is portalled from inside other forms, and React bubbles
+    // submit events through portals to them.
+    e.stopPropagation();
     setSubmitted(true);
     if (!file || !name.trim()) return;
-    try {
-      const image = await upload.mutateAsync({
+    if (upload?.status === "failed") dismissImageUploads([upload.id]);
+    setUploadId(
+      startImageUpload(
         file,
-        payload: {
+        {
           name: name.trim(),
           distribution: distribution.trim(),
           version: version.trim(),
           firmware: efi ? "efi" : "bios",
         },
-      });
-      if (image.ssh_detail) {
-        toast.warning(
-          `Image "${image.name}" is ready, without SSH. ${image.ssh_detail}.`,
-        );
-      } else {
-        toast.success(`Image "${image.name}" is ready`);
-      }
-      onUploaded(image);
-      reset();
-      onOpenChange(false);
-    } catch {
-      setProgress(0);
-      setPreparing(false);
-    }
+        queryClient,
+      ),
+    );
   };
 
   const nameMissing = submitted && !name.trim();
   const fileMissing = submitted && !file;
   const status =
-    progress < 100
-      ? `Uploading, ${progress}%`
-      : preparing
-        ? "Setting up SSH on the image."
-        : "Converting to qcow2. This can take a few minutes.";
+    upload?.phase === "preparing"
+      ? "Setting up SSH on the image."
+      : upload?.phase === "converting"
+        ? "Converting to qcow2. This can take a few minutes."
+        : `Uploading, ${progress}%`;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -165,7 +182,7 @@ export function UploadImageDialog({
               accept={ACCEPTED_FILES}
               className="sr-only"
               onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
-              disabled={upload.isPending}
+              disabled={pending}
             />
             {file ? (
               <div className="flex items-center gap-3 border border-border p-3">
@@ -180,7 +197,7 @@ export function UploadImageDialog({
                     {formatBytes(file.size)}
                   </span>
                 </span>
-                {!upload.isPending && (
+                {!pending && (
                   <button
                     type="button"
                     aria-label="Remove file"
@@ -245,7 +262,7 @@ export function UploadImageDialog({
               placeholder="Networking lab VM"
               autoComplete="off"
               aria-invalid={nameMissing || undefined}
-              disabled={upload.isPending}
+              disabled={pending}
             />
             {nameMissing && (
               <p className="text-xs text-destructive">
@@ -262,7 +279,7 @@ export function UploadImageDialog({
                 onChange={(e) => setDistribution(e.target.value)}
                 placeholder="Ubuntu"
                 autoComplete="off"
-                disabled={upload.isPending}
+                disabled={pending}
               />
             </div>
             <div className="grid gap-2">
@@ -274,7 +291,7 @@ export function UploadImageDialog({
                 placeholder="24.04"
                 autoComplete="off"
                 className="font-mono"
-                disabled={upload.isPending}
+                disabled={pending}
               />
             </div>
           </div>
@@ -286,7 +303,7 @@ export function UploadImageDialog({
               id={`${ids}-efi`}
               checked={efi}
               onCheckedChange={(checked) => setEfi(checked === true)}
-              disabled={upload.isPending}
+              disabled={pending}
               className="mt-0.5"
             />
             <span>
@@ -297,7 +314,7 @@ export function UploadImageDialog({
             </span>
           </label>
 
-          {upload.isPending && (
+          {pending && (
             <div className="grid gap-2" aria-live="polite">
               <Progress value={progress} className="rounded-none" />
               <p className="font-mono text-xs text-muted-foreground">
@@ -305,14 +322,12 @@ export function UploadImageDialog({
               </p>
             </div>
           )}
-          {upload.isError && (
+          {upload?.status === "failed" && (
             <p
               role="alert"
               className="border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
             >
-              {upload.error instanceof Error
-                ? upload.error.message
-                : "The upload failed."}
+              {upload.error}
             </p>
           )}
 
@@ -320,13 +335,16 @@ export function UploadImageDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => handleOpenChange(false)}
-              disabled={upload.isPending}
+              onClick={() => {
+                if (upload) cancelImageUpload(upload.id);
+                handleOpenChange(false);
+              }}
+              disabled={processing}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={upload.isPending}>
-              {upload.isPending ? "Uploading" : "Upload image"}
+            <Button type="submit" disabled={pending}>
+              {pending ? "Uploading" : "Upload image"}
             </Button>
           </DialogFooter>
         </form>
