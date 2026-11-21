@@ -39,9 +39,14 @@ def engine(tmp_path, monkeypatch):
 @pytest.fixture
 def qemu_img(monkeypatch):
     def info(args, **kwargs):
-        size = IMAGE_SIZES[Path(args[-1]).name] * 2**30
+        name = Path(args[-1]).name
+        matched = next(
+            image for image in IMAGE_SIZES
+            if name == image or name.startswith(f".{image}.")
+        )
+        size = IMAGE_SIZES[matched] * 2**30
         return subprocess.CompletedProcess(
-            args, 0, json.dumps({"virtual-size": size}))
+            args, 0, json.dumps({"format": "qcow2", "virtual-size": size}))
     run = Mock(side_effect=info)
     monkeypatch.setattr(vm_service.subprocess, "run", run)
     return run
@@ -100,15 +105,34 @@ def test_create_downloads_missing_registry_image(
     monkeypatch.setattr(vm_service.Vm, "has_revision_changed",
                         staticmethod(lambda metadata_filename: True))
 
+    small_disk = (
+        b"QFI\xfb" + (3).to_bytes(4, "big") + bytes(16) +
+        (9 * 2**30).to_bytes(8, "big") + b"small-disk"
+    )
+
+    def fake_download(bucket, key, path, Callback=None):
+        if key.endswith(".metadata.yaml"):
+            Path(path).write_text(
+                "name: Small\nimage: small.qcow2\nversion: '1'\n"
+                "distribution: test\nfamily: test\nrevision: 1\n",
+                encoding="utf-8",
+            )
+        else:
+            Path(path).write_bytes(small_disk)
+
+    vm_service.s3.download_file.side_effect = fake_download
+
     with pytest.raises(HTTPException):
         create_event(8)
 
     assert vm_service.s3.download_file.call_args_list == [
         call(vm_service.distribox_bucket_registry, "small.metadata.yaml",
-             tmp_path / "small.metadata.yaml"),
+             ANY),
         call(vm_service.distribox_bucket_registry, "small.qcow2",
-             tmp_path / "small.qcow2", Callback=ANY),
+             ANY, Callback=ANY),
     ]
+    assert (tmp_path / "small.metadata.yaml").exists()
+    assert (tmp_path / "small.qcow2").read_bytes() == small_disk
     assert qemu_img.call_args.args[0][-1] == str(tmp_path / "small.qcow2")
 
 
