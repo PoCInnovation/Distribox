@@ -33,6 +33,8 @@ elif name == 'semodule':
         print(*(path.stem for path in sorted(state.glob('*.cil'))), sep='\n')
     elif os.environ.get('POLICY_FAILS'):
         sys.exit(1)
+    elif os.environ.get('POLICY_VERIFY_FAILS'):
+        pass
     else:
         (state / Path(args[-1]).name).write_text(Path(args[-1]).read_text())
 elif name == 'matchpathcon':
@@ -53,7 +55,7 @@ class BuilderGuest:
             "etc/selinux/targeted/contexts/files",
         ):
             (root / directory).mkdir(parents=True)
-        for command in ("awk", "mktemp", "grep", "tail", "rm", "sed"):
+        for command in ("awk", "mktemp", "grep", "rm"):
             (self.binaries / command).symlink_to(shutil.which(command))
         self.add("qemu-ga", "sshd", "systemctl", "semodule")
         (root / "etc/selinux/config").write_text(
@@ -120,6 +122,18 @@ def guest(tmp_path):
         'FILTER_RPC_ARGS="--allow-rpcs="',
     ),
     (
+        'FILTER_RPC_ARGS="--allow-rpcs=guest-ping,"',
+        'FILTER_RPC_ARGS="--allow-rpcs=guest-ping,guest-exec,guest-exec-status"',
+    ),
+    (
+        'export FILTER_RPC_ARGS=--allow-rpcs=guest-ping',
+        'export FILTER_RPC_ARGS=--allow-rpcs=guest-ping,guest-exec,guest-exec-status',
+    ),
+    (
+        'QEMU_GA_ARGS="--logfile=--allow-rpcs=agent.log"',
+        'QEMU_GA_ARGS="--logfile=--allow-rpcs=agent.log"',
+    ),
+    (
         'FILTER_RPC_ARGS="--allow-rpcs=guest-ping --block-rpcs=guest-file-open,guest-exec"',
         'FILTER_RPC_ARGS="--allow-rpcs=guest-ping,guest-exec,guest-exec-status --block-rpcs=guest-file-open"',
     ),
@@ -179,6 +193,7 @@ def test_prepare_updates_qemu_ga_rpc_filters_idempotently(guest, before, after):
 def test_prepare_succeeds_without_sysconfig_file(guest):
     result = guest.run()
     assert result.returncode == 0, result.stderr
+    assert not (guest.root / "etc/sysconfig/qemu-ga").exists()
     assert guest.state(
         "distribox-guest-agent.cil") == "(typepermissive virt_qemu_ga_t)\n"
 
@@ -199,11 +214,18 @@ def test_prepare_installs_permissive_selinux_module_for_qemu_ga(guest):
 def test_prepare_fails_if_selinux_module_cannot_be_installed(guest):
     result = guest.run(POLICY_FAILS="1")
     assert result.returncode != 0
+    assert guest.state("distribox-guest-agent.cil") == ""
+
+
+def test_prepare_fails_if_selinux_module_missing_after_install(guest):
+    result = guest.run(POLICY_VERIFY_FAILS="1")
+    assert result.returncode != 0
+    assert "distribox-guest-agent" in result.stderr
 
 
 def test_prepare_skips_selinux_module_when_selinux_disabled(guest):
     (guest.root / "etc/selinux/config").write_text(
-        "SELINUX=disabled\nSELINUXTYPE=targeted\n"
+        'SELINUX="disabled" # keep disabled\nSELINUXTYPE=targeted\n'
     )
 
     result = guest.run()
@@ -211,9 +233,31 @@ def test_prepare_skips_selinux_module_when_selinux_disabled(guest):
     assert guest.state("distribox-guest-agent.cil") == ""
 
 
+def test_prepare_handles_quoted_and_padded_selinux_config(guest):
+    (guest.root / "etc/selinux/config").write_text(
+        'SELINUX="enforcing"  \nSELINUXTYPE="targeted"  # default policy\n'
+    )
+
+    result = guest.run()
+    assert result.returncode == 0, result.stderr
+    assert guest.state(
+        "distribox-guest-agent.cil") == "(typepermissive virt_qemu_ga_t)\n"
+
+
+def test_prepare_fails_when_selinux_enabled_and_file_contexts_missing(guest):
+    (guest.root / "etc/selinux/targeted/contexts/files/file_contexts").unlink()
+
+    result = guest.run()
+    assert result.returncode != 0
+    assert "file_contexts" in result.stderr
+
+
 def test_prepare_fallback_ignores_other_binaries_with_agent_label(guest):
     (guest.root / "etc/selinux/targeted/contexts/files/file_contexts").write_text(
         "/usr/bin/other-agent -- system_u:object_r:virt_qemu_ga_exec_t:s0\n"
+        "/usr/bin/other-qemu-ga -- system_u:object_r:virt_qemu_ga_exec_t:s0\n"
+        "/usr/bin/qemu-ga-helper -- system_u:object_r:virt_qemu_ga_exec_t:s0\n"
+        "#/usr/bin/qemu-ga -- system_u:object_r:virt_qemu_ga_exec_t:s0\n"
     )
 
     result = guest.run()
@@ -243,7 +287,10 @@ def test_prepare_requires_agent_and_sshd(guest, missing):
 
 
 def test_dockerfile_bundles_prepare_script():
-    assert "lib/prepare-qemu-ga-ssh.sh" in DOCKERFILE.read_text()
+    content = DOCKERFILE.read_text()
+    assert content.index("COPY lib/prepare-qemu-ga-ssh.sh") < content.index(
+        "ARG IMAGE"
+    )
 
 
 @pytest.mark.parametrize("script_name", [
