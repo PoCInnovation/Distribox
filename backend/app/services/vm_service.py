@@ -1,14 +1,18 @@
 import uuid
 import os
+import re
 import secrets
 import subprocess
 import logging
+import stat
 import threading
+from contextlib import contextmanager, nullcontext
+import yaml
 from shutil import copy, copymode, rmtree
 import httpx
 import libvirt
 from app.utils.vm import wait_for_state, get_pause_reason, recover_after_pause
-from typing import Any, Callable, Optional
+from typing import Any, BinaryIO, Callable, Iterator, Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML, VmRename
 from app.models.image import ImageRead
@@ -26,7 +30,6 @@ from app.utils.vm import get_vm_ip
 from app.utils.crypto import decrypt_secret, encrypt_secret
 from app.utils.seed import ensure_seed_iso
 from app.core.config import s3, distribox_bucket_registry
-from os import path
 from app.services.image_service import ImageService
 from app.services.operation_service import NO_PROGRESS, VM_CREATE, OperationService, Progress
 from pathlib import Path
@@ -40,10 +43,46 @@ COPY_CHUNK_SIZE = 4 * 2**20
 COPY_SYNC_INTERVAL = 64 * 2**20
 
 
-def copy_disk(source: Path, target: Path, progress: Progress) -> None:
+class _ImageLock:
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.waiters = 0
+
+
+_image_download_locks_guard = threading.Lock()
+_image_download_locks: dict[Path, _ImageLock] = {}
+# Matches both our staged UUID temp files and boto3 s3transfer's appended suffix.
+_STAGED_SUFFIX_RE = re.compile(r"^[0-9a-f]{32}\.tmp(?:\.[0-9A-Za-z]+)?$")
+
+
+@contextmanager
+def _image_download_lock(image_path: Path) -> Iterator[None]:
+    with _image_download_locks_guard:
+        entry = _image_download_locks.get(image_path)
+        if entry is None:
+            entry = _ImageLock()
+            _image_download_locks[image_path] = entry
+        entry.waiters += 1
+    try:
+        with entry.lock:
+            yield
+    finally:
+        with _image_download_locks_guard:
+            entry.waiters -= 1
+            if entry.waiters == 0:
+                del _image_download_locks[image_path]
+
+
+def copy_disk(source: Path, target: Path, progress: Progress,
+              *, source_file: Optional[BinaryIO] = None) -> None:
     buffer = memoryview(bytearray(COPY_CHUNK_SIZE))
     copied = unsynced = 0
-    with source.open("rb") as src, target.open("xb") as dst:
+    src_ctx: Any = (
+        nullcontext(source_file)
+        if source_file is not None
+        else source.open("rb")
+    )
+    with src_ctx as src, target.open("xb") as dst:
         while size := src.readinto(buffer):
             dst.write(buffer[:size])
             copied += size
@@ -55,7 +94,8 @@ def copy_disk(source: Path, target: Path, progress: Progress) -> None:
             progress.advance(copied)
         dst.flush()
         os.fsync(dst.fileno())
-    copymode(source, target)
+        mode = stat.S_IMODE(os.fstat(src.fileno()).st_mode)
+    os.chmod(target, mode)
 
 
 def with_vnc_clipboard(conn: libvirt.virConnect, domain_xml: str) -> str:
@@ -113,10 +153,66 @@ class Vm:
         return os_value
 
     @staticmethod
+    def _staged_path(target: Path) -> Path:
+        return target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
+
+    @staticmethod
+    def _sweep_stale_temp_files(directory: Path, target_name: str) -> None:
+        prefix = f".{target_name}."
+        for entry in directory.iterdir():
+            if (entry.name.startswith(prefix) and
+                    _STAGED_SUFFIX_RE.fullmatch(entry.name[len(prefix):])):
+                entry.unlink(missing_ok=True)
+
+    @staticmethod
+    def _fsync_file(file_path: Path) -> None:
+        with file_path.open("rb") as written:
+            os.fsync(written.fileno())
+
+    @staticmethod
+    def _fsync_dir(directory: Path) -> None:
+        dir_fd = os.open(directory, os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+
+    @classmethod
+    def _recover_interrupted_refresh(
+        cls,
+        image_path: Path,
+        rollback_image: Path,
+        commit_metadata: Path,
+    ) -> None:
+        if commit_metadata.exists():
+            if rollback_image.exists():
+                os.replace(rollback_image, image_path)
+            else:
+                image_path.unlink(missing_ok=True)
+            commit_metadata.unlink(missing_ok=True)
+            cls._fsync_dir(image_path.parent)
+        elif rollback_image.exists():
+            rollback_image.unlink(missing_ok=True)
+            cls._fsync_dir(image_path.parent)
+
+    @staticmethod
+    def _read_local_metadata(metadata_path: Path) -> Optional[ImageRead]:
+        if not metadata_path.exists():
+            return None
+        try:
+            return ImageRead.model_validate(
+                yaml.safe_load(metadata_path.read_text(encoding="utf-8"))
+            )
+        except Exception:
+            return None
+
+    @staticmethod
     def has_revision_changed(metadata_filename: str) -> bool:
         local_image = ImageService.get_local_image(metadata_filename)
         if local_image is None:
             return True
+        if local_image.family == "local":
+            return False
         registry_image = ImageService.get_registry_image(metadata_filename)
         if registry_image is None:
             return False
@@ -146,19 +242,104 @@ class Vm:
                          Callback=on_bytes)
 
     @classmethod
-    def _download_image(cls, image: str,
-                        progress: Progress = NO_PROGRESS) -> Path:
-        image_path = IMAGES_DIR / image
-        metadata_filename = image.replace("qcow2", "metadata.yaml")
-        if (cls.has_revision_changed(metadata_filename) is True):
+    def _download_image_locked(cls, image: str, image_path: Path,
+                               progress: Progress = NO_PROGRESS) -> Path:
+        metadata_filename = ImageService.metadata_filename(image)
+        metadata_path = IMAGES_DIR / metadata_filename
+        rollback_image = image_path.with_name(f".{image}.rollback.tmp")
+        commit_metadata = metadata_path.with_name(
+            f".{metadata_filename}.commit.tmp")
+
+        cls._recover_interrupted_refresh(
+            image_path, rollback_image, commit_metadata)
+
+        revision_changed = cls.has_revision_changed(metadata_filename)
+        disk_missing = not image_path.exists()
+        if not revision_changed and not disk_missing:
+            return image_path
+
+        if disk_missing:
+            local_image = cls._read_local_metadata(metadata_path)
+            if local_image is not None and local_image.family == "local":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Local image '{image}' is missing from host storage",
+                )
+
+        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+        cls._sweep_stale_temp_files(IMAGES_DIR, image)
+        cls._sweep_stale_temp_files(IMAGES_DIR, metadata_filename)
+
+        staged_metadata: Optional[Path] = None
+        staged_image: Optional[Path] = None
+        try:
+            # Always stage metadata together with the disk so rebuilding a
+            # missing disk cannot pair a newer registry disk with stale metadata.
+            staged_metadata = cls._staged_path(metadata_path)
             s3.download_file(
                 distribox_bucket_registry,
                 metadata_filename,
-                IMAGES_DIR / metadata_filename)
-        if (path.exists(image_path)
-                is False or cls.has_revision_changed is True):
-            cls._download_registry_image(image, image_path, progress)
+                staged_metadata,
+            )
+            parsed_metadata = ImageRead.model_validate(
+                yaml.safe_load(
+                    staged_metadata.read_text(encoding="utf-8")
+                )
+            )
+            if parsed_metadata.image != image:
+                raise ValueError(
+                    f"Metadata image mismatch for {metadata_filename}: "
+                    f"expected {image}, got {parsed_metadata.image}"
+                )
+            staged_image = cls._staged_path(image_path)
+            cls._download_registry_image(image, staged_image, progress)
+            if image_path.exists():
+                copymode(image_path, staged_image)
+            cls._fsync_file(staged_image)
+            if metadata_path.exists():
+                copymode(metadata_path, staged_metadata)
+            cls._fsync_file(staged_metadata)
+
+            # Link the prior disk for rollback, publish the commit marker, then
+            # swap disk before metadata so crashes or errors recover cleanly.
+            try:
+                if image_path.exists():
+                    os.link(image_path, rollback_image)
+                    cls._fsync_dir(IMAGES_DIR)
+                os.replace(staged_metadata, commit_metadata)
+                staged_metadata = None
+                cls._fsync_dir(IMAGES_DIR)
+                os.replace(staged_image, image_path)
+                staged_image = None
+                cls._fsync_dir(IMAGES_DIR)
+                os.replace(commit_metadata, metadata_path)
+            except BaseException:
+                try:
+                    cls._recover_interrupted_refresh(
+                        image_path, rollback_image, commit_metadata,
+                    )
+                except OSError:
+                    logger.warning(
+                        "Failed to restore previous cached disk for %s",
+                        image,
+                    )
+                raise
+            cls._fsync_dir(IMAGES_DIR)
+            rollback_image.unlink(missing_ok=True)
+            cls._fsync_dir(IMAGES_DIR)
+        finally:
+            for temp_path in (staged_image, staged_metadata):
+                if temp_path is not None:
+                    temp_path.unlink(missing_ok=True)
+
         return image_path
+
+    @classmethod
+    def _download_image(cls, image: str,
+                        progress: Progress = NO_PROGRESS) -> Path:
+        image_path = IMAGES_DIR / image
+        with _image_download_lock(image_path):
+            return cls._download_image_locked(image, image_path, progress)
 
     @classmethod
     def _require_disk_size(cls, image_path: Path, disk_size: int):
@@ -172,16 +353,52 @@ class Vm:
     @classmethod
     def check_disk_size(cls, os_value: str, disk_size: int,
                         progress: Progress = NO_PROGRESS):
-        image_path = cls._download_image(
-            cls._resolve_image_name(os_value), progress)
-        cls._require_disk_size(image_path, disk_size)
+        image = cls._resolve_image_name(os_value)
+        image_path = IMAGES_DIR / image
+        with _image_download_lock(image_path):
+            cls._download_image_locked(image, image_path, progress)
+            cls._require_disk_size(image_path, disk_size)
+
+    @classmethod
+    @contextmanager
+    def _open_checked_image(
+        cls, os_value: str, disk_size: int,
+        progress: Progress = NO_PROGRESS,
+    ) -> Iterator[tuple[BinaryIO, str]]:
+        """Refresh, validate, and snapshot the disk fd and firmware together."""
+        image = cls._resolve_image_name(os_value)
+        image_path = IMAGES_DIR / image
+        metadata_path = IMAGES_DIR / ImageService.metadata_filename(image)
+        with _image_download_lock(image_path):
+            cls._download_image_locked(image, image_path, progress)
+            cls._require_disk_size(image_path, disk_size)
+            local_image = cls._read_local_metadata(metadata_path)
+            firmware = local_image.firmware if local_image else "bios"
+            source_file = image_path.open("rb")
+        try:
+            yield source_file, firmware
+        finally:
+            source_file.close()
 
     @classmethod
     def check_local_image(cls, os_value: str, disk_size: int):
         """What can be rejected at once, without reaching the registry."""
-        image_path = IMAGES_DIR / cls._resolve_image_name(os_value)
-        if image_path.exists():
-            cls._require_disk_size(image_path, disk_size)
+        image = cls._resolve_image_name(os_value)
+        image_path = IMAGES_DIR / image
+        if not image_path.exists():
+            return
+        metadata_filename = ImageService.metadata_filename(image)
+        if (IMAGES_DIR / f".{metadata_filename}.commit.tmp").exists():
+            return
+        min_disk_size = ImageService.local_min_disk_size(image_path)
+        if disk_size >= min_disk_size:
+            return
+        if cls.has_revision_changed(metadata_filename):
+            return
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Disk size must be at least {min_disk_size} GB",
+        )
 
     def __init__(self, vm_create: VmCreate,
                  vm_id: Optional[uuid.UUID] = None,
@@ -203,15 +420,19 @@ class Vm:
         image_path = IMAGES_DIR / self.os
 
         try:
-            self.check_disk_size(self.os, self.disk_size, progress)
-            progress.phase("copying_disk", image_path.stat().st_size)
-            vm_dir.mkdir(parents=True, exist_ok=False)
-            ensure_seed_iso(
-                keyboard_layout=self.keyboard_layout,
-                vm_dir=vm_dir,
-            )
-            vm_path = vm_dir / self.os
-            copy_disk(image_path, vm_path, progress)
+            with self._open_checked_image(
+                self.os, self.disk_size, progress
+            ) as (source_file, firmware):
+                progress.phase(
+                    "copying_disk", os.fstat(source_file.fileno()).st_size)
+                vm_dir.mkdir(parents=True, exist_ok=False)
+                ensure_seed_iso(
+                    keyboard_layout=self.keyboard_layout,
+                    vm_dir=vm_dir,
+                )
+                vm_path = vm_dir / self.os
+                copy_disk(
+                    image_path, vm_path, progress, source_file=source_file)
             progress.phase("resizing_disk")
             resize = subprocess.run(
                 ["qemu-img", "resize", vm_path, f"{self.disk_size}G"],
@@ -232,7 +453,7 @@ class Vm:
                 vcpus=self.vcpus,
                 disk_size=self.disk_size,
                 keyboard_layout=self.keyboard_layout,
-            ))
+            ), firmware=firmware)
             conn = QEMUConfig.get_connection()
             conn.defineXML(with_vnc_clipboard(conn, vm_xml))
             # The record comes last, so the VM is listed only once its
@@ -980,8 +1201,8 @@ class VmService:
                 if vm_record is None:
                     for vm_file in vm.iterdir():
                         if vm_file.name.endswith(".qcow2"):
-                            image_name = vm_file.name.replace(
-                                ".qcow2", ".metadata.yaml")
+                            image_name = ImageService.metadata_filename(
+                                vm_file.name)
                             image_metadata = ImageService.get_distribox_image(
                                 image_name)
                             recoverable_vms.append(

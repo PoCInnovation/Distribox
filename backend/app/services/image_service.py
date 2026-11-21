@@ -43,6 +43,10 @@ def _registry_min_disk_size(image: str, revision: int) -> int:
 class ImageService():
 
     @staticmethod
+    def metadata_filename(image_name: str) -> str:
+        return f"{image_name.removesuffix('.qcow2')}.metadata.yaml"
+
+    @staticmethod
     def _parse_image(content: str, source: str):
         try:
             return ImageRead(**yaml.safe_load(content))

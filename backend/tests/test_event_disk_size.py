@@ -100,15 +100,29 @@ def test_create_downloads_missing_registry_image(
     monkeypatch.setattr(vm_service.Vm, "has_revision_changed",
                         staticmethod(lambda metadata_filename: True))
 
+    def fake_download(bucket, key, path, Callback=None):
+        if key.endswith(".metadata.yaml"):
+            Path(path).write_text(
+                "name: Small\nimage: small.qcow2\nversion: '1'\n"
+                "distribution: test\nfamily: test\nrevision: 1\n",
+                encoding="utf-8",
+            )
+        else:
+            Path(path).write_bytes(b"small-disk")
+
+    vm_service.s3.download_file.side_effect = fake_download
+
     with pytest.raises(HTTPException):
         create_event(8)
 
     assert vm_service.s3.download_file.call_args_list == [
         call(vm_service.distribox_bucket_registry, "small.metadata.yaml",
-             tmp_path / "small.metadata.yaml"),
+             ANY),
         call(vm_service.distribox_bucket_registry, "small.qcow2",
-             tmp_path / "small.qcow2", Callback=ANY),
+             ANY, Callback=ANY),
     ]
+    assert (tmp_path / "small.metadata.yaml").exists()
+    assert (tmp_path / "small.qcow2").read_bytes() == b"small-disk"
     assert qemu_img.call_args.args[0][-1] == str(tmp_path / "small.qcow2")
 
 

@@ -33,12 +33,12 @@ LAYOUT_TO_KEYMAP = {
 
 
 def image_firmware(image_name: str) -> str:
-    metadata_filename = image_name.replace("qcow2", "metadata.yaml")
+    metadata_filename = ImageService.metadata_filename(image_name)
     image = ImageService.get_local_image(metadata_filename)
     return image.firmware if image else "bios"
 
 
-def build_xml(vm_read: VmCreateXML):
+def build_xml(vm_read: VmCreateXML, firmware: str | None = None):
 
     domain = etree.Element("domain", type=VIRT_TYPE)
 
@@ -51,12 +51,15 @@ def build_xml(vm_read: VmCreateXML):
 
     os_el = etree.SubElement(domain, "os")
     etree.SubElement(os_el, "type", arch="x86_64", machine="pc").text = "hvm"
-    if image_firmware(vm_read.os) == "efi":
+    selected_firmware = (
+        firmware if firmware is not None else image_firmware(vm_read.os)
+    )
+    if selected_firmware == "efi":
         os_el.set("firmware", "efi")
-        firmware = etree.SubElement(os_el, "firmware")
-        etree.SubElement(firmware, "feature",
+        firmware_el = etree.SubElement(os_el, "firmware")
+        etree.SubElement(firmware_el, "feature",
                          enabled="no", name="enrolled-keys")
-        etree.SubElement(firmware, "feature",
+        etree.SubElement(firmware_el, "feature",
                          enabled="no", name="secure-boot")
     etree.SubElement(os_el, "boot", dev="hd")
 
