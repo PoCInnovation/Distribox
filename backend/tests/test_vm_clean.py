@@ -48,7 +48,7 @@ def test_clean_destroys_and_undefines_domain(host, active):
     host.connection.lookupByName.assert_called_once_with(directory.name)
     assert host.domain.destroy.called == bool(active)
     host.domain.undefineFlags.assert_called_once_with(
-        libvirt.VIR_DOMAIN_UNDEFINE_NVRAM)
+        vm_service.UNDEFINE_FLAGS)
     assert not directory.exists()
 
 

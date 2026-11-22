@@ -21,6 +21,7 @@ from app.models.operation import OperationRead
 from app.core.xml_builder import build_xml, configure_display_resolution, configure_vnc_audio, configure_vnc_clipboard, configure_vnc_keyboard, upgrade_display_devices
 from app.core.config import QEMUConfig, engine
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select, delete, col
 from app.orm.vm import VmORM
 from app.orm.vm_credential import VmCredentialORM
@@ -52,8 +53,34 @@ class _ImageLock:
 
 _image_download_locks_guard = threading.Lock()
 _image_download_locks: dict[Path, _ImageLock] = {}
+_vm_recovery_locks_guard = threading.Lock()
+_vm_recovery_locks: dict[str, _ImageLock] = {}
 # Matches both our staged UUID temp files and boto3 s3transfer's appended suffix.
 _STAGED_SUFFIX_RE = re.compile(r"^[0-9a-f]{32}\.tmp(?:\.[0-9A-Za-z]+)?$")
+
+UNDEFINE_FLAGS = (
+    libvirt.VIR_DOMAIN_UNDEFINE_NVRAM |
+    libvirt.VIR_DOMAIN_UNDEFINE_MANAGED_SAVE |
+    libvirt.VIR_DOMAIN_UNDEFINE_SNAPSHOTS_METADATA
+)
+
+
+@contextmanager
+def _vm_recovery_lock(vm_id: str) -> Iterator[None]:
+    with _vm_recovery_locks_guard:
+        entry = _vm_recovery_locks.get(vm_id)
+        if entry is None:
+            entry = _ImageLock()
+            _vm_recovery_locks[vm_id] = entry
+        entry.waiters += 1
+    try:
+        with entry.lock:
+            yield
+    finally:
+        with _vm_recovery_locks_guard:
+            entry.waiters -= 1
+            if entry.waiters == 0:
+                del _vm_recovery_locks[vm_id]
 
 
 @contextmanager
@@ -135,9 +162,15 @@ def undefine_domain(vm_id: str):
         if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
             return
         raise
+    persistent = bool(vm.isPersistent())
     if vm.isActive() == 1:
         vm.destroy()
-    vm.undefineFlags(libvirt.VIR_DOMAIN_UNDEFINE_NVRAM)
+    if persistent:
+        try:
+            vm.undefineFlags(UNDEFINE_FLAGS)
+        except libvirt.libvirtError as e:
+            if e.get_error_code() != libvirt.VIR_ERR_NO_DOMAIN:
+                raise
 
 
 class Vm:
@@ -777,30 +810,7 @@ class Vm:
         return {"state": VM_STATE_NAMES.get(state, 'None')}
 
     def remove(self):
-        try:
-            undefine_domain(str(self.id))
-        except Exception:
-            pass
-
-        vm_dir = VMS_DIR / str(self.id)
-        if vm_dir.exists():
-            rmtree(vm_dir)
-
-        with Session(engine) as session:
-            session.exec(
-                delete(EventParticipantORM).where(
-                    EventParticipantORM.vm_id == self.id
-                )
-            )
-            session.exec(
-                delete(VmCredentialORM).where(
-                    VmCredentialORM.vm_id == self.id
-                )
-            )
-            session.exec(
-                delete(VmORM).where(VmORM.id == self.id)
-            )
-            session.commit()
+        VmService._remove_local_vm(self.id)
 
 
 class VmService:
@@ -868,6 +878,31 @@ class VmService:
         return f"{base_name}({count})"
 
     @staticmethod
+    def _missing_domain_vm(vm_id: uuid.UUID) -> Optional[VmRead]:
+        with Session(engine) as session:
+            vm_record = session.get(VmORM, vm_id)
+            if vm_record is None:
+                return None
+            credentials_count = session.exec(
+                select(func.count()).where(
+                    VmCredentialORM.vm_id == vm_record.id
+                )
+            ).one()
+            return VmRead(
+                id=vm_record.id,
+                os=vm_record.os,
+                name=vm_record.name,
+                mem=vm_record.mem,
+                vcpus=vm_record.vcpus,
+                disk_size=vm_record.disk_size,
+                keyboard_layout=vm_record.keyboard_layout,
+                ssh_enabled=vm_record.ssh_enabled,
+                state="Unknown",
+                ipv4=None,
+                credentials_count=credentials_count,
+            )
+
+    @staticmethod
     def get_vm_list():
         with Session(engine) as session:
             vm_records = session.scalars(select(VmORM)).all()
@@ -909,6 +944,18 @@ class VmService:
             else:
                 try:
                     vm_list.append(Vm.get(str(vm_record.id)))
+                except HTTPException as e:
+                    if e.status_code == status.HTTP_404_NOT_FOUND:
+                        logger.warning(
+                            "Libvirt definition missing for VM %s",
+                            vm_record.id,
+                        )
+                        missing_vm = VmService._missing_domain_vm(vm_record.id)
+                        if missing_vm is not None:
+                            vm_list.append(missing_vm)
+                    else:
+                        logger.warning(
+                            "Failed to get VM %s from libvirt", vm_record.id)
                 except Exception:
                     logger.warning(
                         "Failed to get VM %s from libvirt", vm_record.id)
@@ -1146,35 +1193,99 @@ class VmService:
         return vm.stop(force=force)
 
     @staticmethod
+    def _delete_vm_records(vm_id: uuid.UUID):
+        with Session(engine) as session:
+            session.exec(
+                delete(EventParticipantORM).where(
+                    col(EventParticipantORM.vm_id) == vm_id
+                )
+            )
+            session.exec(
+                delete(VmCredentialORM).where(
+                    col(VmCredentialORM.vm_id) == vm_id
+                )
+            )
+            session.exec(
+                delete(VmORM).where(col(VmORM.id) == vm_id)
+            )
+            session.commit()
+
+    @staticmethod
+    def _remove_local_vm(vm_id: uuid.UUID):
+        try:
+            undefine_domain(str(vm_id))
+        except libvirt.libvirtError as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to remove VM {vm_id} from libvirt: {e}",
+            ) from e
+
+        vm_dir = VMS_DIR / str(vm_id)
+        if vm_dir.exists():
+            rmtree(vm_dir)
+
+        VmService._delete_vm_records(vm_id)
+
+    @staticmethod
+    def _rollback_defined_domain(vm_id: str) -> None:
+        try:
+            undefine_domain(vm_id)
+        except Exception:
+            logger.warning(
+                "Failed to roll back libvirt definition for %s",
+                vm_id,
+                exc_info=True,
+            )
+
+    @staticmethod
+    def _rollback_defined_domain_if_untracked(vm_id: uuid.UUID) -> None:
+        try:
+            with Session(engine) as check_session:
+                if check_session.get(VmORM, vm_id) is not None:
+                    return
+        except Exception:
+            logger.warning(
+                "Could not verify DB state before rolling back %s; "
+                "keeping libvirt definition",
+                vm_id,
+                exc_info=True,
+            )
+            return
+        VmService._rollback_defined_domain(str(vm_id))
+
+    @staticmethod
     def remove_vm(vm_id: str):
-        slave = VmService._get_slave_for_vm(vm_id)
-        if slave:
+        parsed_vm_id = VmService._parse_vm_id(vm_id)
+        with Session(engine) as session:
+            vm_record = session.get(VmORM, parsed_vm_id)
+            if not vm_record:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Vm {vm_id} not found",
+                )
+            slave = (
+                session.get(SlaveORM, vm_record.slave_id)
+                if vm_record.slave_id
+                else None
+            )
+
+        if vm_record.slave_id:
+            if not slave:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Slave {vm_record.slave_id} not found",
+                )
             if slave.status != "online":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"Slave {slave.name} is offline",
                 )
             from app.services.slave_client import slave_delete_vm
-            slave_delete_vm(slave, vm_id)
-            # Remove the reference from master DB
-            with Session(engine) as session:
-                session.exec(
-                    delete(EventParticipantORM).where(
-                        col(EventParticipantORM.vm_id) == uuid.UUID(vm_id)
-                    )
-                )
-                session.exec(
-                    delete(VmCredentialORM).where(
-                        col(VmCredentialORM.vm_id) == uuid.UUID(vm_id)
-                    )
-                )
-                session.exec(
-                    delete(VmORM).where(col(VmORM.id) == uuid.UUID(vm_id))
-                )
-                session.commit()
+            slave_delete_vm(slave, str(parsed_vm_id))
+            VmService._delete_vm_records(parsed_vm_id)
             return
-        vm = Vm.get(vm_id)
-        vm.remove()
+
+        VmService._remove_local_vm(parsed_vm_id)
 
     @staticmethod
     def restart_vm(vm_id: str):
@@ -1313,7 +1424,11 @@ class VmService:
                     continue
                 vm_record = session.get(VmORM, uuid.UUID(vm.name))
                 if vm_record is None:
-                    for vm_file in vm.iterdir():
+                    try:
+                        vm_files = list(vm.iterdir())
+                    except FileNotFoundError:
+                        continue
+                    for vm_file in vm_files:
                         if vm_file.name.endswith(".qcow2"):
                             image_name = ImageService.metadata_filename(
                                 vm_file.name)
@@ -1327,45 +1442,132 @@ class VmService:
 
     @staticmethod
     def recover_vm(recoverable_vm: RecoverableVmCreate):
-        rec_vms_list = VmService.get_recoverable_vms()
-
-        for v in rec_vms_list:
-            if v.vm_id == str(recoverable_vm.vm_id):
-                with Session(engine) as session:
-                    vm_record = VmORM(
-                        id=recoverable_vm.vm_id,
-                        name=recoverable_vm.name,
-                        os=v.image,
-                        mem=recoverable_vm.mem,
-                        vcpus=recoverable_vm.vcpus,
-                        disk_size=recoverable_vm.disk_size,
-                    )
-                    session.add(vm_record)
-                    session.commit()
-                    session.refresh(vm_record)
-                return VmRead(
-                    id=vm_record.id,
-                    os=vm_record.os,
-                    name=vm_record.name,
-                    mem=vm_record.mem,
-                    vcpus=vm_record.vcpus,
-                    disk_size=vm_record.disk_size,
-                    state="Stopped",
-                    ipv4=None,
-                    credentials_count=0,
+        vm_id = str(recoverable_vm.vm_id)
+        with _vm_recovery_lock(vm_id):
+            target = next(
+                (v for v in VmService.get_recoverable_vms() if v.vm_id == vm_id),
+                None,
+            )
+            if target is None:
+                raise HTTPException(
+                    status.HTTP_404_NOT_FOUND,
+                    f"Recoverable vm {recoverable_vm.vm_id} not found",
                 )
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND,
-            f"Vm {recoverable_vm.vm_id} not found in database"
+
+            image_name = Vm._resolve_image_name(target.image)
+            vm_dir = VMS_DIR / vm_id
+            disk_path = vm_dir / image_name
+            if not disk_path.is_file():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Disk image '{image_name}' not found for VM {vm_id}",
+                )
+
+            defined_domain = False
+            try:
+                conn = QEMUConfig.get_connection()
+                try:
+                    domain = conn.lookupByName(vm_id)
+                except libvirt.libvirtError as e:
+                    if e.get_error_code() != libvirt.VIR_ERR_NO_DOMAIN:
+                        raise
+                    ensure_seed_iso(vm_dir=vm_dir)
+                    vm_xml = build_xml(
+                        VmCreateXML(
+                            id=recoverable_vm.vm_id,
+                            os=image_name,
+                            name=recoverable_vm.name,
+                            mem=recoverable_vm.mem,
+                            vcpus=recoverable_vm.vcpus,
+                            disk_size=recoverable_vm.disk_size,
+                        ),
+                        firmware=target.firmware,
+                    )
+                    domain = conn.defineXML(with_vnc_clipboard(conn, vm_xml))
+                    defined_domain = True
+                else:
+                    if not domain.isPersistent():
+                        raise HTTPException(
+                            status_code=status.HTTP_409_CONFLICT,
+                            detail=(
+                                f"VM {vm_id} is running without a persistent "
+                                "libvirt definition. Stop it on the host and "
+                                "retry recovery."
+                            ),
+                        )
+                vm_state, reason = domain.state()
+                pause_reason = get_pause_reason(domain, vm_state, reason)
+            except BaseException as e:
+                if defined_domain:
+                    VmService._rollback_defined_domain(vm_id)
+                if isinstance(e, HTTPException):
+                    raise
+                if isinstance(e, Exception):
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Failed to recover VM {vm_id}: {e}",
+                    ) from e
+                raise
+
+            try:
+                with Session(engine) as session:
+                    session.add(
+                        VmORM(
+                            id=recoverable_vm.vm_id,
+                            name=recoverable_vm.name,
+                            os=image_name,
+                            mem=recoverable_vm.mem,
+                            vcpus=recoverable_vm.vcpus,
+                            disk_size=recoverable_vm.disk_size,
+                        )
+                    )
+                    session.commit()
+            except IntegrityError as e:
+                if defined_domain:
+                    VmService._rollback_defined_domain_if_untracked(
+                        recoverable_vm.vm_id)
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"VM {vm_id} is already tracked",
+                ) from e
+            except BaseException as e:
+                if defined_domain:
+                    VmService._rollback_defined_domain_if_untracked(
+                        recoverable_vm.vm_id)
+                if isinstance(e, Exception):
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Failed to save recovered VM {vm_id}: {e}",
+                    ) from e
+                raise
+
+        return VmRead(
+            id=recoverable_vm.vm_id,
+            os=image_name,
+            name=recoverable_vm.name,
+            mem=recoverable_vm.mem,
+            vcpus=recoverable_vm.vcpus,
+            disk_size=recoverable_vm.disk_size,
+            state=VM_STATE_NAMES.get(vm_state, "None"),
+            pause_reason=pause_reason,
+            ipv4=(
+                get_vm_ip(vm_id)
+                if vm_state == libvirt.VIR_DOMAIN_RUNNING
+                else None
+            ),
+            credentials_count=0,
         )
 
     @staticmethod
     def remove_recoverable_vm(vm_id: str):
-        for v in VmService.get_recoverable_vms():
-            if v.vm_id == vm_id:
-                undefine_domain(v.vm_id)
-                rmtree(VMS_DIR / v.vm_id)
-                return
+        with _vm_recovery_lock(vm_id):
+            for v in VmService.get_recoverable_vms():
+                if v.vm_id == vm_id:
+                    undefine_domain(v.vm_id)
+                    vm_dir = VMS_DIR / v.vm_id
+                    if vm_dir.exists():
+                        rmtree(vm_dir)
+                    return
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
             f"Recoverable vm {vm_id} not found"
@@ -1373,15 +1575,20 @@ class VmService:
 
     @staticmethod
     def remove_all_recoverable_vms():
-        vms_to_delete = VmService.get_recoverable_vms()
-        vm_root = Path(VMS_DIR)
-        for v in vm_root.iterdir():
-            for x in vms_to_delete:
-                if v.name == str(x.vm_id):
-                    undefine_domain(v.name)
-                    rmtree(VMS_DIR / v.name)
-                    break
-        return
+        candidate_ids = dict.fromkeys(
+            str(v.vm_id) for v in VmService.get_recoverable_vms()
+        )
+        for vm_id in candidate_ids:
+            with _vm_recovery_lock(vm_id):
+                if not any(
+                    str(v.vm_id) == vm_id
+                    for v in VmService.get_recoverable_vms()
+                ):
+                    continue
+                undefine_domain(vm_id)
+                vm_dir = VMS_DIR / vm_id
+                if vm_dir.exists():
+                    rmtree(vm_dir)
 
     @staticmethod
     def duplicate_vm(vm_id: str):
