@@ -1,13 +1,17 @@
-from contextlib import closing
+from contextlib import closing, contextmanager
 from functools import lru_cache
 import asyncio
 import json
 import logging
+import os
 import re
 import shutil
 import subprocess
+import threading
+import uuid
 import zipfile
 from pathlib import Path
+from typing import Iterator
 import yaml
 from fastapi import HTTPException, status
 from app.models.image import CatalogImage, ImageRead, ImageUpload
@@ -21,6 +25,9 @@ DISK_SUFFIXES = (".qcow2", ".vmdk", ".vdi", ".img", ".raw")
 conversions: dict[str, asyncio.Task] = {}
 # The images whose conversion is over and that are being prepared for SSH.
 preparing: set[str] = set()
+# Registry images currently being downloaded or swapped into IMAGES_DIR.
+downloading: set[str] = set()
+_lifecycle_lock = threading.Lock()
 
 
 def _disk_gib(size_bytes: int) -> int:
@@ -41,6 +48,10 @@ def _registry_min_disk_size(image: str, revision: int) -> int:
 
 
 class ImageService():
+
+    @staticmethod
+    def metadata_filename(image_name: str) -> str:
+        return f"{image_name.removesuffix('.qcow2')}.metadata.yaml"
 
     @staticmethod
     def _parse_image(content: str, source: str):
@@ -114,7 +125,10 @@ class ImageService():
             for image in ImageService.get_registry_image_list()
         }
         for image in ImageService.get_local_image_list():
-            images.setdefault(image.image, image)
+            if image.family == "local":
+                images[image.image] = image
+            else:
+                images.setdefault(image.image, image)
         catalog = []
         for image in images.values():
             minimum = None
@@ -122,7 +136,18 @@ class ImageService():
                 image_path = (IMAGES_DIR / image.image).resolve()
                 if not image_path.is_relative_to(IMAGES_DIR.resolve()):
                     raise ValueError("Invalid image path")
-                if image_path.is_file():
+                metadata_filename = ImageService.metadata_filename(image.image)
+                local = ImageService.get_local_image(metadata_filename)
+                has_pending_commit = (
+                    IMAGES_DIR / f".{metadata_filename}.commit.tmp"
+                ).exists()
+                local_matches = (
+                    image_path.is_file() and local is not None and
+                    (local.family == "local" or
+                     (not has_pending_commit and
+                      local.revision == image.revision))
+                )
+                if local_matches:
                     minimum = ImageService.local_min_disk_size(image_path)
                 else:
                     minimum = _registry_min_disk_size(
@@ -195,20 +220,7 @@ class ImageService():
     @staticmethod
     async def finish_upload(filename: str, upload: ImageUpload):
         slug = ImageService._slug(upload.name)
-        ImageService._require_idle(slug)
         upload_path = ImageService._upload_path(slug, filename)
-        if (IMAGES_DIR / f"{slug}.metadata.yaml").exists():
-            # Another upload took the name while this one was being sent.
-            upload_path.unlink(missing_ok=True)
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                f"An image named '{slug}' already exists",
-            )
-        if not upload_path.exists():
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "No uploaded data for this image",
-            )
         image = ImageRead(
             name=upload.name,
             image=f"{slug}.qcow2",
@@ -218,8 +230,28 @@ class ImageService():
             revision=0,
             firmware=upload.firmware,
         )
-        conversions[slug] = asyncio.create_task(
-            ImageService._convert_upload(upload_path, image))
+        with _lifecycle_lock:
+            ImageService._require_idle_locked(slug)
+            if (IMAGES_DIR / f"{slug}.metadata.yaml").exists():
+                # Another upload or download took the name while this was sent.
+                upload_path.unlink(missing_ok=True)
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    f"An image named '{slug}' already exists",
+                )
+            if not upload_path.exists():
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    "No uploaded data for this image",
+                )
+            # Clear stale markers from any crashed prior fresh registry download
+            # before starting the local import under this slug.
+            (IMAGES_DIR / f".{slug}.metadata.yaml.commit.tmp").unlink(
+                missing_ok=True)
+            (IMAGES_DIR / f".{slug}.qcow2.rollback.tmp").unlink(
+                missing_ok=True)
+            conversions[slug] = asyncio.create_task(
+                ImageService._convert_upload(upload_path, image))
         return image
 
     @staticmethod
@@ -236,13 +268,40 @@ class ImageService():
             upload_path.unlink(missing_ok=True)
 
     @staticmethod
-    def _require_idle(slug: str):
+    def _require_idle_locked(slug: str) -> None:
         """Two jobs on one image would overwrite each other's files."""
-        if slug in conversions and not conversions[slug].done():
+        task = conversions.get(slug)
+        if (task is not None and not task.done()) or slug in downloading:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 f"The image '{slug}' is still being processed",
             )
+
+    @staticmethod
+    def _require_idle(slug: str):
+        with _lifecycle_lock:
+            ImageService._require_idle_locked(slug)
+
+    @staticmethod
+    @contextmanager
+    def recovery_guard(slug: str) -> Iterator[bool]:
+        """Hold the lifecycle lock and report whether crash recovery may run."""
+        with _lifecycle_lock:
+            task = conversions.get(slug)
+            yield task is None or task.done()
+
+    @staticmethod
+    @contextmanager
+    def claim_download(slug: str) -> Iterator[None]:
+        """Reserve an image slug against concurrent local imports."""
+        with _lifecycle_lock:
+            ImageService._require_idle_locked(slug)
+            downloading.add(slug)
+        try:
+            yield
+        finally:
+            with _lifecycle_lock:
+                downloading.discard(slug)
 
     @staticmethod
     async def _prepare(image: ImageRead, replace: bool = False):
@@ -255,8 +314,17 @@ class ImageService():
         finally:
             preparing.discard(slug)
         image.ssh_ready = image.ssh_detail is None
-        (IMAGES_DIR / f"{slug}.metadata.yaml").write_text(
-            yaml.safe_dump(image.model_dump(), sort_keys=False))
+        metadata_path = IMAGES_DIR / f"{slug}.metadata.yaml"
+        staged_metadata = metadata_path.with_name(
+            f".{metadata_path.name}.{uuid.uuid4().hex}.prepare.tmp")
+        try:
+            staged_metadata.write_text(
+                yaml.safe_dump(image.model_dump(), sort_keys=False),
+                encoding="utf-8",
+            )
+            os.replace(staged_metadata, metadata_path)
+        finally:
+            staged_metadata.unlink(missing_ok=True)
         return image.ssh_detail
 
     @staticmethod
@@ -271,24 +339,26 @@ class ImageService():
                 f"No uploaded image named '{image_name}'",
             )
         slug = Path(image.image).stem
-        ImageService._require_idle(slug)
         # VMs can be created from this image meanwhile: it is replaced, not
         # changed.
-        conversions[slug] = asyncio.create_task(
-            ImageService._prepare(image, replace=True))
+        with _lifecycle_lock:
+            ImageService._require_idle_locked(slug)
+            conversions[slug] = asyncio.create_task(
+                ImageService._prepare(image, replace=True))
         return image
 
     @staticmethod
     def upload_status(name: str) -> dict:
         slug = ImageService._slug(name)
-        task = conversions.get(slug)
-        if task is None:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND, "No upload in progress")
-        if not task.done():
-            return {"status": "preparing" if slug in preparing else "converting",
-                    "detail": None}
-        del conversions[slug]
+        with _lifecycle_lock:
+            task = conversions.get(slug)
+            if task is None:
+                raise HTTPException(
+                    status.HTTP_404_NOT_FOUND, "No upload in progress")
+            if not task.done():
+                return {"status": "preparing" if slug in preparing else "converting",
+                        "detail": None}
+            del conversions[slug]
         error = task.exception()
         if error is None:
             # A ready image comes with the reason SSH could not be set up, if any.
