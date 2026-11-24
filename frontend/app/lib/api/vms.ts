@@ -24,32 +24,43 @@ export async function startVM(id: string): Promise<VirtualMachineMetadata> {
   );
 }
 
-export async function stopVM(id: string, force = false): Promise<void> {
-  return apiRequest<void>(`/vms/${id}/stop${force ? "?force=true" : ""}`, {
-    method: "POST",
-  });
+export async function stopVM(
+  id: string,
+  force = false,
+): Promise<VirtualMachineMetadata> {
+  return apiRequest(
+    `/vms/${id}/stop${force ? "?force=true" : ""}`,
+    {
+      method: "POST",
+    },
+    VirtualMachineMetadataSchema,
+  );
 }
 
-export async function restartVM(id: string): Promise<void> {
-  return apiRequest<void>(`/vms/${id}/restart`, {
-    method: "POST",
-  });
+export async function restartVM(id: string): Promise<VirtualMachineMetadata> {
+  return apiRequest(
+    `/vms/${id}/restart`,
+    {
+      method: "POST",
+    },
+    VirtualMachineMetadataSchema,
+  );
 }
 
 export async function deleteVM(id: string): Promise<void> {
-  return apiRequest<void>(`/vms/${id}`, {
+  await apiRequest<void>(`/vms/${id}`, {
     method: "DELETE",
   });
 }
 
 export async function duplicateVM(id: string): Promise<void> {
-  return apiRequest<void>(`/vms/${id}/duplicate`, {
+  await apiRequest<void>(`/vms/${id}/duplicate`, {
     method: "POST",
   });
 }
 
 export async function renameVM(id: string, name: string): Promise<void> {
-  return apiRequest<void>(`/vms/${id}/rename`, {
+  await apiRequest<void>(`/vms/${id}/rename`, {
     method: "POST",
     body: JSON.stringify({ name }),
   });

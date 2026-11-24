@@ -280,7 +280,12 @@ def _stop_slave_vm(slave: SlaveORM, vm: VmORM) -> Optional[str]:
     except HTTPException as exc:
         if exc.status_code == status.HTTP_404_NOT_FOUND:
             return None
-        return f"{vm.name}: {exc.detail}"
+        detail = (
+            exc.detail.removeprefix("Slave error: ")
+            if isinstance(exc.detail, str)
+            else exc.detail
+        )
+        return f"{vm.name}: {detail}"
     except httpx.HTTPError as exc:
         return f"{vm.name}: {unreachable_slave_detail(slave, exc)}"
     return None if state == "Stopped" else f"{vm.name}: still {state}"

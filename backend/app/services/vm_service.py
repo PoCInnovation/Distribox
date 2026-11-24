@@ -15,6 +15,11 @@ import libvirt
 from app.utils.vm import wait_for_state, get_pause_reason, recover_after_pause
 from typing import Any, BinaryIO, Callable, Iterator, Optional
 from app.core.constants import VMS_DIR, IMAGES_DIR, VM_STATE_NAMES
+from app.core.exceptions import (
+    CodedHTTPException,
+    VM_SHUTDOWN_FAILED_CODE,
+    rebuild_http_exception,
+)
 from app.models.vm import VmCreate, VmRead, VmCredentialCreateRequest, RecoverableVm, RecoverableVmCreate, VmCreateXML, VmRename
 from app.models.image import ImageRead
 from app.models.operation import OperationRead
@@ -43,6 +48,73 @@ COPY_CHUNK_SIZE = 4 * 2**20
 # Flushing as the copy goes keeps its progress close to what is on disk, and
 # spares the resize a wait of minutes on the page cache.
 COPY_SYNC_INTERVAL = 64 * 2**20
+SHUTDOWN_POLL_INTERVAL = 1.0
+SHUTDOWN_POLL_RETRIES = 45
+FORCE_STOP_POLL_INTERVAL = 0.5
+FORCE_STOP_POLL_RETRIES = 20
+
+
+def _is_domain_inactive(vm) -> bool:
+    try:
+        return vm.isActive() == 0
+    except libvirt.libvirtError:
+        return False
+
+
+def _stop_timeout_error(
+    state: str, *, force: bool = False, legacy_slave: bool = False
+) -> HTTPException:
+    if force:
+        action_hint = (
+            "Check the slave node and make sure its backend is up to date."
+            if legacy_slave
+            else "Check its host and try again."
+        )
+        if state in ("Running", "Stopping"):
+            detail = (
+                f"Could not force stop the VM; it is still {state.lower()}. "
+                f"{action_hint}"
+            )
+        else:
+            detail = (
+                f"Could not force stop the VM (current state: {state}). "
+                f"{action_hint}"
+            )
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+    if state == "Running":
+        detail = (
+            "The VM did not shut down in time and is still running. "
+            "Use Force stop to power it off."
+        )
+    elif state == "Stopping":
+        detail = (
+            "The VM did not shut down in time and is still stopping. "
+            "Wait a moment, or use Force stop to power it off."
+        )
+    else:
+        detail = (
+            f"The VM did not shut down in time (current state: {state}). "
+            "Use Force stop to power it off."
+        )
+    return CodedHTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=detail,
+        code=VM_SHUTDOWN_FAILED_CODE,
+    )
+
+
+def _restart_stop_error(exc: HTTPException) -> HTTPException:
+    if exc.status_code != status.HTTP_409_CONFLICT or not isinstance(exc.detail, str):
+        return exc
+    detail = exc.detail
+    if detail.startswith("The VM did not shut down in time"):
+        detail = (
+            "Could not restart the VM because it" +
+            detail.removeprefix("The VM")
+        )
+    else:
+        detail = f"Could not restart the VM. {detail}"
+    return rebuild_http_exception(exc, detail)
 
 
 class _ImageLock:
@@ -55,8 +127,62 @@ _image_download_locks_guard = threading.Lock()
 _image_download_locks: dict[Path, _ImageLock] = {}
 _vm_recovery_locks_guard = threading.Lock()
 _vm_recovery_locks: dict[str, _ImageLock] = {}
+_vm_power_ops_guard = threading.Lock()
+_restarting_vms: set[str] = set()
+_stopping_vms: dict[str, int] = {}
 # Matches both our staged UUID temp files and boto3 s3transfer's appended suffix.
 _STAGED_SUFFIX_RE = re.compile(r"^[0-9a-f]{32}\.tmp(?:\.[0-9A-Za-z]+)?$")
+
+
+def _restart_vm_key(vm_id: str) -> str:
+    try:
+        return str(uuid.UUID(vm_id))
+    except ValueError:
+        return vm_id.strip().lower()
+
+
+@contextmanager
+def _vm_restart_guard(vm_id: str) -> Iterator[None]:
+    key = _restart_vm_key(vm_id)
+    with _vm_power_ops_guard:
+        if key in _restarting_vms:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="VM is already restarting. Wait for it to finish.",
+            )
+        if _stopping_vms.get(key, 0) > 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="VM is currently stopping. Wait for it to finish before restarting it.",
+            )
+        _restarting_vms.add(key)
+    try:
+        yield
+    finally:
+        with _vm_power_ops_guard:
+            _restarting_vms.discard(key)
+
+
+@contextmanager
+def _vm_stop_guard(vm_id: str) -> Iterator[None]:
+    key = _restart_vm_key(vm_id)
+    with _vm_power_ops_guard:
+        if key in _restarting_vms:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="VM is currently restarting. Wait for it to finish before stopping it.",
+            )
+        _stopping_vms[key] = _stopping_vms.get(key, 0) + 1
+    try:
+        yield
+    finally:
+        with _vm_power_ops_guard:
+            remaining = _stopping_vms.get(key, 1) - 1
+            if remaining <= 0:
+                _stopping_vms.pop(key, None)
+            else:
+                _stopping_vms[key] = remaining
+
 
 UNDEFINE_FLAGS = (
     libvirt.VIR_DOMAIN_UNDEFINE_NVRAM |
@@ -560,6 +686,8 @@ class Vm:
         self.ssh_enabled = vm_create.ssh_enabled
         self.state: Optional[str] = None
         self.state = 'Stopped'
+        self.pause_reason: Optional[str] = None
+        self.recovery_warning: Optional[str] = None
         self.ipv4: Optional[str] = None
         self.credentials_count: int = 0
 
@@ -632,7 +760,7 @@ class Vm:
             raise
 
     @classmethod
-    def get(cls, vm_id: str):
+    def get(cls, vm_id: str, *, include_ip: bool = True):
         try:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(vm_id)
@@ -657,7 +785,9 @@ class Vm:
                 vm_instance.pause_reason = get_pause_reason(
                     vm, vm_state, reason)
                 vm_instance.recovery_warning = None
-                vm_instance.ipv4 = get_vm_ip(str(vm_instance.id))
+                vm_instance.ipv4 = (
+                    get_vm_ip(str(vm_instance.id)) if include_ip else None
+                )
                 vm_instance.slave_id = vm_record.slave_id
                 vm_instance.slave_name = None
                 if vm_record.slave_id:
@@ -691,7 +821,7 @@ class Vm:
         except Exception:
             raise
 
-    def start(self):
+    def start(self, *, include_ip: bool = True):
         vm_dir = VMS_DIR / str(self.id)
         resuming = False
         try:
@@ -761,7 +891,7 @@ class Vm:
             if vm.state()[0] != libvirt.VIR_DOMAIN_RUNNING:
                 raise HTTPException(status.HTTP_409_CONFLICT,
                                     self._resume_error(vm))
-        self.ipv4 = get_vm_ip(str(self.id))
+        self.ipv4 = get_vm_ip(str(self.id)) if include_ip else None
         return self
 
     @staticmethod
@@ -773,31 +903,76 @@ class Vm:
         return "Could not resume the VM. Check its host for disk or I/O errors, then try Resume VM again."
 
     def stop(self, force: bool = False):
+        vm = None
+
+        def _stop_libvirt_error() -> HTTPException:
+            if force:
+                return HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    "Could not force stop the VM. Check its host and try again.",
+                )
+            return CodedHTTPException(
+                status.HTTP_409_CONFLICT,
+                "Could not stop the VM. Check its host and try again, or use Force stop to power it off.",
+                VM_SHUTDOWN_FAILED_CODE,
+            )
+
         try:
             conn = QEMUConfig.get_connection()
             vm = conn.lookupByName(str(self.id))
             if vm.isActive() == 1:
-                if vm.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
-                    if not force:
-                        raise HTTPException(
-                            status.HTTP_409_CONFLICT,
-                            "VM is paused. Resume it first, or use Force stop; unsaved work will be lost.",
-                        )
+                if force:
                     vm.destroy()
+                elif vm.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
+                    raise HTTPException(
+                        status.HTTP_409_CONFLICT,
+                        "VM is paused. Resume it first, or use Force stop; unsaved work will be lost.",
+                    )
                 else:
                     vm.shutdown()
         except libvirt.libvirtError as e:
             if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
                 raise HTTPException(status.HTTP_404_NOT_FOUND,
                                     f'Vm {self.id} not found')
-            raise HTTPException(status.HTTP_409_CONFLICT,
-                                "Could not stop the VM. Check its host and try again.") from e
-        except Exception:
-            raise
-        state_code = wait_for_state(vm, libvirt.VIR_DOMAIN_SHUTOFF, 5, 10)
-        self.state = VM_STATE_NAMES.get(state_code, 'None')
+            if not (
+                vm is not None and
+                e.get_error_code() == libvirt.VIR_ERR_OPERATION_INVALID and
+                _is_domain_inactive(vm)
+            ):
+                logger.warning(
+                    "Failed to %s VM %s: %s",
+                    "force stop" if force else "stop",
+                    self.id,
+                    e,
+                )
+                raise _stop_libvirt_error() from e
+        poll_interval = (
+            FORCE_STOP_POLL_INTERVAL if force else SHUTDOWN_POLL_INTERVAL
+        )
+        poll_retries = (
+            FORCE_STOP_POLL_RETRIES if force else SHUTDOWN_POLL_RETRIES
+        )
+        try:
+            state_code = wait_for_state(
+                vm, libvirt.VIR_DOMAIN_SHUTOFF, poll_interval, poll_retries
+            )
+        except libvirt.libvirtError as e:
+            if e.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+                raise HTTPException(status.HTTP_404_NOT_FOUND,
+                                    f'Vm {self.id} not found')
+            logger.warning(
+                "Failed to poll state while %s VM %s: %s",
+                "force stopping" if force else "stopping",
+                self.id,
+                e,
+            )
+            raise _stop_libvirt_error() from e
+        self.state = VM_STATE_NAMES.get(state_code, "Unknown")
         if state_code != libvirt.VIR_DOMAIN_PAUSED:
             self.pause_reason = None
+        if state_code != libvirt.VIR_DOMAIN_SHUTOFF:
+            raise _stop_timeout_error(self.state, force=force)
+        self.ipv4 = None
         return self
 
     def get_state(self):
@@ -1198,19 +1373,49 @@ class VmService:
         return vm.start()
 
     @staticmethod
+    def _stop_on_slave(
+        slave: SlaveORM, vm_id: str, *, force: bool = False
+    ) -> dict:
+        from app.services.slave_client import SlaveUnreachableError, slave_stop_vm
+        try:
+            result = slave_stop_vm(slave, vm_id, force=force)
+        except SlaveUnreachableError:
+            raise
+        except HTTPException as exc:
+            if (
+                exc.status_code in (status.HTTP_404_NOT_FOUND, status.HTTP_409_CONFLICT) and
+                isinstance(exc.detail, str)
+            ):
+                raise rebuild_http_exception(
+                    exc, exc.detail.removeprefix("Slave error: ")
+                ) from exc
+            raise
+        stopped_state = VM_STATE_NAMES[libvirt.VIR_DOMAIN_SHUTOFF]
+        if result.get("state") != stopped_state:
+            raise _stop_timeout_error(
+                str(result.get("state") or "Unknown"),
+                force=force,
+                legacy_slave=True,
+            )
+        return result
+
+    @staticmethod
     def stop_vm(vm_id: str, force: bool = False):
-        slave = VmService._get_slave_for_vm(vm_id)
-        if slave:
-            if slave.status != "online":
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Slave {slave.name} is offline",
+        with _vm_stop_guard(vm_id):
+            slave = VmService._get_slave_for_vm(vm_id)
+            if slave:
+                if slave.status != "online":
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Slave {slave.name} is offline",
+                    )
+                return VmService._with_slave_fields(
+                    VmService._stop_on_slave(slave, vm_id, force=force),
+                    slave,
+                    vm_id,
                 )
-            from app.services.slave_client import slave_stop_vm
-            return VmService._with_slave_fields(
-                slave_stop_vm(slave, vm_id, force=force), slave, vm_id)
-        vm = Vm.get(vm_id)
-        return vm.stop(force=force)
+            vm = Vm.get(vm_id, include_ip=False)
+            return vm.stop(force=force)
 
     @staticmethod
     def _delete_vm_records(vm_id: uuid.UUID):
@@ -1309,20 +1514,31 @@ class VmService:
 
     @staticmethod
     def restart_vm(vm_id: str):
-        slave = VmService._get_slave_for_vm(vm_id)
-        if slave:
-            if slave.status != "online":
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Slave {slave.name} is offline",
-                )
-            from app.services.slave_client import slave_stop_vm, slave_start_vm
-            slave_stop_vm(slave, vm_id)
-            return VmService._with_slave_fields(
-                slave_start_vm(slave, vm_id), slave, vm_id)
-        vm = Vm.get(vm_id)
-        vm.stop()
-        return vm.start()
+        with _vm_restart_guard(vm_id):
+            slave = VmService._get_slave_for_vm(vm_id)
+            if slave:
+                if slave.status != "online":
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Slave {slave.name} is offline",
+                    )
+                from app.services.slave_client import SlaveUnreachableError, slave_start_vm
+                try:
+                    VmService._stop_on_slave(slave, vm_id)
+                except SlaveUnreachableError:
+                    raise
+                except HTTPException as exc:
+                    raise _restart_stop_error(exc) from exc
+                return VmService._with_slave_fields(
+                    slave_start_vm(slave, vm_id), slave, vm_id)
+            vm = Vm.get(vm_id, include_ip=False)
+            try:
+                vm.stop()
+            except HTTPException as exc:
+                raise _restart_stop_error(exc) from exc
+            vm.start(include_ip=False)
+        vm.ipv4 = get_vm_ip(str(vm.id))
+        return vm
 
     @staticmethod
     def create_vm_credential(vm_id: str, payload: VmCredentialCreateRequest):

@@ -15,6 +15,7 @@ function ActionItem({ action }: { action: VmAction }) {
   const Icon = action.icon;
   return (
     <DropdownMenuItem
+      variant={action.destructive && action.enabled ? "destructive" : "default"}
       disabled={!action.enabled}
       aria-disabled={!action.enabled}
       onSelect={() => action.run()}
@@ -29,7 +30,12 @@ function ActionItem({ action }: { action: VmAction }) {
         {action.pending ? (
           <Loader2 className="size-4 animate-spin" />
         ) : (
-          <Icon className="size-4" />
+          <Icon
+            className={cn(
+              "size-4",
+              action.destructive && action.enabled && "text-destructive",
+            )}
+          />
         )}
         {action.label}
       </span>
@@ -91,14 +97,13 @@ export function ParticipantMenu({
         <ActionItem action={byId.start} />
         <ActionItem action={byId.stop} />
         <ActionItem action={byId.restart} />
+        <DropdownMenuSeparator />
+        <ActionItem action={byId.forceStop} />
         {onRemove && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={onRemove}>
-              <UserMinus className="size-4 text-destructive" />
-              Remove from event
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+            <UserMinus className="size-4 text-destructive" />
+            Remove from event
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

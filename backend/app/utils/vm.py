@@ -54,11 +54,12 @@ def recover_after_pause(vm) -> Optional[str]:
 
 
 def wait_for_state(vm, state_code: int, timeout: float, retries: int):
-    for _ in range(0, retries):
-        code, _ = vm.state()
+    code, _ = vm.state()
+    for _ in range(retries):
         if state_code == code:
             return code
         sleep(timeout)
+        code, _ = vm.state()
     return code
 
 

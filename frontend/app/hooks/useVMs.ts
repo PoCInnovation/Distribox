@@ -4,9 +4,10 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import {
+  ApiHttpError,
   getVMs,
   startVM,
   stopVM,
@@ -19,8 +20,16 @@ import type { VirtualMachineMetadata } from "@/lib/types/virtual-machine";
 import { VMState } from "@/lib/types";
 import { isTransitional } from "@/lib/vm-state-ui";
 
+const VM_SHUTDOWN_FAILED_CODE = "vm_shutdown_failed";
+
 export type VmOperation =
-  "start" | "stop" | "restart" | "delete" | "duplicate" | "rename";
+  | "start"
+  | "stop"
+  | "forceStop"
+  | "restart"
+  | "delete"
+  | "duplicate"
+  | "rename";
 
 const VM_MUTATION_KEY = ["vm-operation"] as const;
 
@@ -28,7 +37,10 @@ interface VmOperationVariables {
   vmId: string;
   op: VmOperation;
   name?: string;
-  force?: boolean;
+}
+
+export interface UseVMsOptions {
+  onRequestForceStop?: (vm: VirtualMachineMetadata) => void;
 }
 
 /** Poll faster while any VM is in a transitional state (e.g. Stopping). */
@@ -48,14 +60,31 @@ export function usePendingVmOperations(): Map<string, VmOperation> {
   return useMemo(() => {
     const map = new Map<string, VmOperation>();
     for (const vars of pending) {
-      if (vars?.vmId) map.set(vars.vmId, vars.op);
+      if (!vars?.vmId) continue;
+      if (map.get(vars.vmId) === "forceStop" && vars.op === "stop") continue;
+      map.set(vars.vmId, vars.op);
     }
     return map;
   }, [pending]);
 }
 
-export function useVMs() {
+export function useVMs(options?: UseVMsOptions) {
   const queryClient = useQueryClient();
+  const onRequestForceStopRef = useRef(options?.onRequestForceStop);
+  onRequestForceStopRef.current = options?.onRequestForceStop;
+
+  const mountedRef = useRef(true);
+  const actionToastIdsRef = useRef<Set<string | number>>(new Set());
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      for (const toastId of actionToastIdsRef.current) {
+        toast.dismiss(toastId);
+      }
+      actionToastIdsRef.current.clear();
+    };
+  }, []);
 
   const {
     data: vms,
@@ -77,9 +106,19 @@ export function useVMs() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["vms"] });
 
-  const operation = useMutation<void, Error, VmOperationVariables>({
+  const updateCachedVm = (updated: VirtualMachineMetadata) => {
+    queryClient.setQueryData<VirtualMachineMetadata[]>(["vms"], (old) =>
+      old?.map((vm) => (vm.id === updated.id ? updated : vm)),
+    );
+  };
+
+  const operation = useMutation<
+    VirtualMachineMetadata | void,
+    Error,
+    VmOperationVariables
+  >({
     mutationKey: VM_MUTATION_KEY,
-    mutationFn: async ({ vmId, op, name, force }) => {
+    mutationFn: async ({ vmId, op, name }) => {
       switch (op) {
         case "start": {
           const resuming = vms?.some(
@@ -91,10 +130,12 @@ export function useVMs() {
           } else if (resuming) {
             toast.success("VM resumed");
           }
-          return;
+          return result;
         }
         case "stop":
-          return stopVM(vmId, force);
+          return stopVM(vmId, false);
+        case "forceStop":
+          return stopVM(vmId, true);
         case "restart":
           return restartVM(vmId);
         case "delete":
@@ -105,12 +146,81 @@ export function useVMs() {
           return renameVM(vmId, name ?? "");
       }
     },
-    onSettled: () => invalidate(),
+    onSuccess: (updated, vars) => {
+      if (
+        updated &&
+        (vars.op === "start" ||
+          vars.op === "stop" ||
+          vars.op === "forceStop" ||
+          vars.op === "restart")
+      ) {
+        // Apply the returned VM immediately so actions never re-enable against
+        // stale state while a background list refetch is still in flight.
+        updateCachedVm(updated);
+        void invalidate();
+        return;
+      }
+      return invalidate();
+    },
+    onError: () => {
+      // Fire and forget so a slow GET /vms/ refetch never delays error toasts.
+      void invalidate();
+    },
   });
 
   const run = (vars: VmOperationVariables) =>
     operation.mutateAsync(vars).catch((err: Error) => {
-      toast.error(err.message || `Could not ${vars.op} the VM`);
+      const targetVm = queryClient
+        .getQueryData<VirtualMachineMetadata[]>(["vms"])
+        ?.find((v) => v.id === vars.vmId);
+      const opLabel = vars.op === "forceStop" ? "force stop" : vars.op;
+      const canOfferForceStop =
+        mountedRef.current &&
+        (vars.op === "stop" || vars.op === "restart") &&
+        err instanceof ApiHttpError &&
+        err.code === VM_SHUTDOWN_FAILED_CODE &&
+        !!targetVm &&
+        !!onRequestForceStopRef.current;
+
+      if (canOfferForceStop) {
+        let toastId: string | number | undefined;
+        const untrack = () => {
+          if (toastId !== undefined) actionToastIdsRef.current.delete(toastId);
+        };
+        toastId = toast.error(err.message || `Could not ${opLabel} the VM`, {
+          description: targetVm.name,
+          duration: 12_000,
+          onDismiss: untrack,
+          onAutoClose: untrack,
+          action: {
+            label: "Force stop…",
+            onClick: () => {
+              untrack();
+              if (!mountedRef.current || !onRequestForceStopRef.current) {
+                return;
+              }
+              const cached = queryClient.getQueryData<VirtualMachineMetadata[]>(
+                ["vms"],
+              );
+              const latest = cached
+                ? cached.find((v) => v.id === vars.vmId)
+                : targetVm;
+              if (latest) {
+                onRequestForceStopRef.current(latest);
+              }
+            },
+          },
+          classNames: {
+            actionButton:
+              "!rounded-none !border !border-destructive/50 !bg-transparent !text-destructive hover:!bg-destructive/10",
+          },
+        });
+        actionToastIdsRef.current.add(toastId);
+      } else {
+        toast.error(err.message || `Could not ${opLabel} the VM`, {
+          description: targetVm?.name,
+        });
+      }
       throw err;
     });
 
@@ -123,8 +233,9 @@ export function useVMs() {
     error,
     pendingById,
     startVM: (vmId: string) => run({ vmId, op: "start" }).catch(() => {}),
-    stopVM: (vmId: string, force = false) =>
-      run({ vmId, op: "stop", force }).catch(() => {}),
+    stopVM: (vmId: string) => run({ vmId, op: "stop" }).catch(() => {}),
+    forceStopVM: (vmId: string) =>
+      run({ vmId, op: "forceStop" }).catch(() => {}),
     restartVM: (vmId: string) => run({ vmId, op: "restart" }).catch(() => {}),
     deleteVM: (vmId: string) =>
       run({ vmId, op: "delete" })

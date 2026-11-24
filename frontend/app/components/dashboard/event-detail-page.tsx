@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeft,
@@ -7,7 +7,6 @@ import {
   Pencil,
   Presentation,
   RotateCw,
-  Square,
   Terminal,
   Trash2,
   UserMinus,
@@ -21,8 +20,13 @@ import {
 } from "@/components/ui/tooltip";
 import { PolicyNotice } from "@/components/policy/policy-notice";
 import { useEvent, useDeleteEvent, useDeleteEventVm } from "@/hooks/useEvents";
-import { useVMs } from "@/hooks/useVMs";
-import { VmActionsProvider, type VmActionHandlers } from "@/hooks/useVmActions";
+import { useVMs, type VmOperation } from "@/hooks/useVMs";
+import {
+  VmActionsProvider,
+  pendingAllows,
+  stateAllows,
+  type VmActionHandlers,
+} from "@/hooks/useVmActions";
 import { useTimezone, formatDateTime } from "@/hooks/useTimezone";
 import { useAuthz } from "@/contexts/authz-context";
 import { isForbiddenError } from "@/lib/api";
@@ -32,6 +36,7 @@ import type { Event } from "@/lib/types/event";
 import { cn } from "@/lib/utils";
 import { VmDrawer } from "./vm-drawer";
 import { RenameVMDialog } from "./RenameVMDialog";
+import { ForceStopDialog } from "./force-stop-dialog";
 import { VmOsLabel } from "./vm-os-label";
 import { EventFormDialog } from "./events/event-form-dialog";
 import { PresentOverlay } from "./events/present-overlay";
@@ -126,20 +131,6 @@ function EventDetail({ event }: { event: Event }) {
   const canDelete = authz.hasPolicy(Policy.EVENTS_DELETE);
   const canScreenshot = authz.hasPolicy(Policy.VMS_SCREENSHOT);
 
-  const deleteEvent = useDeleteEvent();
-  const deleteEventVm = useDeleteEventVm();
-  const {
-    vms,
-    isLoading: vmsLoading,
-    isError: vmsError,
-    pendingById,
-    startVM,
-    stopVM,
-    restartVM,
-    duplicateVM,
-    renameVM,
-  } = useVMs();
-
   const [editOpen, setEditOpen] = useState(searchParams.get("edit") === "1");
   const [presenting, setPresenting] = useState(
     searchParams.get("present") === "1",
@@ -149,7 +140,35 @@ function EventDetail({ event }: { event: Event }) {
   const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(
     null,
   );
-  const [vmToStop, setVmToStop] = useState<VirtualMachineMetadata | null>(null);
+  const [vmToForceStop, setVmToForceStop] =
+    useState<VirtualMachineMetadata | null>(null);
+  const pendingByIdRef = useRef<Map<string, VmOperation>>(new Map());
+
+  const requestForceStop = useCallback((vm: VirtualMachineMetadata) => {
+    if (
+      !stateAllows("forceStop", vm.state).ok ||
+      !pendingAllows("forceStop", pendingByIdRef.current.get(vm.id))
+    ) {
+      return;
+    }
+    setVmToForceStop(vm);
+  }, []);
+
+  const deleteEvent = useDeleteEvent();
+  const deleteEventVm = useDeleteEventVm();
+  const {
+    vms,
+    isLoading: vmsLoading,
+    isError: vmsError,
+    pendingById,
+    startVM,
+    stopVM,
+    forceStopVM,
+    restartVM,
+    duplicateVM,
+    renameVM,
+  } = useVMs({ onRequestForceStop: requestForceStop });
+  pendingByIdRef.current = pendingById;
 
   const view: ParticipantView =
     searchParams.get(VIEW_PARAM) === "table" ? "table" : "screens";
@@ -200,8 +219,8 @@ function EventDetail({ event }: { event: Event }) {
       connect: (vm) =>
         window.open(`/client?vm_id=${encodeURIComponent(vm.id)}`, "_blank"),
       start: (vm) => void startVM(vm.id),
-      stop: (vm) =>
-        vm.state === VMState.PAUSED ? setVmToStop(vm) : void stopVM(vm.id),
+      stop: (vm) => void stopVM(vm.id),
+      forceStop: (vm) => setVmToForceStop(vm),
       restart: (vm) => void restartVM(vm.id),
       duplicate: (vm) => void duplicateVM(vm.id),
       rename: (vm) => setVmToRename(vm),
@@ -418,31 +437,25 @@ function EventDetail({ event }: { event: Event }) {
         onRename={renameVM}
       />
 
-      <ConfirmDialog
-        open={!!vmToStop}
+      <ForceStopDialog
+        vms={vmToForceStop ? [vmToForceStop] : []}
         onOpenChange={(open) => {
-          if (!open) setVmToStop(null);
+          if (!open) setVmToForceStop(null);
         }}
-        title="Force stop this VM?"
-        description={
-          <>
-            <p>
-              A paused VM cannot shut down normally. Force stopping powers it
-              off and loses unsaved work. Try Resume VM first.
-            </p>
-            <p className="font-medium text-foreground">{vmToStop?.name}</p>
-          </>
-        }
-        confirmLabel={
-          <>
-            <Square />
-            Force stop VM
-          </>
-        }
-        destructive
         onConfirm={() => {
-          if (vmToStop) void stopVM(vmToStop.id, true);
-          setVmToStop(null);
+          if (vmToForceStop) {
+            const current = vms
+              ? vms.find((v) => v.id === vmToForceStop.id)
+              : vmToForceStop;
+            if (
+              current &&
+              stateAllows("forceStop", current.state).ok &&
+              pendingAllows("forceStop", pendingById.get(current.id))
+            ) {
+              void forceStopVM(current.id);
+            }
+          }
+          setVmToForceStop(null);
         }}
       />
 
