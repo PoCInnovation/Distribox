@@ -2,6 +2,7 @@ import { apiRequest } from "./core";
 import {
   type Slave,
   type CreateSlavePayload,
+  type UpdateSlavePayload,
   type RegisteredSlave,
   RegisteredSlaveSchema,
   SlaveListSchema,
@@ -30,6 +31,20 @@ export async function createSlave(
       body: JSON.stringify(payload),
     },
     RegisteredSlaveSchema,
+  );
+}
+
+export async function updateSlave(
+  slaveId: string,
+  payload: UpdateSlavePayload,
+): Promise<Slave> {
+  return apiRequest(
+    `/slaves/${slaveId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+    SlaveSchema,
   );
 }
 

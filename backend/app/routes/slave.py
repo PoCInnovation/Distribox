@@ -1,6 +1,6 @@
 """Master-side routes for managing slave nodes."""
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from app.models.slave import SlaveCreate, SlaveRead, SlaveHeartbeat
+from app.models.slave import SlaveCreate, SlaveRead, SlaveHeartbeat, SlaveUpdate
 from app.models.vm import VmRead
 from app.models.user_management import MissingPoliciesResponse
 from app.services.slave_service import SlaveService
@@ -70,6 +70,20 @@ def get_slave(
 )
 def create_slave(payload: SlaveCreate):
     return SlaveService.create_slave(payload)
+
+
+@router.patch(
+    "/{slave_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=SlaveRead,
+    responses={403: {"model": MissingPoliciesResponse}},
+)
+def update_slave(
+    slave_id: str,
+    payload: SlaveUpdate,
+    user: UserORM = Depends(require_policy("slaves:create")),
+):
+    return _slave_read(SlaveService.update_slave(slave_id, payload), user)
 
 
 @router.delete(

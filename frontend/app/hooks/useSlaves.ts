@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSlaves, createSlave, deleteSlave } from "@/lib/api/slaves";
+import {
+  getSlaves,
+  createSlave,
+  updateSlave,
+  deleteSlave,
+} from "@/lib/api/slaves";
 import { ApiHttpError } from "@/lib/api/core";
-import type { CreateSlavePayload } from "@/lib/types/slave";
+import type { CreateSlavePayload, UpdateSlavePayload } from "@/lib/types/slave";
 
 export function useSlaves() {
   const queryClient = useQueryClient();
@@ -18,6 +23,21 @@ export function useSlaves() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["slaves"] });
       queryClient.invalidateQueries({ queryKey: ["host", "info", "cluster"] });
+    },
+  });
+
+  const updateSlaveMutation = useMutation({
+    mutationFn: ({
+      slaveId,
+      payload,
+    }: {
+      slaveId: string;
+      payload: UpdateSlavePayload;
+    }) => updateSlave(slaveId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["slaves"] });
+      queryClient.invalidateQueries({ queryKey: ["host", "info", "cluster"] });
+      queryClient.invalidateQueries({ queryKey: ["vms"] });
     },
   });
 
@@ -45,6 +65,8 @@ export function useSlaves() {
     dataUpdatedAt: slavesQuery.dataUpdatedAt,
     createSlave: createSlaveMutation.mutateAsync,
     isCreating: createSlaveMutation.isPending,
+    updateSlave: updateSlaveMutation.mutateAsync,
+    isUpdating: updateSlaveMutation.isPending,
     deleteSlave: deleteSlaveMutation.mutateAsync,
     isDeleting: deleteSlaveMutation.isPending,
   };

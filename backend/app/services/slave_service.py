@@ -14,8 +14,13 @@ from app.core.config import engine
 from app.orm.slave import SlaveORM
 from app.orm.vm import VmORM
 from app.orm.vm_credential import VmCredentialORM
-from app.models.slave import SlaveCreate, SlaveHeartbeat
-from app.services.slave_client import slave_get_vm, slave_list_vms, slave_stop_vm
+from app.models.slave import SlaveCreate, SlaveHeartbeat, SlaveUpdate
+from app.services.slave_client import (
+    slave_get_vm,
+    slave_list_vms,
+    slave_stop_vm,
+    unreachable_slave_detail,
+)
 from app.services.vm_service import VmService
 
 logger = logging.getLogger(__name__)
@@ -60,6 +65,30 @@ class SlaveService:
             status="offline",
         )
         with Session(engine) as session:
+            session.add(slave)
+            session.commit()
+            session.refresh(slave)
+            return slave
+
+    @staticmethod
+    def update_slave(slave_id: str, payload: SlaveUpdate) -> SlaveORM:
+        try:
+            parsed_id = uuid.UUID(slave_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid slave id",
+            ) from exc
+        with Session(engine) as session:
+            slave = session.get(SlaveORM, parsed_id)
+            if not slave:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Slave {slave_id} not found",
+                )
+            update_data = payload.model_dump(exclude_unset=True)
+            for key, value in update_data.items():
+                setattr(slave, key, value)
             session.add(slave)
             session.commit()
             session.refresh(slave)
@@ -252,6 +281,6 @@ def _stop_slave_vm(slave: SlaveORM, vm: VmORM) -> Optional[str]:
         if exc.status_code == status.HTTP_404_NOT_FOUND:
             return None
         return f"{vm.name}: {exc.detail}"
-    except httpx.HTTPError:
-        return f"{vm.name}: slave unreachable"
+    except httpx.HTTPError as exc:
+        return f"{vm.name}: {unreachable_slave_detail(slave, exc)}"
     return None if state == "Stopped" else f"{vm.name}: still {state}"

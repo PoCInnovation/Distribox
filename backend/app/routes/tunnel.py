@@ -64,10 +64,10 @@ def _find_vm_for_credential(token: str) -> str | None:
         return str(credential.vm_id) if credential else None
 
 
-def _resolve_vm_id_with_token(vm_id: str, jwt_token: str) -> str | None:
+def _resolve_vm_id_with_token(vm_id: str, jwt_token: str) -> tuple[str, bool] | None:
     """
     Validate a JWT token and check that the user has the vms:connect policy.
-    Returns the vm_id string if authorized, None otherwise.
+    Returns (vm_id, can_see_slave) if authorized, None otherwise.
     """
     payload = decode_access_token(jwt_token)
     if payload is None:
@@ -83,6 +83,10 @@ def _resolve_vm_id_with_token(vm_id: str, jwt_token: str) -> str | None:
             return None
         if not user_has_policy(user, "vms:connect"):
             return None
+        can_see_slave = (
+            user_has_policy(user, "slaves:get") or
+            user_has_policy(user, "slaves:getById")
+        )
 
     # Validate that vm_id is a valid UUID format
     try:
@@ -90,7 +94,7 @@ def _resolve_vm_id_with_token(vm_id: str, jwt_token: str) -> str | None:
     except ValueError:
         return None
 
-    return vm_id
+    return vm_id, can_see_slave
 
 
 @router.websocket("/tunnel")
@@ -103,6 +107,7 @@ async def vm_tunnel(
 ):
     # Resolve VM ID from either credential or vm_id+token
     resolved_vm_id: str | None = None
+    expose_slave_error = False
 
     if credential:
         resolved_vm_id = await asyncio.to_thread(_find_vm_for_credential, credential)
@@ -111,12 +116,13 @@ async def vm_tunnel(
             await websocket.close(code=4001, reason="Invalid credential")
             return
     elif vm_id and token:
-        resolved_vm_id = await asyncio.to_thread(_resolve_vm_id_with_token, vm_id, token)
-        if not resolved_vm_id:
+        resolved = await asyncio.to_thread(_resolve_vm_id_with_token, vm_id, token)
+        if not resolved:
             logger.warning(
                 "Tunnel rejected: invalid token or missing vms:connect policy")
             await websocket.close(code=4003, reason="Unauthorized")
             return
+        resolved_vm_id, expose_slave_error = resolved
     else:
         await websocket.close(code=4001, reason="Provide credential or vm_id+token")
         return
@@ -138,7 +144,12 @@ async def vm_tunnel(
                 resolved_vm_id, slave.hostname if slave else VNC_HOST)
 
     with _resize_owner(resolved_vm_id, viewer or uuid4().hex) as resize:
-        await relay_stream(websocket, upstream, resize=resize)
+        await relay_stream(
+            websocket,
+            upstream,
+            resize=resize,
+            expose_unreachable=expose_slave_error,
+        )
 
 
 @router.get("/gliss/version")
