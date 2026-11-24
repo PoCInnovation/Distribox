@@ -33,3 +33,5 @@ export type CreateSlavePayload = {
   hostname: string;
   port: number;
 };
+
+export type UpdateSlavePayload = Partial<CreateSlavePayload>;

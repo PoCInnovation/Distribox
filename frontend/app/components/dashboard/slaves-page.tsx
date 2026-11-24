@@ -21,6 +21,7 @@ import { VMState } from "@/lib/types/vm-state";
 import { cn } from "@/lib/utils";
 import { CapacityBar } from "./nodes/capacity-bar";
 import { DeleteNodeDialog } from "./nodes/delete-node-dialog";
+import { EditNodeDialog } from "./nodes/edit-node-dialog";
 import {
   buildClusterNodes,
   formatGb,
@@ -57,6 +58,8 @@ export function SlavesPage() {
     error,
     createSlave,
     isCreating,
+    updateSlave,
+    isUpdating,
     deleteSlave,
     isDeleting,
   } = useSlaves();
@@ -74,6 +77,7 @@ export function SlavesPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<ClusterNode | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClusterNode | null>(null);
 
   const nodes = useMemo(
@@ -153,8 +157,10 @@ export function SlavesPage() {
                   node={node}
                   expanded={expanded === key}
                   onToggle={() => setExpanded((e) => (e === key ? null : key))}
+                  canUpdate={canCreate}
                   canDelete={canDelete}
                   canAdopt={canAdopt}
+                  onEdit={() => setEditTarget(node)}
                   onDelete={() => setDeleteTarget(node)}
                   timezone={timezone}
                   now={now}
@@ -177,6 +183,16 @@ export function SlavesPage() {
         isRegistering={isCreating}
         existingNames={nodes.map((n) => n.name)}
         onOpenGuide={() => setGuideOpen(true)}
+      />
+
+      <EditNodeDialog
+        node={editTarget}
+        onOpenChange={(open) => !open && setEditTarget(null)}
+        onUpdate={(slaveId, payload) => updateSlave({ slaveId, payload })}
+        isUpdating={isUpdating}
+        existingNames={nodes
+          .filter((n) => n.id !== editTarget?.id)
+          .map((n) => n.name)}
       />
 
       <DeleteNodeDialog

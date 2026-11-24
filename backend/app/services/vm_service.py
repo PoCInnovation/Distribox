@@ -916,15 +916,21 @@ class VmService:
                     slave = session.get(SlaveORM, vm_record.slave_id)
                 if slave and slave.status == "online":
                     try:
-                        from app.services.slave_client import slave_get_vm
+                        from app.services.slave_client import slave_address, slave_get_vm
                         data = slave_get_vm(slave, str(vm_record.id))
                         data["ssh_enabled"] = vm_record.ssh_enabled
                         data["slave_id"] = str(vm_record.slave_id)
                         data["slave_name"] = slave.name
                         vm_list.append(data)
                         continue
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning(
+                            "Failed to get VM %s from slave %s (%s): %s",
+                            vm_record.id,
+                            slave.name,
+                            slave_address(slave),
+                            exc,
+                        )
                 # Slave offline or unreachable — show VM with unknown state
                 vm_list.append({
                     "id": str(vm_record.id),
@@ -1114,7 +1120,11 @@ class VmService:
     def _create_vm_on_slave(vm_create: VmCreate, slave: SlaveORM,
                             vm_id: uuid.UUID, progress: Progress):
         """Create a VM on a slave node."""
-        from app.services.slave_client import slave_create_vm
+        from app.services.slave_client import (
+            SlaveUnreachableError,
+            slave_address,
+            slave_create_vm,
+        )
 
         payload = {
             "id": str(vm_id),
@@ -1127,15 +1137,25 @@ class VmService:
             "ssh_enabled": vm_create.ssh_enabled,
             "activate_at_start": vm_create.activate_at_start,
         }
+        timeout_detail = (
+            f"{slave.name} ({slave_address(slave)}) did not finish creating "
+            "the VM in time. It may still appear there as an unmanaged VM."
+        )
         try:
             result = slave_create_vm(slave, payload)
+        except SlaveUnreachableError as error:
+            if isinstance(error.__cause__, httpx.TimeoutException) and not isinstance(
+                error.__cause__, httpx.ConnectTimeout
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                    detail=timeout_detail,
+                ) from error
+            raise
         except httpx.TimeoutException as error:
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail=(
-                    f"{slave.name} did not finish creating the VM in time. "
-                    "It may still appear there as an unmanaged VM."
-                ),
+                detail=timeout_detail,
             ) from error
         created_id = uuid.UUID(str(result["id"]))
         if created_id != vm_id:

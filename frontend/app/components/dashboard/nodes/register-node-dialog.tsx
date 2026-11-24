@@ -15,9 +15,8 @@ import { SecretField } from "@/components/ui/secret-field";
 import { API_BASE_URL } from "@/lib/api/core";
 import type { CreateSlavePayload, RegisteredSlave } from "@/lib/types/slave";
 import { CodeBlock } from "./code-block";
+import { validateSlaveHostname } from "./node-model";
 import { slaveEnvSnippet } from "./setup-guide";
-
-const HOSTNAME_RE = /^[a-zA-Z0-9.\-_:[\]]+$/;
 
 export function RegisterNodeDialog({
   open,
@@ -65,11 +64,7 @@ export function RegisterNodeDialog({
     : existingNames.includes(trimmedName)
       ? "A slave with this name already exists."
       : null;
-  const hostError = !trimmedHost
-    ? "Hostname or IP the master can reach."
-    : !HOSTNAME_RE.test(trimmedHost)
-      ? "Hostname only: no scheme, no path."
-      : null;
+  const hostError = validateSlaveHostname(trimmedHost);
   const portError =
     !Number.isInteger(portNum) || portNum < 1 || portNum > 65535
       ? "Port must be between 1 and 65535."

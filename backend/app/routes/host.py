@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.services.host_service import HostService
 from app.services.slave_service import SlaveService
-from app.services.slave_client import slave_get_host_info
+from app.services.slave_client import slave_address, slave_get_host_info
 from app.models.host import HostInfoBase, ClusterHostInfo, ClusterTotals, NodeHostInfo
 from app.models.user_management import MissingPoliciesResponse
 from app.utils.auth import require_policy
@@ -63,8 +63,13 @@ def get_cluster_host_info():
             totals_mem_available += slave_host_info.mem.available
             totals_disk_total += slave_host_info.disk.total
             totals_disk_available += slave_host_info.disk.available
-        except Exception:
-            logger.warning("Failed to get host info from slave %s", slave.name)
+        except Exception as exc:
+            logger.warning(
+                "Failed to get host info from slave %s (%s): %s",
+                slave.name,
+                slave_address(slave),
+                exc,
+            )
 
     return ClusterHostInfo(
         nodes=nodes,

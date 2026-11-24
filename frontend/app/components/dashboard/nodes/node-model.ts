@@ -82,6 +82,40 @@ function fromSlaveReport(
   };
 }
 
+const HOSTNAME_RE = /^[a-zA-Z0-9.\-_:[\]]+$/;
+const IPV6_CHARS_RE = /^[0-9a-fA-F:.]+$/;
+
+export function formatHostPort(hostname: string, port: number): string {
+  const host =
+    hostname.includes(":") &&
+    !(hostname.startsWith("[") && hostname.endsWith("]"))
+      ? `[${hostname}]`
+      : hostname;
+  return `${host}:${port}`;
+}
+
+export function validateSlaveHostname(trimmedHost: string): string | null {
+  if (!trimmedHost) return "Hostname or IP the master can reach.";
+  if (!HOSTNAME_RE.test(trimmedHost)) {
+    return "Hostname only: no scheme, no path.";
+  }
+  if (trimmedHost.includes(":")) {
+    const unbracketed =
+      trimmedHost.startsWith("[") && trimmedHost.endsWith("]")
+        ? trimmedHost.slice(1, -1)
+        : trimmedHost;
+    const colonCount = (unbracketed.match(/:/g) ?? []).length;
+    if (colonCount < 2 || !IPV6_CHARS_RE.test(unbracketed)) {
+      return "Hostname or IP only: put the port in the API port field.";
+    }
+    return null;
+  }
+  if (trimmedHost.includes("[") || trimmedHost.includes("]")) {
+    return "Hostname only: no scheme, no path.";
+  }
+  return null;
+}
+
 export function masterAddress(): string {
   try {
     const url = new URL(API_BASE_URL);
@@ -127,7 +161,7 @@ export function buildClusterNodes({
       name: slave.name,
       role: "slave",
       status: toStatus(slave.status),
-      address: `${slave.hostname}:${slave.port}`,
+      address: formatHostPort(slave.hostname, slave.port),
       lastHeartbeat: slave.last_heartbeat,
       registeredAt: slave.created_at,
       apiKey: slave.api_key,

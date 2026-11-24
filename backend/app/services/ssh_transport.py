@@ -1,11 +1,12 @@
 import asyncio
 import socket
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Literal
 
 import asyncssh
 from fastapi import HTTPException
 from websockets.asyncio.client import connect
+from websockets.exceptions import InvalidURI
 
 
 def preparation_status(details: object, *, allow_pending: bool) -> Literal["ready", "pending"]:
@@ -28,7 +29,7 @@ def preparation_status(details: object, *, allow_pending: bool) -> Literal["read
 async def prepare_guest_connection(vm_id: str, *, refresh: bool = False,
                                    defer_if_stopped: bool = False):
     from app.services.ssh_guest import prepare_guest, GUEST_AGENT_REQUIRED, GUEST_SETUP_ERRORS
-    from app.services.slave_client import slave_request
+    from app.services.slave_client import SlaveUnreachableError, slave_request
     from app.services.vm_service import VmService
 
     slave = await asyncio.to_thread(VmService._get_slave_for_vm, vm_id)
@@ -40,6 +41,8 @@ async def prepare_guest_connection(vm_id: str, *, refresh: bool = False,
             path += f"?refresh={str(refresh).lower()}&defer_if_stopped={str(defer_if_stopped).lower()}"
         try:
             details = await asyncio.to_thread(slave_request, slave, "POST", path)
+        except SlaveUnreachableError:
+            raise
         except HTTPException as exc:
             detail = str(exc.detail).removeprefix("Slave error: ")
             if detail not in {GUEST_AGENT_REQUIRED, *GUEST_SETUP_ERRORS.values()}:
@@ -106,16 +109,31 @@ async def connect_guest(vm_id: str):
         async with asyncssh.connect(**options) as connection:
             yield connection
         return
-    hostname = f"[{slave.hostname}]" if ":" in slave.hostname else slave.hostname
-    async with connect(
-        f"ws://{hostname}:{slave.port}/vms/{vm_id}/ssh/tunnel",
-        additional_headers={"X-Slave-Token": slave.api_key},
-        open_timeout=10,
-        max_size=65536,
-        max_queue=16,
-        compression=None,
-        proxy=None,
-    ) as websocket:
+    from app.services.slave_client import (
+        SlaveUnreachableError,
+        slave_address,
+        unreachable_slave_detail,
+    )
+
+    address = slave_address(slave)
+    async with AsyncExitStack() as stack:
+        try:
+            websocket = await stack.enter_async_context(connect(
+                f"ws://{address}/vms/{vm_id}/ssh/tunnel",
+                additional_headers={"X-Slave-Token": slave.api_key},
+                open_timeout=10,
+                max_size=65536,
+                max_queue=16,
+                compression=None,
+                proxy=None,
+            ))
+        except (OSError, TimeoutError, InvalidURI) as exc:
+            raise SlaveUnreachableError(
+                status_code=502,
+                detail=unreachable_slave_detail(slave, exc),
+                slave_name=getattr(slave, "name", None),
+                address=address,
+            ) from exc
         client_socket, relay_socket = socket.socketpair()
         client_socket.setblocking(False)
         relay_socket.setblocking(False)

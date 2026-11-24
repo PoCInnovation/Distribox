@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Copy, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SecretField, copyToClipboard } from "@/components/ui/secret-field";
@@ -10,7 +10,12 @@ import { API_BASE_URL } from "@/lib/api/core";
 import { adoptVM, getUnmanagedVMs } from "@/lib/api/slaves";
 import { CapacityBar } from "./capacity-bar";
 import { CodeBlock } from "./code-block";
-import { formatGb, type ClusterNode, type NodeStatus } from "./node-model";
+import {
+  formatGb,
+  formatHostPort,
+  type ClusterNode,
+  type NodeStatus,
+} from "./node-model";
 
 export const NODE_GRID =
   "grid grid-cols-[minmax(160px,1.2fr)_minmax(170px,1.5fr)_repeat(3,minmax(108px,0.9fr))_52px_24px] items-center gap-x-4";
@@ -61,8 +66,10 @@ export function NodeRow({
   node,
   expanded,
   onToggle,
+  canUpdate,
   canDelete,
   canAdopt,
+  onEdit,
   onDelete,
   timezone,
   now,
@@ -70,8 +77,10 @@ export function NodeRow({
   node: ClusterNode;
   expanded: boolean;
   onToggle: () => void;
+  canUpdate: boolean;
   canDelete: boolean;
   canAdopt: boolean;
+  onEdit: () => void;
   onDelete: () => void;
   timezone: string;
   now: number;
@@ -215,24 +224,42 @@ export function NodeRow({
             <NodeDetails node={node} timezone={timezone} now={now} />
             <NodeSidePanel node={node} canAdopt={canAdopt} />
           </div>
-          {node.role === "slave" && canDelete && (
-            <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
-              <p className="text-xs text-muted-foreground">
-                Unregistering stops this slave&apos;s VMs and removes them from
-                this master. Their disks stay on the machine.
+          {node.role === "slave" && (canUpdate || canDelete) && (
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4">
+              <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+                {canDelete
+                  ? "Unregistering stops this slave's VMs and removes them from this master. Their disks stay on the machine."
+                  : "Editing updates this slave's name or address without disconnecting its VMs."}
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Unregister {node.name}…
-              </Button>
+              <div className="flex shrink-0 items-center gap-2">
+                {canUpdate && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit();
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit details
+                  </Button>
+                )}
+                {canDelete && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete();
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Unregister {node.name}…
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -487,6 +514,7 @@ function NodeVmList({ node }: { node: ClusterNode }) {
 function OfflineChecklist({ node }: { node: ClusterNode }) {
   const host = node.raw?.hostname ?? "<slave-host>";
   const port = node.raw?.port ?? 8081;
+  const endpoint = formatHostPort(host, port);
   const vmCount = node.vms?.length ?? 0;
   return (
     <div className="border border-destructive/40 bg-destructive/5 p-4 text-sm">
@@ -525,14 +553,11 @@ function OfflineChecklist({ node }: { node: ClusterNode }) {
         <li>
           <p className="text-foreground">
             3. Can this master reach the slave on{" "}
-            <span className="font-mono">
-              {host}:{port}
-            </span>
-            ?
+            <span className="font-mono">{endpoint}</span>?
           </p>
           <CodeBlock
             className="mt-1.5"
-            code={`curl -sS http://${host}:${port}/health`}
+            code={`curl -sS http://${endpoint}/health`}
             copyLabel="Command copied"
           />
         </li>
