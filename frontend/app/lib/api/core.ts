@@ -46,6 +46,7 @@ export class ApiHttpError extends Error {
     public readonly status: number,
     public readonly endpoint: string,
     public readonly missingPolicies: string[] = [],
+    public readonly code?: string,
   ) {
     super(message);
     this.name = "ApiHttpError";
@@ -309,7 +310,15 @@ export async function apiRequest<T = unknown>(
         ? (errorPayload as { detail: string }).detail
         : `HTTP ${response.status}`;
 
-    throw new ApiHttpError(detail, response.status, endpoint);
+    const code =
+      typeof errorPayload === "object" &&
+      errorPayload !== null &&
+      "code" in errorPayload &&
+      typeof (errorPayload as { code?: unknown }).code === "string"
+        ? (errorPayload as { code: string }).code
+        : undefined;
+
+    throw new ApiHttpError(detail, response.status, endpoint, [], code);
   }
 
   const payload = await parseResponseBody(response);

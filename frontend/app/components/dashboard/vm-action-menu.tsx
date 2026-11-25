@@ -15,7 +15,7 @@ function MenuItem({ action }: { action: VmAction }) {
   const Icon = action.icon;
   return (
     <DropdownMenuItem
-      variant={action.destructive ? "destructive" : "default"}
+      variant={action.destructive && action.enabled ? "destructive" : "default"}
       disabled={!action.enabled}
       aria-disabled={!action.enabled}
       onSelect={() => action.run()}
@@ -35,7 +35,10 @@ function MenuItem({ action }: { action: VmAction }) {
           <Loader2 className="size-4 animate-spin" />
         ) : (
           <Icon
-            className={cn("size-4", action.destructive && "text-destructive")}
+            className={cn(
+              "size-4",
+              action.destructive && action.enabled && "text-destructive",
+            )}
           />
         )}
         {action.label}

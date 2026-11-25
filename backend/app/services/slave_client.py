@@ -3,6 +3,7 @@ import logging
 from typing import Any, Optional
 import httpx
 from fastapi import HTTPException, status
+from app.core.exceptions import CodedHTTPException
 from app.orm.slave import SlaveORM
 
 logger = logging.getLogger(__name__)
@@ -105,10 +106,23 @@ def _send_slave_request(
             address=slave_address(slave),
         ) from exc
     if response.is_error:
+        code = None
         try:
-            detail = response.json().get("detail", response.text)
+            payload = response.json()
+            if isinstance(payload, dict):
+                detail = payload.get("detail", response.text)
+                if isinstance(payload.get("code"), str):
+                    code = payload["code"]
+            else:
+                detail = response.text
         except Exception:
             detail = response.text
+        if code is not None:
+            raise CodedHTTPException(
+                status_code=response.status_code,
+                detail=f"Slave error: {detail}",
+                code=code,
+            )
         raise HTTPException(
             status_code=response.status_code,
             detail=f"Slave error: {detail}",

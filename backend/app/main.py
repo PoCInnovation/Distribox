@@ -248,9 +248,13 @@ async def _slave_heartbeat_loop():
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(_, exc: HTTPException):
+    content: dict[str, object] = {"detail": exc.detail}
+    code = getattr(exc, "code", None)
+    if isinstance(code, str):
+        content["code"] = code
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail}
+        content=content,
     )
 
 

@@ -29,8 +29,9 @@ function ActionButton({
       onClick={() => action.enabled && action.run()}
       className={cn(
         !action.enabled && "cursor-not-allowed opacity-45",
-        action.destructive && "hover:bg-destructive/10 hover:text-destructive",
-        action.destructive && action.enabled && "text-destructive",
+        action.destructive &&
+          action.enabled &&
+          "text-destructive hover:bg-destructive/10 hover:text-destructive",
       )}
     >
       {action.pending ? (
@@ -103,6 +104,7 @@ export function VmActionToolbar({
       <ActionButton action={byId.duplicate} />
       <ActionButton action={byId.rename} />
       <span className="flex-1" />
+      <ActionButton action={byId.forceStop} variant="ghost" />
       <ActionButton action={byId.delete} variant="ghost" />
     </div>
   );

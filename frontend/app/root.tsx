@@ -56,6 +56,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               background: "oklch(0.16 0.015 240)",
               color: "oklch(0.98 0.01 240)",
               border: "1px solid oklch(0.24 0.02 240)",
+              borderRadius: "var(--radius)",
             },
             className: "font-sans",
           }}

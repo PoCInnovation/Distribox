@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Square, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { DashboardVMsTable } from "@/components/dashboard/vms-table";
 import { VmDrawer } from "@/components/dashboard/vm-drawer";
 import { RenameVMDialog } from "@/components/dashboard/RenameVMDialog";
+import { ForceStopDialog } from "@/components/dashboard/force-stop-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PolicyNotice } from "@/components/policy/policy-notice";
-import { useVMs } from "~/hooks/useVMs";
+import { useVMs, type VmOperation } from "~/hooks/useVMs";
 import { useOperations } from "@/hooks/useOperations";
 import {
   VmActionsProvider,
+  pendingAllows,
+  stateAllows,
   useVmActions,
   type VmActionHandlers,
 } from "@/hooks/useVmActions";
@@ -18,13 +21,36 @@ import {
   type PaletteSection,
 } from "@/components/command-palette";
 import { isForbiddenError } from "@/lib/api";
-import { VMState, type VirtualMachineMetadata } from "@/lib/types";
+import type { VirtualMachineMetadata } from "@/lib/types";
 
 const VM_PARAM = "vm";
 
 export function DashboardVMsTableContainer() {
   const [searchParams, setSearchParams] = useSearchParams();
   const openVmId = searchParams.get(VM_PARAM);
+
+  const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(
+    null,
+  );
+  const [deleteDialog, setDeleteDialog] = useState<{
+    vms: VirtualMachineMetadata[];
+    clearSelection?: () => void;
+  }>({ vms: [] });
+  const [forceStopDialog, setForceStopDialog] = useState<{
+    vms: VirtualMachineMetadata[];
+    clearSelection?: () => void;
+  }>({ vms: [] });
+  const pendingByIdRef = useRef<Map<string, VmOperation>>(new Map());
+
+  const requestForceStop = useCallback((vm: VirtualMachineMetadata) => {
+    if (
+      !stateAllows("forceStop", vm.state).ok ||
+      !pendingAllows("forceStop", pendingByIdRef.current.get(vm.id))
+    ) {
+      return;
+    }
+    setForceStopDialog({ vms: [vm] });
+  }, []);
 
   const {
     vms,
@@ -34,11 +60,13 @@ export function DashboardVMsTableContainer() {
     pendingById,
     startVM,
     stopVM,
+    forceStopVM,
     restartVM,
     deleteVM,
     duplicateVM,
     renameVM,
-  } = useVMs();
+  } = useVMs({ onRequestForceStop: requestForceStop });
+  pendingByIdRef.current = pendingById;
 
   const { operations } = useOperations();
   // Creations still running: their VM isn't in the list until they succeed.
@@ -52,12 +80,6 @@ export function DashboardVMsTableContainer() {
       ),
     [operations, vms],
   );
-
-  const [vmToRename, setVmToRename] = useState<VirtualMachineMetadata | null>(
-    null,
-  );
-  const [vmsToDelete, setVmsToDelete] = useState<VirtualMachineMetadata[]>([]);
-  const [vmsToStop, setVmsToStop] = useState<VirtualMachineMetadata[]>([]);
 
   const openVm = useMemo(
     () => (openVmId ? (vms?.find((v) => v.id === openVmId) ?? null) : null),
@@ -91,33 +113,51 @@ export function DashboardVMsTableContainer() {
       connect: (vm) =>
         window.open(`/client?vm_id=${encodeURIComponent(vm.id)}`, "_blank"),
       start: (vm) => void startVM(vm.id),
-      stop: (vm) =>
-        vm.state === VMState.PAUSED ? setVmsToStop([vm]) : void stopVM(vm.id),
+      stop: (vm) => void stopVM(vm.id),
+      forceStop: (vm) => setForceStopDialog({ vms: [vm] }),
       restart: (vm) => void restartVM(vm.id),
       duplicate: (vm) => void duplicateVM(vm.id),
       rename: (vm) => setVmToRename(vm),
-      delete: (vm) => setVmsToDelete([vm]),
+      delete: (vm) => setDeleteDialog({ vms: [vm] }),
     }),
     [startVM, stopVM, restartVM, duplicateVM],
   );
 
   const confirmDelete = () => {
-    const list = vmsToDelete;
-    setVmsToDelete([]);
+    const { vms: list, clearSelection } = deleteDialog;
+    setDeleteDialog({ vms: [] });
+    clearSelection?.();
     if (list.some((vm) => vm.id === openVmId)) setOpenVm(null);
     for (const vm of list) void deleteVM(vm.id);
   };
 
+  const confirmForceStop = () => {
+    const { vms: list, clearSelection } = forceStopDialog;
+    setForceStopDialog({ vms: [] });
+    clearSelection?.();
+    for (const vm of list) {
+      const current = vms ? vms.find((v) => v.id === vm.id) : vm;
+      if (
+        current &&
+        stateAllows("forceStop", current.state).ok &&
+        pendingAllows("forceStop", pendingById.get(current.id))
+      ) {
+        void forceStopVM(current.id);
+      }
+    }
+  };
+
   const handleBulk = (
-    action: "start" | "stop" | "delete",
+    action: "start" | "stop" | "forceStop" | "delete",
     list: VirtualMachineMetadata[],
+    clearSelection: () => void,
   ) => {
     if (action === "delete") {
-      setVmsToDelete(list);
+      setDeleteDialog({ vms: list, clearSelection });
       return;
     }
-    if (action === "stop" && list.some((vm) => vm.state === VMState.PAUSED)) {
-      setVmsToStop(list);
+    if (action === "forceStop") {
+      setForceStopDialog({ vms: list, clearSelection });
       return;
     }
     for (const vm of list) {
@@ -126,7 +166,7 @@ export function DashboardVMsTableContainer() {
     }
   };
 
-  const deletePending = vmsToDelete.some(
+  const deletePending = deleteDialog.vms.some(
     (vm) => pendingById.get(vm.id) === "delete",
   );
 
@@ -178,65 +218,40 @@ export function DashboardVMsTableContainer() {
         onRename={renameVM}
       />
 
-      <ConfirmDialog
-        open={vmsToStop.length > 0}
+      <ForceStopDialog
+        vms={forceStopDialog.vms}
         onOpenChange={(open) => {
-          if (!open) setVmsToStop([]);
+          if (!open) setForceStopDialog({ vms: [] });
         }}
-        title={
-          vmsToStop.length === 1 ? "Force stop this VM?" : "Stop these VMs?"
-        }
-        description={
-          <>
-            <p>
-              A paused VM cannot shut down normally. Force stopping powers it
-              off and loses unsaved work. Try Resume VM first.
-            </p>
-            <p className="font-medium text-foreground">
-              {vmsToStop.map((vm) => vm.name).join(", ")}
-            </p>
-          </>
-        }
-        confirmLabel={
-          <>
-            <Square />
-            {vmsToStop.length === 1 ? "Force stop VM" : "Stop VMs"}
-          </>
-        }
-        destructive
-        onConfirm={() => {
-          for (const vm of vmsToStop)
-            void stopVM(vm.id, vm.state === VMState.PAUSED);
-          setVmsToStop([]);
-        }}
+        onConfirm={confirmForceStop}
       />
 
       <ConfirmDialog
-        open={vmsToDelete.length > 0}
+        open={deleteDialog.vms.length > 0}
         onOpenChange={(open) => {
-          if (!open) setVmsToDelete([]);
+          if (!open) setDeleteDialog({ vms: [] });
         }}
         title={
-          vmsToDelete.length === 1
+          deleteDialog.vms.length === 1
             ? "Delete this virtual machine?"
-            : `Delete ${vmsToDelete.length} virtual machines?`
+            : `Delete ${deleteDialog.vms.length} virtual machines?`
         }
         description={
           <>
             <p>
               The disk and every credential attached{" "}
-              {vmsToDelete.length === 1 ? "to it are" : "to them are"} removed
-              permanently. This cannot be undone.
+              {deleteDialog.vms.length === 1 ? "to it are" : "to them are"}{" "}
+              removed permanently. This cannot be undone.
             </p>
             <ul className="max-h-40 space-y-1 overflow-y-auto border border-border bg-background px-3 py-2 font-mono text-xs text-foreground">
-              {vmsToDelete.slice(0, 8).map((vm) => (
+              {deleteDialog.vms.slice(0, 8).map((vm) => (
                 <li key={vm.id} className="truncate">
                   {vm.name}
                 </li>
               ))}
-              {vmsToDelete.length > 8 && (
+              {deleteDialog.vms.length > 8 && (
                 <li className="text-muted-foreground">
-                  and {vmsToDelete.length - 8} more
+                  and {deleteDialog.vms.length - 8} more
                 </li>
               )}
             </ul>
@@ -245,9 +260,9 @@ export function DashboardVMsTableContainer() {
         confirmLabel={
           <>
             <Trash2 />
-            {vmsToDelete.length === 1
+            {deleteDialog.vms.length === 1
               ? "Delete VM"
-              : `Delete ${vmsToDelete.length} VMs`}
+              : `Delete ${deleteDialog.vms.length} VMs`}
           </>
         }
         destructive

@@ -4,6 +4,7 @@ import {
   Copy,
   Pencil,
   Play,
+  PowerOff,
   RotateCw,
   Square,
   Terminal,
@@ -15,7 +16,14 @@ import { canConnect, isTransitional } from "@/lib/vm-state-ui";
 import type { VmOperation } from "@/hooks/useVMs";
 
 export type VmActionId =
-  "connect" | "start" | "stop" | "restart" | "duplicate" | "rename" | "delete";
+  | "connect"
+  | "start"
+  | "stop"
+  | "forceStop"
+  | "restart"
+  | "duplicate"
+  | "rename"
+  | "delete";
 
 export interface VmAction {
   id: VmActionId;
@@ -36,6 +44,7 @@ export interface VmActionHandlers {
   connect: (vm: VirtualMachineMetadata) => void;
   start: (vm: VirtualMachineMetadata) => void;
   stop: (vm: VirtualMachineMetadata) => void;
+  forceStop: (vm: VirtualMachineMetadata) => void;
   restart: (vm: VirtualMachineMetadata) => void;
   duplicate: (vm: VirtualMachineMetadata) => void;
   rename: (vm: VirtualMachineMetadata) => void;
@@ -68,6 +77,7 @@ export function VmActionsProvider({
 export const PENDING_LABELS: Record<VmOperation, string> = {
   start: "Starting…",
   stop: "Stopping…",
+  forceStop: "Force stopping…",
   restart: "Restarting…",
   delete: "Deleting…",
   duplicate: "Duplicating…",
@@ -84,6 +94,7 @@ const ACTION_POLICIES: Record<VmActionId, Policy[]> = {
   connect: [Policy.VMS_CONNECT],
   start: [Policy.VMS_START],
   stop: [Policy.VMS_STOP],
+  forceStop: [Policy.VMS_STOP],
   restart: [Policy.VMS_START, Policy.VMS_STOP],
   duplicate: [Policy.VMS_DUPLICATE],
   rename: [Policy.VMS_RENAME],
@@ -93,6 +104,19 @@ const ACTION_POLICIES: Record<VmActionId, Policy[]> = {
 /** Policies required for a given action; used by the bulk bar. */
 export function policiesFor(id: VmActionId): Policy[] {
   return ACTION_POLICIES[id];
+}
+
+/**
+ * Pending-operation gating shared by single-VM actions, bulk actions, and
+ * confirmation handlers. Force stop may escalate an in-flight graceful Stop,
+ * but never a Restart — destroying a VM mid-restart would let Restart observe
+ * shutoff and immediately power the VM back on.
+ */
+export function pendingAllows(
+  id: VmActionId,
+  pendingOp: VmOperation | undefined,
+): boolean {
+  return !pendingOp || (id === "forceStop" && pendingOp === "stop");
 }
 
 /** State-only availability, ignoring policies and pending operations. */
@@ -115,7 +139,15 @@ export function stateAllows(
     case "stop":
       if (state === VMState.STOPPED)
         return { ok: false, reason: "Already stopped" };
+      if (state === VMState.PAUSED)
+        return { ok: false, reason: "Resume VM or force stop it instead" };
       if (transitional)
+        return { ok: false, reason: "Wait for the current operation" };
+      return { ok: true };
+    case "forceStop":
+      if (state === VMState.STOPPED)
+        return { ok: false, reason: "Already stopped" };
+      if (state === VMState.NOSTATE)
         return { ok: false, reason: "Wait for the current operation" };
       return { ok: true };
     case "restart":
@@ -172,7 +204,7 @@ export function useVmActions(vm: VirtualMachineMetadata): {
       if (missing.length > 0) {
         enabled = false;
         reason = formatMissingPolicies(missing);
-      } else if (pendingOp) {
+      } else if (pendingOp && !pendingAllows(id, pendingOp)) {
         enabled = false;
         reason = PENDING_LABELS[pendingOp];
       } else if (!allowed.ok) {
@@ -199,12 +231,8 @@ export function useVmActions(vm: VirtualMachineMetadata): {
         vm.state === VMState.PAUSED ? "Resume VM" : "Start",
         Play,
       ),
-      stop: build(
-        "stop",
-        vm.state === VMState.PAUSED ? "Force stop…" : "Stop",
-        Square,
-        vm.state === VMState.PAUSED,
-      ),
+      stop: build("stop", "Stop", Square),
+      forceStop: build("forceStop", "Force stop", PowerOff, true),
       restart: build("restart", "Restart", RotateCw),
       duplicate: build("duplicate", "Duplicate", Copy),
       rename: build("rename", "Rename", Pencil),
@@ -217,6 +245,7 @@ export function useVmActions(vm: VirtualMachineMetadata): {
       byId.restart,
       byId.duplicate,
       byId.rename,
+      byId.forceStop,
       byId.delete,
     ];
     const primary = canConnect(vm.state) ? byId.connect : byId.start;

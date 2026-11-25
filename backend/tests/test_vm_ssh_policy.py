@@ -119,9 +119,13 @@ def test_slave_responses_use_authoritative_host_setting(monkeypatch, operation, 
         session.add(slave)
         session.add(record)
         session.commit()
-    for function in ("slave_get_vm", "slave_start_vm", "slave_stop_vm"):
-        monkeypatch.setattr(slave_client, function, lambda *args, **kwargs: {
-            "id": vm_id, "state": "Running", "ssh_enabled": not enabled,
+    for function, state in (
+        ("slave_get_vm", "Running"),
+        ("slave_start_vm", "Running"),
+        ("slave_stop_vm", "Stopped"),
+    ):
+        monkeypatch.setattr(slave_client, function, lambda *args, _state=state, **kwargs: {
+            "id": vm_id, "state": _state, "ssh_enabled": not enabled,
         })
     try:
         if operation == "get_vm_list":

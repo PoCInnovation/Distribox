@@ -8,6 +8,7 @@ import {
   Loader2,
   Play,
   Plus,
+  PowerOff,
   Search,
   SearchX,
   Server,
@@ -47,11 +48,13 @@ import { parseOsImage } from "@/lib/vm-os";
 import { useAuthz } from "@/contexts/authz-context";
 import {
   formatMissingPolicies,
+  pendingAllows,
   policiesFor,
   stateAllows,
   useVmActions,
   type VmActionId,
 } from "@/hooks/useVmActions";
+import { usePendingVmOperations } from "@/hooks/useVMs";
 import { VmStatus } from "./vm-status";
 import { VmOsLabel } from "./vm-os-label";
 import { CopyText } from "./copy-text";
@@ -125,8 +128,9 @@ interface DashboardVMsTableProps {
   openVmId: string | null;
   onOpen: (vm: VirtualMachineMetadata) => void;
   onBulk: (
-    action: "start" | "stop" | "delete",
+    action: "start" | "stop" | "forceStop" | "delete",
     vms: VirtualMachineMetadata[],
+    clearSelection: () => void,
   ) => void;
 }
 
@@ -260,8 +264,9 @@ export function DashboardVMsTable({
           selected={selectedVms}
           onClear={() => setSelected(new Set())}
           onBulk={(action, list) => {
-            onBulk(action, list);
-            if (action !== "delete") setSelected(new Set());
+            const clearSelection = () => setSelected(new Set());
+            onBulk(action, list, clearSelection);
+            if (action !== "delete" && action !== "forceStop") clearSelection();
           }}
         />
       ) : (
@@ -835,26 +840,32 @@ function BulkBar({
   selected: VirtualMachineMetadata[];
   onClear: () => void;
   onBulk: (
-    action: "start" | "stop" | "delete",
+    action: "start" | "stop" | "forceStop" | "delete",
     vms: VirtualMachineMetadata[],
   ) => void;
 }) {
   const authz = useAuthz();
+  const pendingById = usePendingVmOperations();
 
   const describe = (id: VmActionId) => {
     const missing = authz.missingPolicies(policiesFor(id));
-    const applicable = selected.filter((vm) => stateAllows(id, vm.state).ok);
+    const applicable = selected.filter(
+      (vm) =>
+        stateAllows(id, vm.state).ok &&
+        pendingAllows(id, pendingById.get(vm.id)),
+    );
     return { missing, applicable };
   };
 
   const items: {
-    id: "start" | "stop" | "delete";
+    id: "start" | "stop" | "forceStop" | "delete";
     label: string;
     icon: typeof Play;
     destructive?: boolean;
   }[] = [
     { id: "start", label: "Start", icon: Play },
     { id: "stop", label: "Stop", icon: Square },
+    { id: "forceStop", label: "Force stop", icon: PowerOff, destructive: true },
     { id: "delete", label: "Delete", icon: Trash2, destructive: true },
   ];
 
@@ -878,11 +889,19 @@ function BulkBar({
       {items.map((item) => {
         const { missing, applicable } = describe(item.id);
         const enabled = missing.length === 0 && applicable.length > 0;
+        const disabledVerb =
+          item.id === "start"
+            ? "started"
+            : item.id === "stop"
+              ? "stopped"
+              : item.id === "forceStop"
+                ? "force stopped"
+                : "deleted";
         const reason =
           missing.length > 0
             ? formatMissingPolicies(missing)
             : applicable.length === 0
-              ? `None of the selected machines can be ${item.id === "start" ? "started" : item.id === "stop" ? "stopped" : "deleted"} right now`
+              ? `None of the selected machines can be ${disabledVerb} right now`
               : applicable.length < selected.length
                 ? `Applies to ${applicable.length} of ${selected.length}`
                 : undefined;
@@ -899,6 +918,7 @@ function BulkBar({
                 className={cn(
                   "h-8 bg-transparent",
                   item.destructive &&
+                    enabled &&
                     "text-destructive hover:bg-destructive/10 hover:text-destructive",
                   !enabled && "cursor-not-allowed opacity-45",
                 )}
