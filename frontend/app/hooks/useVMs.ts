@@ -4,7 +4,8 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef } from "react";
+import { createElement, Fragment, useEffect, useMemo, useRef } from "react";
+import { PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import {
   ApiHttpError,
@@ -21,6 +22,16 @@ import { VMState } from "@/lib/types";
 import { isTransitional } from "@/lib/vm-state-ui";
 
 const VM_SHUTDOWN_FAILED_CODE = "vm_shutdown_failed";
+
+function formatShutdownToastDescription(message: string): string {
+  const cleaned = message
+    .replace(/^Could not restart the VM because it\s+/i, "The VM ")
+    .replace(/^Could not restart the VM\.\s+/i, "")
+    .replace(/\s+(?:Wait a moment, or )?use Force stop to power it off\.$/i, "")
+    .replace(/\s+or use Force stop to power it off\.$/i, ".")
+    .trim();
+  return cleaned || "The VM did not shut down in time.";
+}
 
 export type VmOperation =
   | "start"
@@ -187,13 +198,25 @@ export function useVMs(options?: UseVMsOptions) {
         const untrack = () => {
           if (toastId !== undefined) actionToastIdsRef.current.delete(toastId);
         };
-        toastId = toast.error(err.message || `Could not ${opLabel} the VM`, {
-          description: targetVm.name,
+        const title =
+          vars.op === "restart"
+            ? `Couldn't restart ${targetVm.name}`
+            : `Couldn't stop ${targetVm.name}`;
+        toastId = toast.error(title, {
+          description: formatShutdownToastDescription(err.message),
           duration: 12_000,
           onDismiss: untrack,
           onAutoClose: untrack,
           action: {
-            label: "Force stop…",
+            label: createElement(
+              Fragment,
+              null,
+              createElement(PowerOff, {
+                className: "size-3.5 shrink-0",
+                "aria-hidden": true,
+              }),
+              "Force stop",
+            ),
             onClick: () => {
               untrack();
               if (!mountedRef.current || !onRequestForceStopRef.current) {
@@ -211,15 +234,30 @@ export function useVMs(options?: UseVMsOptions) {
             },
           },
           classNames: {
+            toast:
+              "!grid !grid-cols-[auto_1fr] !items-start !gap-x-3 !gap-y-2.5 !p-4",
+            icon: "!m-0 !mt-0.5 !text-destructive",
+            content: "!min-w-0 !gap-1",
+            title: "!text-[13px] !font-medium !leading-snug !text-foreground",
+            description: "!text-xs !leading-relaxed !text-foreground/70",
             actionButton:
-              "!rounded-none !border !border-destructive/50 !bg-transparent !text-destructive hover:!bg-destructive/10",
+              "!col-start-2 !justify-self-start !ml-0 !mt-0.5 !h-7 !gap-1.5 !rounded-none !border !border-destructive/50 !bg-destructive/15 !px-2.5 !text-xs !font-medium !text-destructive-foreground !transition-colors hover:!border-destructive/80 hover:!bg-destructive/25",
           },
         });
         actionToastIdsRef.current.add(toastId);
-      } else {
-        toast.error(err.message || `Could not ${opLabel} the VM`, {
-          description: targetVm?.name,
+      } else if (targetVm) {
+        toast.error(`Couldn't ${opLabel} ${targetVm.name}`, {
+          description: err.message || undefined,
+          classNames: {
+            toast: "!items-start !gap-3 !p-4",
+            icon: "!m-0 !mt-0.5 !text-destructive",
+            content: "!min-w-0 !gap-1",
+            title: "!text-[13px] !font-medium !leading-snug !text-foreground",
+            description: "!text-xs !leading-relaxed !text-foreground/70",
+          },
         });
+      } else {
+        toast.error(err.message || `Could not ${opLabel} the VM`);
       }
       throw err;
     });

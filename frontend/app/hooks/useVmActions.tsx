@@ -232,7 +232,7 @@ export function useVmActions(vm: VirtualMachineMetadata): {
         Play,
       ),
       stop: build("stop", "Stop", Square),
-      forceStop: build("forceStop", "Force stop…", PowerOff, true),
+      forceStop: build("forceStop", "Force stop", PowerOff, true),
       restart: build("restart", "Restart", RotateCw),
       duplicate: build("duplicate", "Duplicate", Copy),
       rename: build("rename", "Rename", Pencil),
